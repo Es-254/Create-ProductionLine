@@ -1,46 +1,119 @@
 # Releasing / 发布流程
 
-How to cut a release of **Create: Production Line** and publish it to **GitHub**, **Modrinth**
-and **CurseForge**.
+How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
+**CurseForge** and **GitHub**.
+
+> **Current state:** only Modrinth is reachable. GitHub and CurseForge are configured but not yet
+> usable — follow **§M (Modrinth-only release)** below and treat §0.3 / §0.4 / §3 as *later*.
 
 ---
 
-## 0. One-time setup
+## M. Modrinth-only release (no GitHub, no CurseForge needed)
 
-### 0.1 Fill in the placeholders ⚠️
+Everything below works today.
 
-The repository currently ships with placeholders that **must** be replaced before the first
-public release. Grep for them:
+### M.1 One-time
+
+1. Replace the one remaining placeholder — your display name — in **two** places:
+
+   ```powershell
+   Select-String -Path .\LICENSE,.\gradle.properties -Pattern 'YOUR NAME OR HANDLE'
+   ```
+
+   - `LICENSE` line 3 → the MIT copyright holder
+   - `gradle.properties` → `mod_authors` (this is what shows on the Modrinth project page and in-game)
+
+2. Confirm the Modrinth project is **submitted and approved** (listed). While it is still a draft the
+   Modrinth API returns `404` and no version can be published:
+
+   ```powershell
+   (Invoke-RestMethod 'https://api.modrinth.com/v2/project/createproductionline' `
+     -Headers @{'User-Agent'='cpl-release/1.0'}).id
+   ```
+
+   - Returns an id → listed, good to go.
+   - `404` → still a draft. Submit it for review on the project page first (or publish manually —
+     see M.3, the web UI also requires approval before a version becomes public).
+
+3. `gradle.properties` already has `modrinth_project_id=createproductionline` (the slug works and is
+   stable; if the API ever rejects it, paste the base62 id from the project's Settings instead).
+
+4. Create a personal access token at <https://modrinth.com/settings/pats> with the
+   **`Create versions`** and **`Write projects`** scopes.
+
+### M.2 Option A — publish with Gradle (token)
 
 ```powershell
-Select-String -Path .\gradle.properties,.\LICENSE,.\CHANGELOG.md,.\RELEASING.md,.\docs\platform-listing.md -Pattern 'YOUR NAME OR HANDLE|YOUR-GITHUB'
+$env:MODRINTH_TOKEN = "mrp_…"
+
+.\gradlew.bat build
+.\gradlew.bat -PpublishMods modrinth            # uploads the jar as version 1.0.0
+.\gradlew.bat -PpublishMods modrinthSyncBody    # pushes docs/platform-listing.md as the description
 ```
 
-> Note: `docs/platform-listing.md` writes the placeholder HTML-escaped (`&lt;YOUR-GITHUB&gt;`) so it
-> renders correctly once pushed as the project description — replace the escaped form there.
+`-PreleaseType=beta` (or `alpha`) publishes as a pre-release. The changelog sent with the version is
+`CHANGELOG.md`; the description is `docs/platform-listing.md`. Both are already written — nothing to
+copy by hand.
 
-| File | Placeholder | Replace with |
-| --- | --- | --- |
-| `LICENSE` | `<YOUR NAME OR HANDLE>` | Your name / handle (the MIT copyright line) |
-| `gradle.properties` | `mod_authors` | Your display name (shown in-game and on the platforms) |
-| `gradle.properties` | `mod_display_url` | Repository URL |
-| `gradle.properties` | `mod_issue_tracker_url` | `…/issues` |
-| `gradle.properties` | `modrinth_project_id` | Modrinth project id (see 0.2) |
-| `gradle.properties` | `curseforge_project_id` | CurseForge numeric project id (see 0.3) |
-| `docs/platform-listing.md`, `CHANGELOG.md` | `<YOUR-GITHUB>` / `&lt;YOUR-GITHUB&gt;` | Your GitHub user/org |
+### M.3 Option B — upload by hand (no token, no Gradle)
+
+Nothing leaves your machine except the jar, and no credentials are involved.
+
+1. Build: `.\gradlew.bat build`
+2. Grab the file and its hash:
+
+   ```powershell
+   Get-ChildItem .\build\libs\*.jar | Select-Object Name, Length
+   Get-FileHash .\build\libs\create_productionline-*.jar -Algorithm SHA256
+   ```
+3. On the project page: **Versions → Create version**, then
+
+   | Field | Value |
+   | --- | --- |
+   | Name | `v1.0.0` (or leave default) |
+   | Version number | `1.0.0` — must match `mod_version` |
+   | Release channel | `Release` |
+   | Game versions | `1.21.1` |
+   | Loaders | `NeoForge` |
+   | Dependencies | **Create** → *Required* |
+   | File | `build/libs/create_productionline-1.0.0.jar` |
+   | Changelog | paste the `## [1.0.0]` section of `CHANGELOG.md` |
+
+4. If the description/icon are not set yet, upload `icon_512x512.png` as the project icon and paste
+   `docs/platform-listing.md` (everything **below** the HTML comment) as the project description.
+
+### M.4 Post-release checks
+
+- [ ] The version page lists **NeoForge** + **1.21.1** and marks **Create** as required
+- [ ] The jar downloads and its size matches the build output
+- [ ] The description renders (no leftover `<!-- … -->` note, no unescaped placeholders)
+- [ ] `LICENSE` / `mod_authors` show your real name, not a placeholder
+
+---
+
+## 0. Full setup (later — GitHub + CurseForge)
+
+### 0.1 Fill in the remaining placeholders ⚠️
+
+```powershell
+Select-String -Path .\gradle.properties,.\docs\platform-listing.md -Pattern 'YOUR NAME OR HANDLE|YOUR-GITHUB'
+```
+
+| File | Placeholder | Replace with | Needed for |
+| --- | --- | --- | --- |
+| `LICENSE` | `<YOUR NAME OR HANDLE>` | Your name / handle (MIT copyright line) | **now** |
+| `gradle.properties` | `mod_authors` | Your display name | **now** |
+| `gradle.properties` | `curseforge_project_id` | CurseForge numeric project id (§0.3) | CurseForge |
+| `gradle.properties` | `mod_issue_tracker_url` + re-add `issueTrackerURL` in `neoforge.mods.toml` | `…/issues` | GitHub |
+| `mod_display_url` | already set to the Modrinth page | repository URL once it exists | GitHub |
 
 ### 0.2 Modrinth
 
-1. Create the project at <https://modrinth.com/modrinth-create> ("Create a project").
-2. Project type **Mod**, loader **NeoForge**, MC version **1.21.1**, licence **MIT**.
-3. Set the **environment** to *Client and server* (the mod has both sides).
-4. Upload `icon_512x512.png` as the project icon.
-5. Copy the project **ID** (Settings → the slug is in the URL, the ID is shown in the project
-   settings) into `modrinth_project_id`.
-6. Create a **personal access token** at <https://modrinth.com/settings/pats> with the
-   `Create versions` + `Write projects` scopes. Export it as `MODRINTH_TOKEN`.
+Done — see **§M**.
 
 ### 0.3 CurseForge
+
+Create an account / project when you can reach <https://authors.curseforge.com/>.
 
 1. Create the project at <https://authors.curseforge.com/>.
 2. Game **Minecraft**, category **Mods**, and note the **numeric project id** (shown in the
@@ -51,7 +124,7 @@ Select-String -Path .\gradle.properties,.\LICENSE,.\CHANGELOG.md,.\RELEASING.md,
 > Keep both tokens **out of the repository**. Use environment variables (preferred) or
 > `~/.gradle/gradle.properties` (`modrinth_token=…` / `curseforge_token=…`). Never commit them.
 
-### 0.4 GitHub
+### 0.4 GitHub (later — needs GitHub access)
 
 The repository root is **this directory** (`create_productionline/`), not the enclosing workspace
 folder — the workspace also contains decompiled third-party code and local build tooling that must
@@ -110,12 +183,15 @@ Get-FileHash $jar.FullName -Algorithm SHA256
 
 Record the size and SHA-256 for the release notes.
 
-## 3. Tag and publish on GitHub
+## 3. Tag and publish on GitHub (later)
+
+Only relevant once GitHub is reachable; the git repository is already initialised locally.
 
 ```powershell
 git add -A
 git commit -m "Release v<version>"
 git tag -a v<version> -m "Create: Production Line <version>"
+git remote add origin https://github.com/<YOUR-GITHUB>/create_production_line.git
 git push origin main --tags
 ```
 
@@ -123,9 +199,18 @@ Then create a GitHub Release for the tag and attach
 `build/libs/create_productionline-<version>.jar`. (The `build.yml` workflow also uploads the jar as
 a build artifact on every push, so you can grab it from the Actions run instead.)
 
-## 4. Publish to Modrinth + CurseForge
+## 4. Publishing commands
 
-Tokens must be in the environment for the shell that runs Gradle:
+**Modrinth only (works today)** — see **§M.2**:
+
+```powershell
+$env:MODRINTH_TOKEN = "<token>"
+.\gradlew.bat -PpublishMods modrinth
+.\gradlew.bat -PpublishMods modrinthSyncBody
+```
+
+**Both platforms (once CurseForge is set up)** — tokens must be in the environment of the shell
+that runs Gradle:
 
 ```powershell
 $env:MODRINTH_TOKEN     = "<token>"
@@ -137,9 +222,6 @@ $env:CURSEFORGE_TOKEN   = "<token>"
 # Or one at a time
 .\gradlew.bat -PpublishMods modrinth
 .\gradlew.bat -PpublishMods publishCurseForge
-
-# Sync the project description from docs/platform-listing.md
-.\gradlew.bat -PpublishMods modrinthSyncBody
 ```
 
 Options:

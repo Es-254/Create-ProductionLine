@@ -74,4 +74,4 @@ JEI is optional (recipe viewer only — this mod does not call its API).
 - Licensing: **MIT**.
 - Build: `gradlew build` (JDK 21). See `RELEASING.md` for the publication flow.
 
-[1.0.0]: https://github.com/<YOUR-GITHUB>/create_production_line/releases/tag/v1.0.0
+[1.0.0]: https://modrinth.com/project/createproductionline/versions

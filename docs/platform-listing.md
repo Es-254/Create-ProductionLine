@@ -140,6 +140,6 @@ never inject recipes into the world datapack.
 
 ## Links / 链接
 
-- Source / 源码: https://github.com/&lt;YOUR-GITHUB&gt;/create_production_line
-- Issues / 问题反馈: https://github.com/&lt;YOUR-GITHUB&gt;/create_production_line/issues
-- Changelog / 更新日志: see `CHANGELOG.md` in the repository
+- Modrinth: https://modrinth.com/project/createproductionline
+- Changelog / 更新日志: see `CHANGELOG.md` in the downloaded jar's project page (Modrinth → Versions)
+- Source / 源码: not published yet — coming later
