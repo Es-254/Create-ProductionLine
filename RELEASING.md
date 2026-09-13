@@ -41,6 +41,19 @@ Everything below works today.
 4. Create a personal access token at <https://modrinth.com/settings/pats> with the
    **`Create versions`** and **`Write projects`** scopes.
 
+   **Where to keep it (never in this repository):**
+
+   ```properties
+   # ~/.gradle/gradle.properties   (user level, outside any repo)
+   modrinth_token=mrp_...
+   ```
+
+   Both `scripts/*.ps1` and `MINOTAUR` read that. The scripts also still honour
+   `$env:MODRINTH_TOKEN` (CI), and they pass the credential to curl through a
+   throw-away `--config` file rather than an `-H` argument, so the secret never
+   appears in the process argument list. `.gitignore` additionally blocks
+   `gradle-local.properties`, `.secrets/` and `*.token` as a safety net.
+
 ### M.2 Option A — publish with Gradle (token)
 
 ```powershell

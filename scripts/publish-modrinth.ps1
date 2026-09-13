@@ -36,9 +36,36 @@ function Write-Utf8NoBom([string] $path, [string] $text) {
     [IO.File]::WriteAllText($path, $text, (New-Object Text.UTF8Encoding $false))
 }
 
+# Resolve the token WITHOUT putting it on a command line:
+#   1. $env:MODRINTH_TOKEN (CI), else
+#   2. modrinth_token in ~/.gradle/gradle.properties (outside any repository).
+function Get-ModrinthToken {
+    if ($env:MODRINTH_TOKEN) { return $env:MODRINTH_TOKEN }
+    $gp = Join-Path $env:USERPROFILE '.gradle\gradle.properties'
+    if (Test-Path $gp) {
+        $m = Select-String -Path $gp -Pattern '^\s*modrinth_token\s*=\s*(.+)$' | Select-Object -First 1
+        if ($m) { return $m.Matches[0].Groups[1].Value.Trim() }
+    }
+    return ''
+}
+
+# curl reads its headers from this file, so the secret never shows up in the
+# process argument list (visible to other processes via Get-Process / WMI).
+function New-CurlAuthConfig([string] $token, [string] $userAgent) {
+    $path = Join-Path $env:TEMP ("cpl-curl-" + [guid]::NewGuid().ToString('N') + ".cfg")
+    $lines = @(
+        'header = "Authorization: ' + $token + '"',
+        'header = "User-Agent: ' + $userAgent + '"'
+    )
+    Write-Utf8NoBom $path ($lines -join "`n")
+    return $path
+}
+
 # --- inputs ------------------------------------------------------------------
-$token = $env:MODRINTH_TOKEN
-if (-not $token) { throw "Set the MODRINTH_TOKEN environment variable first." }
+$token = Get-ModrinthToken
+if (-not $token) {
+    throw "No Modrinth token. Set `$env:MODRINTH_TOKEN, or add 'modrinth_token=...' to ~/.gradle/gradle.properties."
+}
 
 $curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
 if (-not $curl) { $curl = 'curl.exe' }
@@ -97,13 +124,14 @@ Write-Utf8NoBom $payloadFile $payload
 
 Write-Host "Publishing $([IO.Path]::GetFileName($jar)) ($((Get-Item $jar).Length) B) as $Name -> project $projectId"
 
+$authCfg = New-CurlAuthConfig $token 'cpl-release/1.0 (modrinth publish)'
+
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
     Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     $bodyFile = Join-Path $env:TEMP "cpl-version-resp-$attempt.json"
-    $code = & $curl @curlCommon -X POST `
-        -H "Authorization: $token" -H 'User-Agent: cpl-release/1.0 (modrinth publish)' `
+    $code = & $curl @curlCommon -X POST -K $authCfg `
         -F "data=@$payloadFile;type=application/json" `
         -F "file=@$jar;type=application/java-archive" `
         -o $bodyFile -w '%{http_code}' `
@@ -121,17 +149,20 @@ for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Write-Host "  game versions  $($published.game_versions -join ',')"
         Write-Host "  file           $($published.files[0].filename)  $($published.files[0].size) B"
         Write-Host "  url            $($published.files[0].url)"
+        Remove-Item -LiteralPath $authCfg -Force -ErrorAction SilentlyContinue
         exit 0
     }
 
     if ($code -match '^4\d\d$') {
         Write-Host "  API rejected the request (retrying will not help):" -ForegroundColor Red
         Write-Host "  $text"
+        Remove-Item -LiteralPath $authCfg -Force -ErrorAction SilentlyContinue
         exit 1
     }
 
     if ($attempt -lt $Attempts) { Start-Sleep -Seconds 4 }
 }
 
+Remove-Item -LiteralPath $authCfg -Force -ErrorAction SilentlyContinue
 Write-Host "Gave up after $Attempts attempts. Connectivity looks down - retry later." -ForegroundColor Red
 exit 1

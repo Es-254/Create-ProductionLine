@@ -17,8 +17,29 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$token = $env:MODRINTH_TOKEN
-if (-not $token) { throw "Set the MODRINTH_TOKEN environment variable first." }
+# Token resolution + curl auth config (secret never on a command line).
+# See publish-modrinth.ps1 for the rationale.
+function Get-ModrinthToken {
+    if ($env:MODRINTH_TOKEN) { return $env:MODRINTH_TOKEN }
+    $gp = Join-Path $env:USERPROFILE '.gradle\gradle.properties'
+    if (Test-Path $gp) {
+        $m = Select-String -Path $gp -Pattern '^\s*modrinth_token\s*=\s*(.+)$' | Select-Object -First 1
+        if ($m) { return $m.Matches[0].Groups[1].Value.Trim() }
+    }
+    return ''
+}
+
+function New-CurlAuthConfig([string] $token, [string] $userAgent) {
+    $path = Join-Path $env:TEMP ("cpl-curl-" + [guid]::NewGuid().ToString('N') + ".cfg")
+    $content = 'header = "Authorization: ' + $token + '"' + "`n" + 'header = "User-Agent: ' + $userAgent + '"'
+    [IO.File]::WriteAllText($path, $content, (New-Object Text.UTF8Encoding $false))
+    return $path
+}
+
+$token = Get-ModrinthToken
+if (-not $token) {
+    throw "No Modrinth token. Set `$env:MODRINTH_TOKEN, or add 'modrinth_token=...' to ~/.gradle/gradle.properties."
+}
 
 $curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
 if (-not $curl) { $curl = 'curl.exe' }
@@ -42,11 +63,12 @@ if ($proxyUrl) { $curlCommon += @('--proxy', $proxyUrl); Write-Host "Using proxy
 
 Write-Host "Pushing $($body.Length) chars from docs/platform-listing.md to project $projectId ($((Get-Item $payloadFile).Length) B payload)"
 
+$authCfg = New-CurlAuthConfig $token 'cpl-release/1.0'
+
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
     Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
     $resp = Join-Path $env:TEMP "cpl-body-resp-$attempt.txt"
-    $code = & $curl @curlCommon -X PATCH `
-        -H "Authorization: $token" -H 'User-Agent: cpl-release/1.0' `
+    $code = & $curl @curlCommon -X PATCH -K $authCfg `
         -H 'Content-Type: application/json; charset=utf-8' `
         --data-binary "@$payloadFile" -o $resp -w '%{http_code}' `
         "https://api.modrinth.com/v2/project/$projectId" 2>&1
@@ -54,7 +76,7 @@ for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
     Write-Host " HTTP $code"
 
     if ($code -eq '204' -or $code -eq '200') {
-        $p = & $curl @curlCommon -H "Authorization: $token" -H 'User-Agent: cpl-release/1.0' `
+        $p = & $curl @curlCommon -K $authCfg `
              "https://api.modrinth.com/v2/project/$projectId" 2>$null | ConvertFrom-Json
         Write-Host "`nNow live:" -ForegroundColor Green
         Write-Host "  status        $($p.status)"
@@ -62,6 +84,7 @@ for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Write-Host "  client/server $($p.client_side) / $($p.server_side)"
         Write-Host "  loaders       $($p.loaders -join ',')"
         Write-Host "  game versions $($p.game_versions -join ',')"
+        Remove-Item -LiteralPath $authCfg -Force -ErrorAction SilentlyContinue
         exit 0
     }
 
@@ -69,9 +92,13 @@ for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         $t = Get-Content $resp -Raw -Encoding UTF8
         if ($t) { Write-Host "    $t" }
     }
-    if ($code -match '^4\d\d$') { exit 1 }
+    if ($code -match '^4\d\d$') {
+        Remove-Item -LiteralPath $authCfg -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
     if ($attempt -lt $Attempts) { Start-Sleep -Seconds 4 }
 }
 
+Remove-Item -LiteralPath $authCfg -Force -ErrorAction SilentlyContinue
 Write-Host "Gave up after $Attempts attempts." -ForegroundColor Red
 exit 1
