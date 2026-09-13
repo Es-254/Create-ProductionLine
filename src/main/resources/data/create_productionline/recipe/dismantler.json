@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["III", "ICI", "III"],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "C": { "item": "create_productionline:scheme_loader" }
+  },
+  "result": { "id": "create_productionline:dismantler", "count": 1 }
+}

@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "create_productionline:block/production_computer_front",
+    "north": "create_productionline:block/production_computer_front",
+    "east": "create_productionline:block/production_computer_east",
+    "south": "create_productionline:block/production_computer_side",
+    "west": "create_productionline:block/production_computer_side",
+    "up": "create_productionline:block/production_computer_top",
+    "down": "create_productionline:block/production_computer_bottom"
+  }
+}

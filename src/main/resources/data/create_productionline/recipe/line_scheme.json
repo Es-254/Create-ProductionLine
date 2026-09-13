@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "minecraft:paper" },
+    { "item": "minecraft:paper" },
+    { "item": "minecraft:redstone" }
+  ],
+  "result": {
+    "id": "create_productionline:line_scheme",
+    "count": 1
+  }
+}

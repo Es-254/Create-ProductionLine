@@ -1,0 +1,82 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (JDK 21)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The repository is authored on Windows, where the executable bit is not tracked,
+      # so the wrapper has to be made runnable explicitly.
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build --stacktrace
+
+      - name: Report jar contents and check hygiene
+        run: |
+          JAR=$(ls build/libs/*.jar | head -n 1)
+          echo "### Built $(basename "$JAR")" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Size: $(stat -c%s "$JAR") bytes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA-256: $(sha256sum "$JAR" | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
+          # Publication hygiene: the jar must not contain editor leftovers.
+          if unzip -l "$JAR" | grep -Eq '\.bak$|_particle|/debug/'; then
+            echo "::error::jar contains development leftovers (.bak / *_particle.png / debug/)"
+            unzip -l "$JAR" | grep -E '\.bak$|_particle|/debug/' || true
+            exit 1
+          fi
+          echo "Jar hygiene OK"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: create_productionline-jar
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+  release:
+    name: Attach jar to GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built jar
+        uses: actions/download-artifact@v4
+        with:
+          name: create_productionline-jar
+          path: dist
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.jar
+          generate_release_notes: true
+          fail_on_unmatched_files: true

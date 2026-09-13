@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.create.productionline.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "SmithingTransformRecipeAccessor",
+    "SmithingTrimRecipeAccessor"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

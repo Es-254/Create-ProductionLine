@@ -1,0 +1,59 @@
+### Gradle ###
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/**/out/
+
+.run/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.eclipse/
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/**/bin/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Minecraft Modding ###
+run/
+!**/src/**/run/
+**/src/generated/**/.cache/
+repo/
+!**/src/**/repo/
+
+### Publication safety (never ship these) ###
+*.bak
+*.orig
+*.rej
+*.psd
+*.xcf
+*.kra
+*.bbmodel
+Thumbs.db
+desktop.ini
+
+### Local secrets — never commit publishing credentials ###
+# Tokens belong in the environment or ~/.gradle/gradle.properties.
+# Files below are ignored as a safety net in case one is ever created here.
+gradle-local.properties
+.secrets/
+*.token
+

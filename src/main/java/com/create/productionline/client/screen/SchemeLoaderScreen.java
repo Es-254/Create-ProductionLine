@@ -1,0 +1,138 @@
+package com.create.productionline.client.screen;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.create.productionline.line.scheme.LineScheme;
+import com.create.productionline.line.scheme.LineSchemeSerializer;
+import com.create.productionline.menu.SchemeLoaderMenu;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * Scheme Loader screen: one carrier slot; shows whether the embedded pipeline
+ * recipes are currently active, plus the list of generated Create recipes.
+ */
+public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu> {
+
+    private static final ResourceLocation BACKGROUND =
+            ResourceLocation.fromNamespaceAndPath("create_productionline", "textures/gui/scheme_loader.png");
+
+    public SchemeLoaderScreen(SchemeLoaderMenu menu, Inventory playerInventory, Component title) {
+        super(menu, playerInventory, title);
+        this.imageWidth = 176;
+        this.imageHeight = 166;
+        this.titleLabelX = 8;
+        this.titleLabelY = 6;
+        this.inventoryLabelX = 8;
+        this.inventoryLabelY = 76;
+    }
+
+    @Override
+    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+        int x = (this.width - this.imageWidth) / 2;
+        int y = (this.height - this.imageHeight) / 2;
+        guiGraphics.blit(BACKGROUND, x, y, 0, 0, this.imageWidth, this.imageHeight, 256, 256);
+        for (net.minecraft.world.inventory.Slot slot : this.menu.slots) {
+            drawSlotBg(guiGraphics, slot);
+        }
+    }
+
+    private void drawSlotBg(GuiGraphics guiGraphics, net.minecraft.world.inventory.Slot slot) {
+        int sx = this.leftPos + slot.x - 1;
+        int sy = this.topPos + slot.y - 1;
+        com.create.productionline.client.CreateGui.slot(guiGraphics, sx, sy, 18, 18);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        guiGraphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, 0x404040, false);
+        guiGraphics.drawString(this.font, Component.translatable("container.inventory"),
+                this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
+
+        List<String> lines = new ArrayList<>();
+        if (this.menu.isActive()) {
+            lines.add(Component.translatable("loader.create_productionline.active").getString());
+        } else {
+            lines.add(Component.translatable("loader.create_productionline.inactive").getString());
+        }
+        int filled = 0;
+        int recipes = 0;
+        for (int i = 0; i < com.create.productionline.menu.SchemeLoaderMenu.LOADER_SLOT_COUNT; i++) {
+            ItemStack stack = this.menu.getLoaderContainer().getItem(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            LineScheme scheme = LineSchemeSerializer.fromStack(stack);
+            if (scheme.isEmpty()) {
+                continue;
+            }
+            filled++;
+            recipes += scheme.getCreateRecipes().size();
+        }
+        lines.add(Component.translatable("loader.create_productionline.slots_filled",
+                filled, recipes).getString());
+        int y = 56;
+        for (String line : lines) {
+            if (y > 70) {
+                break;
+            }
+            for (String wrapped : wrap(this.font, line, 160)) {
+                if (y > 70) {
+                    break;
+                }
+                guiGraphics.drawString(this.font, wrapped, 8, y, 0x404040, false);
+                y += 9;
+            }
+        }
+    }
+
+    private static List<String> wrap(Font font, String text, int maxWidth) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return lines;
+        }
+        String[] words = text.split("(?<=\\s)|(?=\\s)");
+        StringBuilder line = new StringBuilder();
+        for (String word : words) {
+            String probe = line.length() == 0 ? word : line + word;
+            if (font.width(probe) <= maxWidth || line.length() == 0) {
+                line.append(word);
+            } else {
+                lines.add(line.toString().trim());
+                line.setLength(0);
+                if (font.width(word) > maxWidth) {
+                    String rest = word;
+                    while (font.width(rest) > maxWidth) {
+                        int cut = 1;
+                        while (cut < rest.length() && font.width(rest.substring(0, cut + 1)) <= maxWidth) {
+                            cut++;
+                        }
+                        lines.add(rest.substring(0, cut));
+                        rest = rest.substring(cut);
+                    }
+                    line.append(rest);
+                } else {
+                    line.append(word);
+                }
+            }
+        }
+        if (line.length() > 0) {
+            lines.add(line.toString().trim());
+        }
+        return lines;
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTooltip(guiGraphics, mouseX, mouseY);
+    }
+}

@@ -1,0 +1,57 @@
+package com.create.productionline.registry;
+
+import com.create.productionline.ProductionLineMod;
+import com.create.productionline.block.ProductionComputerBlock;
+import com.create.productionline.block.SchemeLoaderBlock;
+
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+/**
+ * Registers the blocks of this mod: {@code production_computer} (产线计算机),
+ * {@code scheme_loader} (方案加载柜 — activates the pipeline recipes stored on a
+ * line scheme) and {@code dismantler} (破拆机 — reverts intermediates/products
+ * into raw materials).
+ */
+public final class ModBlocks {
+
+    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(ProductionLineMod.MODID);
+    public static final DeferredRegister.Items BLOCK_ITEMS = DeferredRegister.createItems(ProductionLineMod.MODID);
+
+    public static final DeferredBlock<ProductionComputerBlock> PRODUCTION_COMPUTER =
+            BLOCKS.register("production_computer",
+                    () -> new ProductionComputerBlock(BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.METAL)
+                            .strength(3.5F, 6.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<SchemeLoaderBlock> SCHEME_LOADER =
+            BLOCKS.register("scheme_loader",
+                    () -> new SchemeLoaderBlock(BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.METAL)
+                            .strength(4.0F, 8.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<com.create.productionline.block.DismantlerBlock> DISMANTLER =
+            BLOCKS.register("dismantler",
+                    () -> new com.create.productionline.block.DismantlerBlock(BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.METAL)
+                            .strength(4.0F, 8.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()));
+
+    static {
+        // BlockItems share the id of their block.
+        BLOCK_ITEMS.registerSimpleBlockItem("production_computer", PRODUCTION_COMPUTER);
+        BLOCK_ITEMS.registerSimpleBlockItem("scheme_loader", SCHEME_LOADER);
+        BLOCK_ITEMS.registerSimpleBlockItem("dismantler", DISMANTLER);
+    }
+
+    private ModBlocks() {
+    }
+}

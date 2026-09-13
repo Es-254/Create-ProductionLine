@@ -1,0 +1,1 @@
+{ "parent": "minecraft:item/generated", "textures": { "layer0": "create_productionline:item/line_scheme_mirror" } }

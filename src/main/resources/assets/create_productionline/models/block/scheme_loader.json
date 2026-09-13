@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "create_productionline:block/scheme_loader_front",
+    "north": "create_productionline:block/scheme_loader_front",
+    "east": "create_productionline:block/scheme_loader_side",
+    "south": "create_productionline:block/scheme_loader_side",
+    "west": "create_productionline:block/scheme_loader_side",
+    "up": "create_productionline:block/scheme_loader_top",
+    "down": "create_productionline:block/scheme_loader_bottom"
+  }
+}
