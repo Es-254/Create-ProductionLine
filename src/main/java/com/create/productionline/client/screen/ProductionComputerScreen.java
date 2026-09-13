@@ -119,11 +119,8 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
         int code = this.menu.getResultCode();
         List<String> out = new ArrayList<>();
         switch (code) {
-            case ProductionComputerBlockEntity.RESULT_OK,
-                 ProductionComputerBlockEntity.RESULT_GENERATED -> {
-                out.add(code == ProductionComputerBlockEntity.RESULT_GENERATED
-                        ? Component.translatable("screen.create_productionline.computer.generated").getString()
-                        : Component.translatable("screen.create_productionline.computer.ok").getString());
+            case ProductionComputerBlockEntity.RESULT_GENERATED -> {
+                out.add(Component.translatable("screen.create_productionline.computer.generated").getString());
                 LineScheme scheme = LineSchemeSerializer.fromStack(this.menu.getSchemeItem());
                 if (scheme.isEmpty()) {
                     scheme = LineSchemeSerializer.fromStack(this.menu.getClipboardItem());
@@ -135,6 +132,8 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                             scheme.getSteps().size(), scheme.totalFacilityCount()).getString());
                 }
             }
+            case ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE ->
+                    out.add(Component.translatable("screen.create_productionline.computer.not_convertible").getString());
             case ProductionComputerBlockEntity.RESULT_NO_SCHEME ->
                     out.add(Component.translatable("screen.create_productionline.computer.no_scheme").getString());
             case ProductionComputerBlockEntity.RESULT_NO_CLIPBOARD ->

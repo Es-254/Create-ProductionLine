@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-09-13
+
+### Changed
+
+- **Plans now read as one linear chain**: `[base] → [machine 1 + material 1] → [machine 2 + material 2] → … → [product]`.
+  Step 1 puts the base onto the line; every following station is exactly one machine paired with the single
+  material it applies; the carried item is chained through the stations (base → Generic Intermediate → …) and
+  only the last station yields the product. Previously extra materials were all listed as separate feed steps
+  *before* the machines, so which machine applied which material was not visible. If a recipe selects more
+  machines than there are extra materials, the surplus machines still get their own station, so no facility
+  the player must place is hidden.
+
+### Fixed
+
+- **No more plans for recipes that cannot be converted.** A scheme with no installable Create recipe was a
+  promise the mod could not keep (single-material recipes such as iron blocks, or targets already produced by
+  a native Create process) and it consumed the player's paper / clipboard / blank Line Scheme for nothing.
+  The computer now refuses instead, says why, and leaves the carriers untouched.
+
 ## [1.0.1] — 2026-09-13
 
 ### Fixed

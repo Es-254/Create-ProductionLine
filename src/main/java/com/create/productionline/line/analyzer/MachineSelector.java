@@ -31,6 +31,8 @@ import com.create.productionline.line.scheme.LineScheme;
 public final class MachineSelector {
 
     public static final String FEED = "cpl:feed";
+    /** The transitional item chained between stations of a plan. */
+    public static final String INTERMEDIATE = "create_productionline:generic_intermediate";
     /** Feeder for inserting raw materials onto a belt: the Mechanical Arm (动力臂). */
     public static final String ARM = "create:mechanical_arm";
     /** Deployer (机械手) applies/uses items — NOT a belt feeder. */
@@ -102,86 +104,59 @@ public final class MachineSelector {
     }
 
     /**
-     * Lays out an assembly / crafting plan the way Create actually executes
-     * {@code create:sequenced_assembly} recipes:
-     * <ol>
-     *   <li>the base material first — a flexible feeder step (arm / funnel /
-     *       chute / drop-in, any works);</li>
-     *   <li>one <b>Deployer station per extra material</b>, in recipe order —
-     *       that deployer holds the material and applies it to the carried item
-     *       on the belt (Create consumes the held item). The count of Deployer
-     *       steps therefore always equals the deploy steps of the embedded
-     *       sequence recipe, so building "one machine per step" actually
-     *       produces the item.</li>
-     * </ol>
+     * Lays the whole plan out as ONE linear chain:
+     *
+     * <pre>
+     * [基底] -&gt; [器械1 + 原料1] -&gt; [器械2 + 原料2] -&gt; … -&gt; [产物]
+     * </pre>
+     *
+     * <p>Reading the plan top to bottom is reading the line:
+     * <ul>
+     *   <li><b>step 1</b> — the base material goes onto the line (any feeder:
+     *       arm / funnel / chute / drop-in);</li>
+     *   <li><b>every following step</b> — exactly one machine paired with exactly
+     *       one material, i.e. the machine that applies that material. For a
+     *       sequenced-assembly plan that machine is always a Deployer, so the
+     *       station count equals the deploy steps of the embedded recipe; for a
+     *       machine-process plan the feature-selected machines are walked in
+     *       order;</li>
+     *   <li>the carried item is chained through the stations
+     *       (base → 通用中间产物 → …) and only the <b>last</b> station yields the
+     *       product.</li>
+     * </ul>
+     *
+     * <p>If there are more machines than extra materials, the surplus machines
+     * still get their own (material-less) station so the plan does not hide any
+     * facility the player has to place.
+     *
+     * @param uniqueInputs ordered, de-duplicated materials; {@code [0]} is the base
+     * @param machines     the ordered machine list for this recipe (never empty)
+     * @param outputItem   the product, annotated on the final station
      */
-    public static void appendAssemblySteps(LineScheme scheme, java.util.List<String> uniqueInputs) {
-        if (scheme == null || uniqueInputs == null || uniqueInputs.size() < 2) {
+    public static void appendChainSteps(LineScheme scheme, List<String> uniqueInputs,
+            List<String> machines, String outputItem) {
+        if (scheme == null || uniqueInputs == null || uniqueInputs.isEmpty()) {
             return;
         }
-        LineScheme.Step base = scheme.addStep(FEED, 1);
-        base.addInput(uniqueInputs.get(0));
-        for (int i = 1; i < uniqueInputs.size(); i++) {
-            LineScheme.Step step = scheme.addStep(DEPLOYER, 1);
-            step.addInput(uniqueInputs.get(i));
-        }
-    }
+        String base = uniqueInputs.get(0);
 
-    /** Marks the last non-feed station of an assembly plan as the product output. */
-    public static void annotateAssemblyOutput(LineScheme scheme, String outputItem) {
-        if (scheme == null || outputItem == null || outputItem.isBlank()) {
-            return;
-        }
-        java.util.List<LineScheme.Step> steps = scheme.getSteps();
-        for (int i = steps.size() - 1; i >= 0; i--) {
-            LineScheme.Step step = steps.get(i);
-            if (!FEED.equals(step.getFacilityType())) {
-                step.addOutput(outputItem);
-                return;
-            }
-        }
-    }
+        // 1) the base enters the line
+        LineScheme.Step head = scheme.addStep(FEED, 1);
+        head.addInput(base);
+        head.addOutput(base);
 
-    /**
-     * Appends the ordered pipeline steps for a machine-process plan: a flexible
-     * feed step for every raw material after the first, then the processing
-     * machines (which also receive the base material / output product).
-     */
-    public static void appendSteps(LineScheme scheme, List<String> uniqueInputs, List<String> machines) {
-        // Extra raw materials enter the machine(s) through flexible feeding
-        // (arm / funnel / chute / drop-in — never a Deployer).
-        for (int i = 1; i < uniqueInputs.size(); i++) {
-            LineScheme.Step step = scheme.addStep(FEED, 1);
-            step.addInput(uniqueInputs.get(i));
-        }
-        for (String machine : machines) {
+        List<String> ms = (machines == null || machines.isEmpty()) ? List.of(PRESS) : machines;
+        int extra = uniqueInputs.size() - 1;              // materials still to be applied
+        int stations = Math.max(extra, ms.size());        // never hide a machine
+        for (int i = 0; i < stations; i++) {
+            String machine = ms.get(Math.min(i, ms.size() - 1));
             LineScheme.Step step = scheme.addStep(machine, 1);
-            if (scheme.getSteps().size() == 1 && !uniqueInputs.isEmpty()) {
-                step.addInput(uniqueInputs.get(0)); // base material enters the first machine
+            if (i < extra) {
+                step.addInput(uniqueInputs.get(i + 1));   // the material this machine applies
             }
-        }
-    }
-
-    /**
-     * Annotates the plan so it reads clearly: the base material enters the first
-     * processing machine, and the last processing machine outputs the product.
-     * (The Mechanical Crafter is intentionally excluded. A Deployer finishing
-     * station IS a processing machine and keeps the output annotation.)
-     */
-    public static void annotate(LineScheme scheme, String baseMaterial, String outputItem) {
-        List<LineScheme.Step> machines = new ArrayList<>();
-        for (LineScheme.Step step : scheme.getSteps()) {
-            if (!step.getFacilityType().equals(FEED) && !step.getFacilityType().equals(ARM)) {
-                machines.add(step);
-            }
-        }
-        if (!machines.isEmpty()) {
-            if (baseMaterial != null && !baseMaterial.isBlank()) {
-                machines.get(0).addInput(baseMaterial);
-            }
-            if (outputItem != null && !outputItem.isBlank()) {
-                machines.get(machines.size() - 1).addOutput(outputItem);
-            }
+            boolean last = (i == stations - 1);
+            boolean hasProduct = outputItem != null && !outputItem.isBlank();
+            step.addOutput(last && hasProduct ? outputItem : INTERMEDIATE);
         }
     }
 }

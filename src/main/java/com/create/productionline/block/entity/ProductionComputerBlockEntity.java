@@ -40,8 +40,8 @@ public class ProductionComputerBlockEntity extends BlockEntity {
 
     /** Result codes surfaced in the GUI. */
     public static final int RESULT_EMPTY = 0;   // nothing to compute yet
-    public static final int RESULT_OK = 1;      // plan written (advisory; nothing convertible)
-    public static final int RESULT_GENERATED = 6; // native Create recipe JSON files written + reloaded
+    public static final int RESULT_GENERATED = 6; // native Create recipe JSON written onto the carrier
+    public static final int RESULT_NOT_CONVERTIBLE = 7; // no Create recipe could be generated -> nothing written
     public static final int RESULT_NO_SCHEME = 2;
     public static final int RESULT_NO_CLIPBOARD = 3;
     public static final int RESULT_NO_RECIPE = 4; // cannot map / no recipe found (TC-01)
@@ -250,40 +250,6 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             }
             unique.add(in);
         }
-        if (unique.isEmpty()) {
-            scheme.addStep(com.create.productionline.line.analyzer.MachineSelector.PRESS, 1);
-        } else {
-            boolean assembly =
-                    com.create.productionline.recipegen.RecipeDeriver.isConvertibleAssembly(source.categoryId());
-            if (assembly && unique.size() >= 2) {
-                // Direct deployer line: the embedded create:sequenced_assembly
-                // recipe performs one deploy step per extra material, so the plan
-                // lists the base feed plus one Deployer station per extra
-                // material (matching what actually has to be built — a single
-                // machine can only apply the one material it holds). Native
-                // create:mechanical_crafting recipes (e.g. Create Big Cannons
-                // shells) are converted into an EXTRA, non-conflicting
-                // sequenced-assembly recipe instead of requiring a crafter.
-                scheme.setBaseMaterial(unique.get(0));
-                com.create.productionline.line.analyzer.MachineSelector.appendAssemblySteps(scheme, unique);
-                com.create.productionline.line.analyzer.MachineSelector.annotateAssemblyOutput(scheme, output);
-            } else {
-                var analysis = com.create.productionline.line.analyzer.RecipeAnalyzer.analyze(source);
-                java.util.List<String> machines =
-                        com.create.productionline.line.analyzer.MachineSelector.selectForSource(
-                                source.categoryId(), analysis);
-                int scale = assembly ? 1 : com.create.productionline.line.analyzer.MachineSelector.scaleOf(analysis);
-                java.util.List<String> expanded = new java.util.ArrayList<>();
-                for (int s = 0; s < scale; s++) {
-                    expanded.addAll(machines);
-                }
-                com.create.productionline.line.analyzer.MachineSelector.appendSteps(
-                        scheme, unique, expanded);
-                scheme.setBaseMaterial(unique.get(0));
-                com.create.productionline.line.analyzer.MachineSelector.annotate(
-                        scheme, unique.get(0), output);
-            }
-        }
 
         // Embed a genuine native-Create recipe payload — derived through the
         // SAME server-side code path the loader uses (see RecipeDeriver), so the
@@ -291,24 +257,59 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         //
         // SECURITY: only an AUTHORITATIVE descriptor (resolved from the live
         // server RecipeManager and verified to produce the target item) may yield
-        // installable recipes. A client-only fallback produces a plan without any
-        // embedded recipe, so forged network data can never inject a datapack
-        // entry. The loader re-derives from recipeId anyway.
-        com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry entry = null;
+        // installable recipes. A client-only fallback produces no recipe, and so
+        // is refused below rather than written.
+        //
+        // This is also the gate for whether a plan is written AT ALL: a scheme
+        // with no installable recipe would be a promise the mod cannot keep
+        // (e.g. single-material crafting such as iron_block, or a target that is
+        // already a native Create recipe), and it would burn the player's paper /
+        // clipboard / blank Line Scheme for nothing. Refuse instead and leave the
+        // carriers untouched.
         java.util.List<com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry> derived =
                 new java.util.ArrayList<>();
         if (authoritative && level instanceof net.minecraft.server.level.ServerLevel srv) {
             derived = com.create.productionline.recipegen.RecipeDeriver.entriesFor(
                     srv, source, orderedInputs, count);
-        } else if (!authoritative) {
-            ProductionLineMod.LOGGER.warn(
-                    "CPL compute: plan for {} comes from unverified client data — embedding no recipe", output);
         }
+        if (derived.isEmpty()) {
+            ProductionLineMod.LOGGER.info(
+                    "CPL compute: no convertible Create recipe for {} (recipe={} cat={} materials={}, authoritative={})"
+                            + " - no plan written",
+                    output, source.recipeId(), source.categoryId(), unique, authoritative);
+            setResult(RESULT_NOT_CONVERTIBLE, output);
+            return; // carriers are left untouched on purpose
+        }
+
+        // Plan topology: ONE linear chain, left to right —
+        //   [基底] -> [器械1+原料1] -> [器械2+原料2] -> … -> [产物]
+        // Step 1 feeds the base; every following station is one machine paired
+        // with the one material it applies; the carried item is chained through
+        // the stations and only the last one yields the product.
+        boolean assembly =
+                com.create.productionline.recipegen.RecipeDeriver.isConvertibleAssembly(source.categoryId());
+        java.util.List<String> machines;
+        if (assembly) {
+            machines = java.util.List.of(com.create.productionline.line.analyzer.MachineSelector.DEPLOYER);
+        } else {
+            var analysis = com.create.productionline.line.analyzer.RecipeAnalyzer.analyze(source);
+            java.util.List<String> selected =
+                    com.create.productionline.line.analyzer.MachineSelector.selectForSource(
+                            source.categoryId(), analysis);
+            int scale = com.create.productionline.line.analyzer.MachineSelector.scaleOf(analysis);
+            java.util.List<String> expanded = new java.util.ArrayList<>();
+            for (int s = 0; s < scale; s++) {
+                expanded.addAll(selected);
+            }
+            machines = expanded;
+        }
+        scheme.setBaseMaterial(unique.isEmpty() ? output : unique.get(0));
+        com.create.productionline.line.analyzer.MachineSelector.appendChainSteps(
+                scheme, unique, machines, output);
+
+        com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry entry = derived.get(0);
         for (com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry e : derived) {
             scheme.addCreateRecipe(e.getFileName(), e.getJson());
-        }
-        if (!derived.isEmpty()) {
-            entry = derived.get(0);
         }
 
         LineSchemeSerializer.saveToStack(carrier, scheme);
@@ -318,13 +319,9 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             ClipboardCompat.writeGuide(secondary, scheme);
         }
 
-        if (entry != null) {
-            setResult(RESULT_GENERATED, "embedded create recipe: " + entry.getFileName());
-            ProductionLineMod.LOGGER.info("Embedded converted Create recipe {} for {}", entry.getFileName(),
-                    scheme.getOutputItem());
-        } else {
-            setResult(RESULT_OK, scheme.getOutputItem());
-        }
+        setResult(RESULT_GENERATED, "embedded create recipe: " + entry.getFileName());
+        ProductionLineMod.LOGGER.info("Embedded converted Create recipe {} for {}", entry.getFileName(),
+                scheme.getOutputItem());
     }
 
     private ItemStack findCarrier(int slot) {

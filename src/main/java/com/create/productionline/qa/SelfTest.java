@@ -60,6 +60,7 @@ public final class SelfTest {
             check("TC-01 mapping (negative, unmappable)", () -> liveRecipeNegative(level));
             check("Create recipe JSON schema + datapack install", () -> createRecipeInstall(server));
             check("Scheme embeds generated recipes (round trip)", () -> schemeEmbedsRecipes());
+            check("Plan topology (chain: base -> machine+material -> product)", () -> planTopology());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -203,7 +204,6 @@ public final class SelfTest {
     }
 
     private static boolean schemeEmbedsRecipes() {
-        // Serializer round-trips the generated Create recipe payloads stored on a scheme.
         ItemStack stack = new ItemStack(ModItems.LINE_SCHEME.get());
         LineScheme scheme = new LineScheme();
         scheme.setOutputItem("minecraft:diamond");
@@ -216,6 +216,55 @@ public final class SelfTest {
                 && loaded.getCreateRecipes().get(0).getJson().contains("create:pressing");
         if (!ok) {
             System.out.println("   embedded recipes lost after round trip: " + loaded.getCreateRecipes());
+        }
+        return ok;
+    }
+
+    /**
+     * The plan must read as ONE linear chain:
+     * {@code [base] -> [machine1 + material1] -> ... -> [machineN + materialN] -> [product]}.
+     * Purely a data-shape check — the Steps are display-only, so this needs no world.
+     */
+    private static boolean planTopology() {
+        java.util.List<String> unique = java.util.List.of(
+                "minecraft:oak_planks", "minecraft:stick", "minecraft:iron_ingot");
+        String product = "minecraft:cart";
+        LineScheme scheme = new LineScheme();
+        com.create.productionline.line.analyzer.MachineSelector.appendChainSteps(
+                scheme, unique,
+                java.util.List.of(com.create.productionline.line.analyzer.MachineSelector.DEPLOYER),
+                product);
+
+        java.util.List<LineScheme.Step> steps = scheme.getSteps();
+        String feed = com.create.productionline.line.analyzer.MachineSelector.FEED;
+        String dep = com.create.productionline.line.analyzer.MachineSelector.DEPLOYER;
+        String mid = com.create.productionline.line.analyzer.MachineSelector.INTERMEDIATE;
+
+        // head + one station per extra material
+        if (steps.size() != 3) {
+            System.out.println("   expected 3 stations (head + 2), got " + steps.size() + ": " + steps);
+            return false;
+        }
+        LineScheme.Step head = steps.get(0);
+        LineScheme.Step s1 = steps.get(1);
+        LineScheme.Step s2 = steps.get(2);
+        boolean ok =
+                // 1) the base enters first and is carried on
+                feed.equals(head.getFacilityType())
+                && head.getInputs().contains(unique.get(0))
+                && head.getOutputs().contains(unique.get(0))
+                // 2) station i is a machine paired with exactly ONE material, in order
+                && dep.equals(s1.getFacilityType()) && s1.getInputs().equals(java.util.List.of(unique.get(1)))
+                && dep.equals(s2.getFacilityType()) && s2.getInputs().equals(java.util.List.of(unique.get(2)))
+                // 3) chained: intermediate between stations, product only at the tail
+                && s1.getOutputs().contains(mid)
+                && s2.getOutputs().contains(product)
+                && !s2.getOutputs().contains(mid);
+        if (!ok) {
+            System.out.println("   topology wrong:");
+            for (LineScheme.Step s : steps) {
+                System.out.println("     " + s.getFacilityType() + " in=" + s.getInputs() + " out=" + s.getOutputs());
+            }
         }
         return ok;
     }
