@@ -181,12 +181,14 @@ com/create/productionline/
 ## Headless self-test (QA) / 无头自检（QA）
 
 ```
-# start the server / dev runtime with this JVM property / 启动服务器或开发运行时并传入该属性
-gradlew runServer -Dcreate_productionline.selfTest=true
+# start the server / dev runtime with the self-test enabled / 启动服务器或开发运行时开启自检
+gradlew runServer -PselfTest
 ```
 
-> **EN** — The property is read by `qa/SelfTest.isEnabled()` (`Boolean.getBoolean`); after server start the checks run and the process `halt`s. 6 checks run against a **real server** (real registries/NBT/components/`RecipeManager`) — `qa/SelfTest.java:57-62`.
-> **中文** — 该属性由 `qa/SelfTest.isEnabled()`（`Boolean.getBoolean`）读取，服务器启动完成后自动跑完并 `halt`。`qa/SelfTest` 在**真实服务器**（真实注册表/NBT/组件/`RecipeManager`）上跑 **6 项**检查（`qa/SelfTest.java:57-62`）。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM (a bare `-D` on the Gradle command line does not reach it). The property is read by `qa/SelfTest.isEnabled()`; after server start the 6 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**（在 Gradle 命令行上直接写 `-D` 传不到游戏进程）。该属性由 `qa/SelfTest.isEnabled()` 读取；服务器启动后跑完 **6 项**检查。
+> The server halts itself afterwards, but the game process may not exit cleanly — if `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
+> 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出：若 `:runServer` 卡住，手动结束游戏进程即可；此时任务会显示 `FAILED`，但检查本身已通过，看下面的输出为准。
 
 ```
 [PASS] TC-05 scheme NBT round-trip

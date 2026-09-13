@@ -160,7 +160,7 @@ cd create_productionline
 .\gradlew.bat build
 
 # Headless QA self-test on a real server (6 checks, then the server halts)
-.\gradlew.bat runServer -Dcreate_productionline.selfTest=true
+.\gradlew.bat runServer -PselfTest
 ```
 
 Check the self-test log ends with:
@@ -248,7 +248,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
 - [ ] Placeholders replaced (`<YOUR NAME OR HANDLE>`, `<YOUR-GITHUB>`) — nothing left in the repo
 - [ ] `mod_version` bumped; `CHANGELOG.md` section written and dated
 - [ ] `gradlew build` succeeds
-- [ ] `runServer -Dcreate_productionline.selfTest=true` → **6 passed, 0 failed**
+- [ ] `runServer -PselfTest` → **6 passed, 0 failed**
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed; GitHub Release created with the jar attached

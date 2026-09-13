@@ -37,7 +37,7 @@ JEI is optional (recipe viewer only — this mod does not call its API).
   `config/create_productionline-mappings.json`, which also selects `assemblyMode`
   (`sequenced` default, `mechanical` optional).
 - Headless QA self-test (6 checks) on a real server:
-  `gradlew runServer -Dcreate_productionline.selfTest=true`.
+  `gradlew runServer -PselfTest` (6 checks, then the server halts).
 
 ### Security
 
