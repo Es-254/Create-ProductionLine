@@ -13,8 +13,11 @@ The repository currently ships with placeholders that **must** be replaced befor
 public release. Grep for them:
 
 ```powershell
-Select-String -Path .\gradle.properties,.\LICENSE,.\docs\platform-listing.md,.\CHANGELOG.md -Pattern '<YOUR'
+Select-String -Path .\gradle.properties,.\LICENSE,.\CHANGELOG.md,.\RELEASING.md,.\docs\platform-listing.md -Pattern 'YOUR NAME OR HANDLE|YOUR-GITHUB'
 ```
+
+> Note: `docs/platform-listing.md` writes the placeholder HTML-escaped (`&lt;YOUR-GITHUB&gt;`) so it
+> renders correctly once pushed as the project description — replace the escaped form there.
 
 | File | Placeholder | Replace with |
 | --- | --- | --- |
@@ -24,7 +27,7 @@ Select-String -Path .\gradle.properties,.\LICENSE,.\docs\platform-listing.md,.\C
 | `gradle.properties` | `mod_issue_tracker_url` | `…/issues` |
 | `gradle.properties` | `modrinth_project_id` | Modrinth project id (see 0.2) |
 | `gradle.properties` | `curseforge_project_id` | CurseForge numeric project id (see 0.3) |
-| `docs/platform-listing.md`, `CHANGELOG.md` | `<YOUR-GITHUB>` | Your GitHub user/org |
+| `docs/platform-listing.md`, `CHANGELOG.md` | `<YOUR-GITHUB>` / `&lt;YOUR-GITHUB&gt;` | Your GitHub user/org |
 
 ### 0.2 Modrinth
 
