@@ -1,11 +1,3 @@
-<!--
-  Modrinth / CurseForge project description.
-  This file IS the published body: Minotaur pushes it verbatim via
-  `gradlew -PpublishMods modrinthSyncBody` (see syncBodyFrom in build.gradle).
-  For CurseForge, copy everything below this comment into the description editor.
-  Do not add repository-internal notes here — they would be published.
--->
-
 # Create: Production Line / 机械动力：产业线
 
 **EN** — A Create addon for **Minecraft 1.21.1 / NeoForge** that converts recipes from *any* source

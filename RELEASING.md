@@ -55,6 +55,40 @@ $env:MODRINTH_TOKEN = "mrp_…"
 `CHANGELOG.md`; the description is `docs/platform-listing.md`. Both are already written — nothing to
 copy by hand.
 
+### M.2b If Minotaur times out (flaky international routes)
+
+Minotaur has **no retry**: on a connection where Modrinth's edge is intermittently unreachable it
+dies with `Failed to upload file to Modrinth! java.net.SocketTimeoutException: Connect timed out`,
+even though `api.modrinth.com` is reachable a second later. Two hardened fallbacks live in
+`scripts/` — same API calls, long timeouts and a retry loop:
+
+```powershell
+$env:MODRINTH_TOKEN = "mrp_…"
+
+.\scripts\publish-modrinth.ps1            # uploads mod_version from gradle.properties
+.\scripts\publish-modrinth.ps1 -ReleaseType beta
+.\scripts\publish-modrinth.ps1 -Attempts 10
+
+.\scripts\sync-modrinth-body.ps1          # pushes docs/platform-listing.md + the client/server flags
+```
+
+They report the real API error body instead of a wrapped exception, which is also how you find out
+about things Minotaur hides (e.g. `missing field 'featured'`).
+
+Diagnosing which host is down:
+
+```powershell
+foreach ($h in 'api.modrinth.com','cdn.modrinth.com','modrinth.com') {
+  try { Invoke-WebRequest "https://$h/" -Method Head -TimeoutSec 10 -UseBasicParsing | Out-Null; "$h OK" }
+  catch { "$h FAIL" }
+}
+```
+
+- `api.modrinth.com` reachable but uploads time out → just retry (the scripts do).
+- `cdn.modrinth.com` / `modrinth.com` unreachable → the network's international route is down;
+  wait for it (or enable the acceleration/proxy) — nothing local will fix it.
+- Note the API also rate-limits: 300 requests per minute, plenty for releases.
+
 ### M.3 Option B — upload by hand (no token, no Gradle)
 
 Nothing leaves your machine except the jar, and no credentials are involved.
