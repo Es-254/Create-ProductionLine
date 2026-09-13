@@ -244,7 +244,8 @@ if (project.hasProperty('publishMods')) {
         detectLoaders = false
         // `gradlew -PpublishMods modrinthSyncBody` pushes docs/platform-listing.md as the
         // project description (same text is used verbatim for CurseForge — see RELEASING.md).
-        syncBodyFrom = rootProject.file('docs/platform-listing.md')
+        // Minotaur expects the body TEXT here, not a File.
+        syncBodyFrom = rootProject.file('docs/platform-listing.md').getText('UTF-8')
         // The mod hard-depends on Create; declaring it lets Modrinth surface that.
         dependencies {
             required.project 'create'
