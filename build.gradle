@@ -93,6 +93,12 @@ runs {
     server {
         systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         argument '--nogui'
+        // Headless QA self-test, then the server halts itself. The property must reach the
+        // GAME JVM, which a plain `-D` on the Gradle command line does not do:
+        //   gradlew runServer -PselfTest
+        if (project.hasProperty('selfTest')) {
+            systemProperty 'create_productionline.selfTest', 'true'
+        }
     }
 
     // This run config launches GameTestServer and runs all registered gametests, then exits.
