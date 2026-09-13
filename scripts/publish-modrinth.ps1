@@ -58,11 +58,22 @@ if (Test-Path $clFile) {
     }
 }
 
+# --- optional proxy ----------------------------------------------------------
+# On networks where Modrinth's TLS is intermittently blackholed, point this at the
+# local proxy of your accelerator (e.g. Watt Toolkit's system-proxy mode):
+#   $env:MODRINTH_PROXY = "http://127.0.0.1:31181"
+# Standard HTTPS_PROXY is honoured as a fallback.
+$proxyUrl = if ($env:MODRINTH_PROXY) { $env:MODRINTH_PROXY } else { $env:HTTPS_PROXY }
+if ($proxyUrl) { Write-Host "Using proxy $proxyUrl" }
+
 # --- Create dependency (optional, resolved live with a known-good fallback) --
 $createId = 'LNytGWDc'
 try {
-    $resolved = Invoke-RestMethod -Uri 'https://api.modrinth.com/v2/project/create' `
-        -Headers @{ 'User-Agent' = 'cpl-release/1.0' } -TimeoutSec 30
+    $reqArgs = @{ Uri = 'https://api.modrinth.com/v2/project/create'
+                  Headers = @{ 'User-Agent' = 'cpl-release/1.0' }
+                  TimeoutSec = 30 }
+    if ($proxyUrl) { $reqArgs.Proxy = $proxyUrl }
+    $resolved = Invoke-RestMethod @reqArgs
     if ($resolved.id) { $createId = $resolved.id }
 } catch {
     Write-Host "  (could not resolve the Create project id, using $createId)" -ForegroundColor DarkGray
@@ -88,7 +99,12 @@ Write-Host "Publishing $([IO.Path]::GetFileName($jar)) ($((Get-Item $jar).Length
 Add-Type -AssemblyName System.Net.Http
 
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-    $client = [System.Net.Http.HttpClient]::new()
+    $handler = [System.Net.Http.HttpClientHandler]::new()
+    if ($proxyUrl) {
+        $handler.Proxy = [System.Net.WebProxy]::new($proxyUrl)
+        $handler.UseProxy = $true
+    }
+    $client = [System.Net.Http.HttpClient]::new($handler)
     $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
     $client.DefaultRequestHeaders.Add('Authorization', $token)
     $client.DefaultRequestHeaders.Add('User-Agent', 'cpl-release/1.0 (modrinth publish)')

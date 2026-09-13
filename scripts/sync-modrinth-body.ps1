@@ -35,16 +35,30 @@ $bytes = [Text.Encoding]::UTF8.GetBytes($payload)
 Write-Host "Pushing $($body.Length) chars from docs/platform-listing.md to project $projectId"
 
 $headers = @{ Authorization = $token; 'User-Agent' = 'cpl-release/1.0' }
+
+# Optional proxy — see publish-modrinth.ps1.
+$proxyUrl = if ($env:MODRINTH_PROXY) { $env:MODRINTH_PROXY } else { $env:HTTPS_PROXY }
+if ($proxyUrl) { Write-Host "Using proxy $proxyUrl" }
+
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
     try {
         Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
-        $r = Invoke-WebRequest -Method Patch -Uri "https://api.modrinth.com/v2/project/$projectId" `
-            -Headers $headers -ContentType 'application/json; charset=utf-8' -Body $bytes `
-            -TimeoutSec $TimeoutSeconds -UseBasicParsing
+        $patchArgs = @{ Method = 'Patch'
+                        Uri = "https://api.modrinth.com/v2/project/$projectId"
+                        Headers = $headers
+                        ContentType = 'application/json; charset=utf-8'
+                        Body = $bytes
+                        TimeoutSec = $TimeoutSeconds
+                        UseBasicParsing = $true }
+        if ($proxyUrl) { $patchArgs.Proxy = $proxyUrl }
+        $r = Invoke-WebRequest @patchArgs
         Write-Host " HTTP $([int]$r.StatusCode)"
 
-        $p = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$projectId" `
-            -Headers $headers -TimeoutSec $TimeoutSeconds
+        $getArgs = @{ Uri = "https://api.modrinth.com/v2/project/$projectId"
+                      Headers = $headers
+                      TimeoutSec = $TimeoutSeconds }
+        if ($proxyUrl) { $getArgs.Proxy = $proxyUrl }
+        $p = Invoke-RestMethod @getArgs
         Write-Host "`nNow live:" -ForegroundColor Green
         Write-Host "  status        $($p.status)"
         Write-Host "  body          $($p.body.Length) chars"

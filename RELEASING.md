@@ -85,9 +85,21 @@ foreach ($h in 'api.modrinth.com','cdn.modrinth.com','modrinth.com') {
 ```
 
 - `api.modrinth.com` reachable but uploads time out → just retry (the scripts do).
+- TCP connects but HTTPS always times out → the failure is at the TLS/SNI layer, not routing.
+  A DNS/hosts-based accelerator cannot fix that; you need a real tunnel. Retrying will not help
+  until the route recovers.
 - `cdn.modrinth.com` / `modrinth.com` unreachable → the network's international route is down;
   wait for it (or enable the acceleration/proxy) — nothing local will fix it.
 - Note the API also rate-limits: 300 requests per minute, plenty for releases.
+
+Both scripts honour a proxy, which is the fix when only a tunnel works:
+
+```powershell
+$env:MODRINTH_PROXY = "http://127.0.0.1:31181"   # your accelerator's local proxy port
+```
+
+For the Gradle/Minotaur path, uncomment the `systemProp.*.proxyHost/Port` block in
+`gradle.properties` with the same port instead.
 
 ### M.3 Option B — upload by hand (no token, no Gradle)
 
