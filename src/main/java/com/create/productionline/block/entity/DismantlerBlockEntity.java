@@ -46,11 +46,19 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
      *
      * <p>Guards (all must pass before anything is consumed or produced): slot 1
      * must hold a genuine Line Scheme item, the scheme must be non-empty, slot 0
-     * must hold exactly the item the scheme produces, and no refundable input may
-     * be a {@code #tag} reference (it cannot be materialized into a concrete
-     * item — 宁可拒绝,不可吞物).
+     * must hold exactly the item the scheme produces, no refundable input may be
+     * a {@code #tag} reference (it cannot be materialized into a concrete
+     * item — 宁可拒绝,不可吞物), and slot 0 must hold at least as many items as
+     * the recipe yields per craft.
      *
-     * @return {@code true} when exactly one slot-0 item was consumed and the
+     * <p><b>Batch requirement:</b> the refund is the inverse of the recipe, so a
+     * recipe that yields {@code count} items is only dismantled in batches of
+     * {@code count} — consuming fewer inputs than the recipe produces would let
+     * any {@code count > 1} recipe mint items (e.g. vanilla
+     * {@code minecraft:iron_ingot_from_iron_block} is 1 iron block to 9 iron
+     * ingots, so refunding a whole block for a single ingot would be a 9x dupe).
+     *
+     * @return {@code true} when {@code count} slot-0 items were consumed and the
      *         raw materials (plus the mirror) were produced; {@code false} when
      *         nothing was consumed and nothing was produced — the slots are left
      *         untouched and the call may safely be retried after fixing them.
@@ -106,11 +114,31 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
                 toRestore.add(in); // 自引用(原料==产物)不入退款
             }
         }
+
+        // 退款必须与配方的"产出数量"配平,否则任何 count>1 的配方都是刷物品漏洞:
+        // 例如原版 minecraft:iron_ingot_from_iron_block 是 1 铁块 -> 9 铁锭,
+        // 若拆 1 个铁锭就退 1 个铁块,等于每次净赚 8 个铁锭(块/锭/粒互换的原版配方
+        // 全是这个形状,Create 的多产出副产同理)。这里改成:一次性消耗 count 个产物,
+        // 才退还 1 份输入——正好是配方的逆运算。
+        int count = 1;
+        ResourceLocation rid = ResourceLocation.tryParse(recipeId);
+        if (rid != null) {
+            count = com.create.productionline.util.RecipeJsonReader.resultCount(
+                    serverLevel.getServer().getResourceManager(), rid);
+        }
+        if (count < 1) {
+            count = 1;
+        }
+        if (slotZero.getCount() < count) {
+            // 数量不足 -> 整单拒绝(不部分消费、不部分退还),玩家可再补足后重试
+            return false;
+        }
+
         BlockPos pos = getBlockPos();
-        // 顺序不可颠倒:先消费槽 0 一份,再退还原料,最后处理镜像——重复/并发调用
+        // 顺序不可颠倒:先消费槽 0 的 count 份,再退还原料,最后处理镜像——重复/并发调用
         // 绝不会多退一份原料(每次调用至多产出一套退还物 + 一面镜像)。
-        if (slotZero.getCount() > 1) {
-            slotZero.shrink(1);
+        if (slotZero.getCount() > count) {
+            slotZero.shrink(count);
             inventory.setChanged();
         } else {
             inventory.setItem(SLOT_ITEM, ItemStack.EMPTY);

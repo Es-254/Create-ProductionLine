@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-09-13
+
+### Fixed
+
+- **Dismantler item duplication.** The refund ignored how many items a recipe yields per craft:
+  it consumed a single output item and refunded one of every input. Any recipe with a yield
+  greater than 1 therefore minted items — vanilla `minecraft:iron_ingot_from_iron_block`
+  (1 iron block → **9** iron ingots) turned a single iron ingot into a whole block, a 9× gain
+  per operation, repeatable forever. Every block ↔ ingot/nugget pair in vanilla has this shape,
+  as do modded multi-output recipes. The dismantler now requires — and consumes — a full batch of
+  `count` items, where `count` is the recipe's own yield, making the refund the exact inverse of
+  the recipe. Holding fewer items than the batch size is refused outright (nothing consumed,
+  nothing produced), and the in-game hint says so.
+
 ## [1.0.0] — 2026-09-13
 
 First public release. Requires **Minecraft 1.21.1**, **NeoForge 21.1.249+** and **Create 6.0.10+**.

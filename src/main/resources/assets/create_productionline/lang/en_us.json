@@ -5,7 +5,7 @@
   "block.create_productionline.dismantler": "Dismantler",
   "container.create_productionline.dismantler": "Dismantler",
   "gui.create_productionline.dismantle": "Dismantle",
-  "dismantler.create_productionline.hint": "Left = intermediate/finished, Right = Line Scheme; press [Dismantle] to restore materials and make a mirror",
+  "dismantler.create_productionline.hint": "Left = intermediate/finished, Right = Line Scheme; press [Dismantle] to restore materials and make a mirror (a recipe yielding N per craft needs N items inserted together)",
   "item.create_productionline.generic_intermediate": "Generic Intermediate",
   "item.create_productionline.generic_intermediate.desc": "A blob of intermediate product — before the final step, nobody knows what it is.",
   "item.create_productionline.line_scheme_mirror": "Line Scheme Mirror",

@@ -5,7 +5,7 @@
   "block.create_productionline.dismantler": "破拆机",
   "container.create_productionline.dismantler": "破拆机",
   "gui.create_productionline.dismantle": "拆解",
-  "dismantler.create_productionline.hint": "左格=中间产物/成品，右格=产线方案；点【拆解】还原原料并生成镜像",
+  "dismantler.create_productionline.hint": "左格=中间产物/成品，右格=产线方案；点【拆解】还原原料并生成镜像（配方一次产出 N 个时，需放入 N 个一起拆解）",
   "item.create_productionline.generic_intermediate": "通用中间产物",
   "item.create_productionline.generic_intermediate.desc": "一坨中间产物——在最后加工前，没人知道它到底是什么。",
   "item.create_productionline.line_scheme_mirror": "产线方案镜像",
