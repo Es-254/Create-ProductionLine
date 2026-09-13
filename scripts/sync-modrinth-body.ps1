@@ -1,8 +1,8 @@
 # Pushes docs/platform-listing.md to Modrinth as the project description ("body"),
 # and sets the client/server side flags.
 #
-# Same reason as publish-modrinth.ps1: Minotaur's `modrinthSyncBody` has no retry and
-# fails hard on flaky international routes.
+# Uses curl.exe (Schannel) rather than .NET's HTTP stack -- see the transport note
+# in publish-modrinth.ps1.
 #
 # Usage:
 #   $env:MODRINTH_TOKEN = "mrp_..."
@@ -12,13 +12,16 @@
 param(
     [string] $ProjectRoot = (Split-Path -Parent $PSScriptRoot),
     [int]    $Attempts = 6,
-    [int]    $TimeoutSeconds = 180
+    [int]    $TimeoutSeconds = 120
 )
 
 $ErrorActionPreference = 'Stop'
 
 $token = $env:MODRINTH_TOKEN
 if (-not $token) { throw "Set the MODRINTH_TOKEN environment variable first." }
+
+$curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
+if (-not $curl) { $curl = 'curl.exe' }
 
 $projectId = (Select-String -Path (Join-Path $ProjectRoot 'gradle.properties') `
     -Pattern '^modrinth_project_id=(.*)$' | Select-Object -First 1).Matches[0].Groups[1].Value.Trim()
@@ -30,35 +33,29 @@ $body = [IO.File]::ReadAllText($bodyFile, [Text.Encoding]::UTF8)
 
 $payload = @{ body = $body; client_side = 'required'; server_side = 'required' } |
     ConvertTo-Json -Depth 5 -Compress
-$bytes = [Text.Encoding]::UTF8.GetBytes($payload)
+$payloadFile = Join-Path $env:TEMP 'cpl-body-payload.json'
+[IO.File]::WriteAllText($payloadFile, $payload, (New-Object Text.UTF8Encoding $false))
 
-Write-Host "Pushing $($body.Length) chars from docs/platform-listing.md to project $projectId"
-
-$headers = @{ Authorization = $token; 'User-Agent' = 'cpl-release/1.0' }
-
-# Optional proxy — see publish-modrinth.ps1.
 $proxyUrl = if ($env:MODRINTH_PROXY) { $env:MODRINTH_PROXY } else { $env:HTTPS_PROXY }
-if ($proxyUrl) { Write-Host "Using proxy $proxyUrl" }
+$curlCommon = @('--silent', '--show-error', '--max-time', $TimeoutSeconds)
+if ($proxyUrl) { $curlCommon += @('--proxy', $proxyUrl); Write-Host "Using proxy $proxyUrl" }
+
+Write-Host "Pushing $($body.Length) chars from docs/platform-listing.md to project $projectId ($((Get-Item $payloadFile).Length) B payload)"
 
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-    try {
-        Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
-        $patchArgs = @{ Method = 'Patch'
-                        Uri = "https://api.modrinth.com/v2/project/$projectId"
-                        Headers = $headers
-                        ContentType = 'application/json; charset=utf-8'
-                        Body = $bytes
-                        TimeoutSec = $TimeoutSeconds
-                        UseBasicParsing = $true }
-        if ($proxyUrl) { $patchArgs.Proxy = $proxyUrl }
-        $r = Invoke-WebRequest @patchArgs
-        Write-Host " HTTP $([int]$r.StatusCode)"
+    Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
+    $resp = Join-Path $env:TEMP "cpl-body-resp-$attempt.txt"
+    $code = & $curl @curlCommon -X PATCH `
+        -H "Authorization: $token" -H 'User-Agent: cpl-release/1.0' `
+        -H 'Content-Type: application/json; charset=utf-8' `
+        --data-binary "@$payloadFile" -o $resp -w '%{http_code}' `
+        "https://api.modrinth.com/v2/project/$projectId" 2>&1
 
-        $getArgs = @{ Uri = "https://api.modrinth.com/v2/project/$projectId"
-                      Headers = $headers
-                      TimeoutSec = $TimeoutSeconds }
-        if ($proxyUrl) { $getArgs.Proxy = $proxyUrl }
-        $p = Invoke-RestMethod @getArgs
+    Write-Host " HTTP $code"
+
+    if ($code -eq '204' -or $code -eq '200') {
+        $p = & $curl @curlCommon -H "Authorization: $token" -H 'User-Agent: cpl-release/1.0' `
+             "https://api.modrinth.com/v2/project/$projectId" 2>$null | ConvertFrom-Json
         Write-Host "`nNow live:" -ForegroundColor Green
         Write-Host "  status        $($p.status)"
         Write-Host "  body          $($p.body.Length) chars"
@@ -67,11 +64,13 @@ for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Write-Host "  game versions $($p.game_versions -join ',')"
         exit 0
     }
-    catch {
-        $e = $_.Exception
-        while ($e) { Write-Host "    $($e.GetType().Name): $($e.Message)"; $e = $e.InnerException }
-        if ($attempt -lt $Attempts) { Start-Sleep -Seconds 5 }
+
+    if (Test-Path $resp) {
+        $t = Get-Content $resp -Raw -Encoding UTF8
+        if ($t) { Write-Host "    $t" }
     }
+    if ($code -match '^4\d\d$') { exit 1 }
+    if ($attempt -lt $Attempts) { Start-Sleep -Seconds 4 }
 }
 
 Write-Host "Gave up after $Attempts attempts." -ForegroundColor Red

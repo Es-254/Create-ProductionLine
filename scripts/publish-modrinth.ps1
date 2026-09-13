@@ -1,16 +1,19 @@
 # Publishes the built jar to Modrinth via the REST API.
 #
-# Why this exists next to Minotaur (`gradlew -PpublishMods modrinth`):
-# on networks where international routes are flaky (e.g. behind Watt Toolkit),
-# Minotaur's upload dies with "Connect timed out" and gives no retry. This script
-# does the same upload with a long timeout and a retry loop, and reports the real
-# API error body instead of a wrapped exception.
+# TRANSPORT NOTE: this uses curl.exe (Schannel), NOT .NET/PowerShell's own HTTP
+# stack. Measurements on the dev machine showed .NET's TLS handshake to
+# api.modrinth.com hanging until timeout (TCP connects fine) while curl.exe
+# completed the same request in under a second -- i.e. the interference is at the
+# TLS/SNI layer and is fingerprint-sensitive. curl.exe ships with Windows 10+.
 #
 # Usage:
 #   $env:MODRINTH_TOKEN = "mrp_..."
-#   .\scripts\publish-modrinth.ps1                 # publishes mod_version from gradle.properties
-#   .\scripts\publish-modrinth.ps1 -ReleaseType beta -Name "v1.0.1-beta"
+#   .\scripts\publish-modrinth.ps1                       # mod_version from gradle.properties
+#   .\scripts\publish-modrinth.ps1 -ReleaseType beta
 #   .\scripts\publish-modrinth.ps1 -Attempts 10
+#
+# Optional proxy (a real tunnel is the only cure when even curl fails):
+#   $env:MODRINTH_PROXY = "http://127.0.0.1:31181"
 
 [CmdletBinding()]
 param(
@@ -24,15 +27,21 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Read-Property([string] $file, [string] $key) {
-    $line = Select-String -Path $file -Pattern "^$([regex]::Escape($key))=(.*)$" |
-            Select-Object -First 1
+    $line = Select-String -Path $file -Pattern "^$([regex]::Escape($key))=(.*)$" | Select-Object -First 1
     if (-not $line) { return '' }
     return $line.Matches[0].Groups[1].Value.Trim()
+}
+
+function Write-Utf8NoBom([string] $path, [string] $text) {
+    [IO.File]::WriteAllText($path, $text, (New-Object Text.UTF8Encoding $false))
 }
 
 # --- inputs ------------------------------------------------------------------
 $token = $env:MODRINTH_TOKEN
 if (-not $token) { throw "Set the MODRINTH_TOKEN environment variable first." }
+
+$curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
+if (-not $curl) { $curl = 'curl.exe' }
 
 $propsFile = Join-Path $ProjectRoot 'gradle.properties'
 $projectId = Read-Property $propsFile 'modrinth_project_id'
@@ -42,7 +51,11 @@ if (-not $version)   { throw "mod_version is empty in $propsFile" }
 if (-not $Name)      { $Name = "v$version" }
 
 $jar = Join-Path $ProjectRoot "build/libs/create_productionline-$version.jar"
-if (-not (Test-Path $jar)) { throw "Jar not found: $jar — run 'gradlew build' first." }
+if (-not (Test-Path $jar)) { throw "Jar not found: $jar - run 'gradlew build' first." }
+
+$proxyUrl = if ($env:MODRINTH_PROXY) { $env:MODRINTH_PROXY } else { $env:HTTPS_PROXY }
+$curlCommon = @('--silent', '--show-error', '--max-time', $TimeoutSeconds)
+if ($proxyUrl) { $curlCommon += @('--proxy', $proxyUrl); Write-Host "Using proxy $proxyUrl" }
 
 # --- changelog: the section for this version ---------------------------------
 $changelog = "Release $version"
@@ -53,30 +66,15 @@ if (Test-Path $clFile) {
     if ($start) {
         $rest = $lines[$start..($lines.Count - 1)]
         $endRel = ($rest | Select-String -Pattern '^## \[|^\[[0-9]+\.[0-9]+\.[0-9]+\]:' | Select-Object -Skip 1 -First 1).LineNumber
-        $changelog = if ($endRel) { ($rest[0..($endRel - 2)] -join "`n").Trim() }
-                     else { ($rest -join "`n").Trim() }
+        $changelog = if ($endRel) { ($rest[0..($endRel - 2)] -join "`n").Trim() } else { ($rest -join "`n").Trim() }
     }
 }
 
-# --- optional proxy ----------------------------------------------------------
-# On networks where Modrinth's TLS is intermittently blackholed, point this at the
-# local proxy of your accelerator (e.g. Watt Toolkit's system-proxy mode):
-#   $env:MODRINTH_PROXY = "http://127.0.0.1:31181"
-# Standard HTTPS_PROXY is honoured as a fallback.
-$proxyUrl = if ($env:MODRINTH_PROXY) { $env:MODRINTH_PROXY } else { $env:HTTPS_PROXY }
-if ($proxyUrl) { Write-Host "Using proxy $proxyUrl" }
-
-# --- Create dependency (optional, resolved live with a known-good fallback) --
+# --- Create dependency (resolved live, with a known-good fallback) -----------
 $createId = 'LNytGWDc'
-try {
-    $reqArgs = @{ Uri = 'https://api.modrinth.com/v2/project/create'
-                  Headers = @{ 'User-Agent' = 'cpl-release/1.0' }
-                  TimeoutSec = 30 }
-    if ($proxyUrl) { $reqArgs.Proxy = $proxyUrl }
-    $resolved = Invoke-RestMethod @reqArgs
-    if ($resolved.id) { $createId = $resolved.id }
-} catch {
-    Write-Host "  (could not resolve the Create project id, using $createId)" -ForegroundColor DarkGray
+$probe = & $curl @curlCommon -H 'User-Agent: cpl-release/1.0' 'https://api.modrinth.com/v2/project/create' 2>$null
+if ($probe) {
+    try { $createId = ($probe | ConvertFrom-Json).id } catch { }
 }
 
 $payload = @{
@@ -94,61 +92,46 @@ $payload = @{
     primary_file   = 'file'
 } | ConvertTo-Json -Depth 10 -Compress
 
+$payloadFile = Join-Path $env:TEMP 'cpl-version-data.json'
+Write-Utf8NoBom $payloadFile $payload
+
 Write-Host "Publishing $([IO.Path]::GetFileName($jar)) ($((Get-Item $jar).Length) B) as $Name -> project $projectId"
 
-Add-Type -AssemblyName System.Net.Http
-
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-    $handler = [System.Net.Http.HttpClientHandler]::new()
-    if ($proxyUrl) {
-        $handler.Proxy = [System.Net.WebProxy]::new($proxyUrl)
-        $handler.UseProxy = $true
+    Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+    $bodyFile = Join-Path $env:TEMP "cpl-version-resp-$attempt.json"
+    $code = & $curl @curlCommon -X POST `
+        -H "Authorization: $token" -H 'User-Agent: cpl-release/1.0 (modrinth publish)' `
+        -F "data=@$payloadFile;type=application/json" `
+        -F "file=@$jar;type=application/java-archive" `
+        -o $bodyFile -w '%{http_code}' `
+        'https://api.modrinth.com/v2/version' 2>&1
+
+    Write-Host " HTTP $code in $([int]$sw.Elapsed.TotalSeconds)s"
+    $text = if (Test-Path $bodyFile) { Get-Content $bodyFile -Raw -Encoding UTF8 } else { '' }
+
+    if ($code -eq '200' -or $code -eq '201') {
+        $published = $text | ConvertFrom-Json
+        Write-Host "`nPublished:" -ForegroundColor Green
+        Write-Host "  id             $($published.id)"
+        Write-Host "  version        $($published.version_number) ($($published.version_type), $($published.status))"
+        Write-Host "  loaders        $($published.loaders -join ',')"
+        Write-Host "  game versions  $($published.game_versions -join ',')"
+        Write-Host "  file           $($published.files[0].filename)  $($published.files[0].size) B"
+        Write-Host "  url            $($published.files[0].url)"
+        exit 0
     }
-    $client = [System.Net.Http.HttpClient]::new($handler)
-    $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
-    $client.DefaultRequestHeaders.Add('Authorization', $token)
-    $client.DefaultRequestHeaders.Add('User-Agent', 'cpl-release/1.0 (modrinth publish)')
 
-    $content = [System.Net.Http.MultipartFormDataContent]::new()
-    $content.Add([System.Net.Http.StringContent]::new($payload, [System.Text.Encoding]::UTF8, 'application/json'), 'data')
-    $stream = [IO.File]::OpenRead($jar)
-    $fileContent = [System.Net.Http.StreamContent]::new($stream)
-    $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('application/java-archive')
-    $content.Add($fileContent, 'file', [IO.Path]::GetFileName($jar))
-
-    try {
-        Write-Host "  attempt $attempt/$Attempts ..." -NoNewline
-        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        $response = $client.PostAsync('https://api.modrinth.com/v2/version', $content).GetAwaiter().GetResult()
-        $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-        Write-Host " HTTP $([int]$response.StatusCode) in $([int]$sw.Elapsed.TotalSeconds)s"
-
-        if ([int]$response.StatusCode -lt 300) {
-            $published = $body | ConvertFrom-Json
-            Write-Host "`nPublished:" -ForegroundColor Green
-            Write-Host "  id             $($published.id)"
-            Write-Host "  version        $($published.version_number) ($($published.version_type), $($published.status))"
-            Write-Host "  loaders        $($published.loaders -join ',')"
-            Write-Host "  game versions  $($published.game_versions -join ',')"
-            Write-Host "  file           $($published.files[0].filename)  $($published.files[0].size) B"
-            Write-Host "  url            $($published.files[0].url)"
-            exit 0
-        }
-
-        # A real API error (bad input, duplicate version, ...) — retrying will not help.
-        Write-Host "  API rejected the request: $body" -ForegroundColor Red
+    if ($code -match '^4\d\d$') {
+        Write-Host "  API rejected the request (retrying will not help):" -ForegroundColor Red
+        Write-Host "  $text"
         exit 1
     }
-    catch {
-        $e = $_.Exception
-        while ($e) { Write-Host "    $($e.GetType().Name): $($e.Message)"; $e = $e.InnerException }
-        if ($attempt -lt $Attempts) { Start-Sleep -Seconds 5 }
-    }
-    finally {
-        $stream.Dispose()
-        $client.Dispose()
-    }
+
+    if ($attempt -lt $Attempts) { Start-Sleep -Seconds 4 }
 }
 
-Write-Host "Gave up after $Attempts attempts. International connectivity looks down — retry when it recovers." -ForegroundColor Red
+Write-Host "Gave up after $Attempts attempts. Connectivity looks down - retry later." -ForegroundColor Red
 exit 1
