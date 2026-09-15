@@ -194,7 +194,7 @@ git init
 git add .
 git commit -m "Create: Production Line 1.0.0"
 git branch -M main
-git remote add origin https://github.com/<YOUR-GITHUB>/create_production_line.git
+git remote add origin https://github.com/Es-254/Create-ProductionLine.git
 git push -u origin main
 ```
 
@@ -250,7 +250,7 @@ Only relevant once GitHub is reachable; the git repository is already initialise
 git add -A
 git commit -m "Release v<version>"
 git tag -a v<version> -m "Create: Production Line <version>"
-git remote add origin https://github.com/<YOUR-GITHUB>/create_production_line.git
+git remote add origin https://github.com/Es-254/Create-ProductionLine.git
 git push origin main --tags
 ```
 
@@ -304,7 +304,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
 
 ## 5. Release checklist
 
-- [ ] Placeholders replaced (`<YOUR NAME OR HANDLE>`, `<YOUR-GITHUB>`) — nothing left in the repo
+- [x] Machine-specific settings and internal docs removed; no placeholders left in the repo
 - [ ] `mod_version` bumped; `CHANGELOG.md` section written and dated
 - [ ] `gradlew build` succeeds
 - [ ] `runServer -PselfTest` → **6 passed, 0 failed**
@@ -320,9 +320,9 @@ If you would rather not hand tokens to Gradle, upload by hand:
 
 ## Notes
 
-- **Never** point the repository at the enclosing workspace folder: it contains
-  `参考文献/create解包/` (decompiled Create), `nettest/` (local proxy tooling and certificates) and
-  `_archive_logs/`. See `docs/开发文档.md` for the layout.
+- **Never** point the repository at the enclosing workspace folder: it also holds
+  decompiled third-party code, local network tooling and certificates, and archived
+  logs — none of which belong in a public repository.
 - Create's assets are all rights reserved. This mod only references them at runtime; never copy
   Create textures or models into `src/main/resources`.
 - The `qa/SelfTest` class **is** shipped on purpose — server admins can run the same self-test.

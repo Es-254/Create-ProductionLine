@@ -13,9 +13,9 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 | Mod ID / 包名 | `create_productionline` / `com.create.productionline` |
 | Platform / 平台 | NeoForge (FML 1.x) / MC `[1.21.1]` / JDK 21 |
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
-| Artifact / 产物 | `create_productionline/build/libs/create_productionline-1.0.0.jar` (**175,334 B ≈ 171 KiB**, built 2026-09-13 14:37) |
+| Artifact / 产物 | `build/libs/create_productionline-1.0.2.jar` (**176,195 B ≈ 172 KiB**, built 2026-09-13) — or download it from [Modrinth](https://modrinth.com/project/createproductionline) / the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page |
 | Source size / 工程规模 | `src/main/java` **46 Java files / 4,907 lines** (2026-09-13) |
-| Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `docs/开发文档.md` (**architecture evolution / verification / open issues** 架构演进·验证记录·遗留问题); `docs/需求规格说明书.docx` (legacy SRS, traceability only 旧架构仅作溯源); `CHANGELOG.md`; `RELEASING.md`. Icon / 图标: `create_productionline.ico` (16–256, source `贴图/ico.png`), platform icon `icon_512x512.png` |
+| Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
 
 ---
 
@@ -106,9 +106,9 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 gradlew build -x neoFormJoined1.21.1-20240808.144430DownloadAssets   # skip asset download offline / 离线跳过资产下载
 ```
 
-**EN** — **2026-09-13 re-check**: `gradlew compileJava --offline` → `BUILD SUCCESSFUL` (`compileJava UP-TO-DATE`; sources unchanged since the 09-07 23:14 build, so jar and sources are the same revision). Since 2026-09-06 this machine has direct internet, the proxy lines in `gradle.properties` are commented out; if blocked again, start the `nettest/` proxy or use the "remote Thunder/curl → shared disk (I:)" channel (`nettest/thunder_probe.py`). Install: copy the jar into `.../mods/` (both the dev instance and `1.21.1-{Neoforge}` are already synced).
+**EN** — Requires **JDK 21**. `gradlew compileJava --offline` is enough to confirm the sources compile; `gradlew build` produces `build/libs/create_productionline-<version>.jar`. Install by dropping that jar into your instance's `mods/` folder. If your network cannot reach a repository, set a proxy in your **user-level** `~/.gradle/gradle.properties` rather than in this repo (see the commented example there).
 
-**中文** — **2026-09-13 复核**：`gradlew compileJava --offline` → `BUILD SUCCESSFUL`（`compileJava UP-TO-DATE`，源码自 09-07 23:14 构建后未再改动，故 jar 与源码同版本）。2026-09-06 起本机可直连外网，`gradle.properties` 代理行已注释；再遇封锁可启用 `nettest/` 代理或走"远端迅雷/curl → 共享盘(I:)取回"通道（`nettest/thunder_probe.py`）。安装：jar 覆盖到 `.../mods/`（开发实例与 `1.21.1-{Neoforge}` 实机均已同步）。
+**中文** — 需要 **JDK 21**。只想确认能编译，`gradlew compileJava --offline` 即可；`gradlew build` 产出 `build/libs/create_productionline-<版本>.jar`。安装就是把 jar 放进实例的 `mods/` 目录。若你的网络访问不了仓库，请把代理写在**用户级** `~/.gradle/gradle.properties` 里，不要写进本仓库（本仓库 `gradle.properties` 有注释示例）。
 
 ## Source layout (highlights) / 源码布局（要点）
 
@@ -155,8 +155,8 @@ com/create/productionline/
 - **镜像纯文本化**：`LineSchemeMirrorItem`（`item/LineSchemeMirrorItem.java:29,42`）只写 `LineSchemeMirror` 展示快照（OutputItem/BaseMaterial/Steps 文本），结构上不携带可执行 `LineScheme` 与内嵌配方，`ClipboardCompat.isCarrier` 对其直接返回 `false`（:64）——无法被激活或复喂。
 - 产线计算机本身服务端生成（校验天然存在），与加载柜同源同算法。
 
-> **EN** — The same "server is the only authority" rule now covers the compute entry point too (see `docs/开发文档.md` §6.2 **M1**): the payload carries the real `recipeId`, and the server re-resolves it against its live `RecipeManager`, accepting it **only** when that recipe really produces the item sitting in the target slot. A client hint that cannot be verified yields a plan but **never** an installable recipe.
-> **中文** — 同一条"服务端为唯一权威"的规则现已覆盖计算入口（详见 `docs/开发文档.md` §6.2 **M1**）：计算包携带真 `recipeId`，服务端在实时 `RecipeManager` 上重新解析，**只有**当该配方确实产出目标槽内的物品时才采纳；无法验证的客户端数据只能生成方案，**绝不**产出可安装配方。
+> **EN** — The same "server is the only authority" rule covers the compute entry point as well: the payload carries the real `recipeId`, and the server re-resolves it against its live `RecipeManager`, accepting it **only** when that recipe really produces the item sitting in the target slot. A client hint that cannot be verified yields no plan at all.
+> **中文** — 同一条"服务端为唯一权威"的规则同样覆盖计算入口：计算包携带真 `recipeId`，服务端在实时 `RecipeManager` 上重新解析，**只有**当该配方确实产出目标槽内的物品时才采纳；无法验证的客户端数据不会写出任何方案。
 
 ## Known limits / 已知边界
 
@@ -167,7 +167,7 @@ com/create/productionline/
 - Multi-level intermediates are not recursed into a single scheme by default: compute each stage, activate them together as a union in the 16-slot loader for an end-to-end line.
 - The dismantler refuses items with `#tag` inputs or recipes it cannot resolve server-side (refuse rather than swallow).
 - Create `assets/` is All Rights Reserved: this mod only "runtime-references" its GUI/textures and never bundles copies.
-- Icon sources live in `贴图/` (since 2026-09-07 the redrawn Generic Intermediate / Mirror 16×16 and the 512×512 `ico.png`); wired into `src/main/resources/assets/create_productionline/textures/item/` and `src/main/resources/create_productionline_icon.png`; Windows icon: `create_productionline/create_productionline.ico`.
+- Every texture and icon in this project is original artwork drawn by the author; the mod bundles no third-party assets.
 
 **中文**
 
@@ -176,7 +176,7 @@ com/create/productionline/
 - 多级中间物默认不递归进单份方案：分多方案经 16 格柜并集激活组成端到端线。
 - 破拆机不支持含 `#tag` 输入/无法服务端解析的产物（宁拒不吞）。
 - Create `assets/` 为 All Rights Reserved：本 mod 只"运行时引用"其 GUI/贴图，不打包复制。
-- 图标源文件位于 `贴图/`（2026-09-07 起含重绘的 通用中间产物/镜像 16×16 与 512×512 `ico.png`），已接入 `src/main/resources/assets/create_productionline/textures/item/` 与 `src/main/resources/create_productionline_icon.png`；Windows 图标见 `create_productionline/create_productionline.ico`。
+- 本项目的全部贴图与图标均为作者原创手绘；模组不打包任何第三方素材。
 
 ## Headless self-test (QA) / 无头自检（QA）
 
