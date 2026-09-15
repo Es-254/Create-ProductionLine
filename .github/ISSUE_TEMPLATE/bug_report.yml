@@ -1,0 +1,89 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please fill in every required field — a report with the
+        versions and the log attached can usually be diagnosed immediately.
+
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      description: The jar file name you installed.
+      placeholder: create_productionline-x.y.z.jar
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Minecraft / NeoForge / Create versions
+      placeholder: 1.21.1 / 21.1.249 / 6.0.10
+    validations:
+      required: true
+
+  - type: dropdown
+    id: side
+    attributes:
+      label: Where does it happen?
+      options:
+        - Singleplayer
+        - Multiplayer — dedicated server (I am the operator)
+        - Multiplayer — someone else's server
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Place a Production Computer
+        2. Put X in the left slot and paper in the middle slot
+        3. Press [Compute]
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Drag in `logs/latest.log`, plus `crash-reports/…` if the game crashed.
+        Developers: `gradlew runServer -PselfTest` runs the headless QA self-test (7 checks).
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: modlist
+    attributes:
+      label: Other mods / modpack
+      description: Especially other Create addons — recipe conversion depends on what is installed.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am running the latest release of this mod
+          required: true
+        - label: I searched the existing issues for the same problem
+          required: true
+        - label: This is not a bug in Create or another mod (those go to their own trackers)
+          required: false

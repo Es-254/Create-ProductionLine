@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Download the mod / release notes
+    url: https://modrinth.com/project/createproductionline
+    about: Released builds, changelogs and the project page live on Modrinth.
+  - name: Known limits and how the mod works
+    url: https://github.com/Es-254/Create-ProductionLine/blob/main/README.md
+    about: Please skim the README's "Known limits" section before filing — some behaviour is intentional.

@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an idea or an improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you ran into, not just the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Including any workaround you are using today.
+    validations:
+      required: false
+
+  - type: input
+    id: mods
+    attributes:
+      label: Relevant mods / items / recipes
+      description: e.g. the item and the mod it comes from, if this is about a specific conversion.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        Note: the mod converts a *single layer* of a recipe into a Create line by design
+        (no upstream recursion), and it deliberately reports "cannot map" instead of
+        inventing a plan — see the README's known limits before filing.
