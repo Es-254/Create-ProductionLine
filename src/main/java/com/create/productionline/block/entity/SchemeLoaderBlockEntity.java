@@ -37,6 +37,18 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     private final ModContainer inventory = new ModContainer(this, SLOT_COUNT, this::onSlotChanged);
     private boolean active = false;
     private boolean pendingReconcile = true;
+    /**
+     * Key (dimension + position) this cabinet's contribution is currently
+     * registered under, or {@code null} when nothing is registered.
+     *
+     * <p>Persisted in NBT ({@code "RegisteredKey"}) on purpose: the BE is destroyed
+     * and re-created whenever the block is moved by a Create contraption, so an
+     * in-memory-only key would reset to {@code null} on the destination block and
+     * the contribution left at the OLD coordinates could never be identified again.
+     * Reading it back after restart/BE re-creation is what lets {@link #reconcile()}
+     * drop the stale contribution under the old key.
+     */
+    private String registeredKey = null;
 
     public SchemeLoaderBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.SCHEME_LOADER.get(), pos, state);
@@ -64,9 +76,20 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
+        String key = loaderKey();
+        if (registeredKey != null && !registeredKey.equals(key)) {
+            // The cabinet's contribution is registered under DIFFERENT coordinates
+            // than it now occupies — it was relocated (Create contraption move,
+            // /clone, …) or restored from NBT at a new place. Without this, the
+            // contribution registered under the OLD coordinates would stay in the
+            // union forever: a cabinet that no longer exists keeping recipes active.
+            // The old key survives restarts because it is persisted (see below).
+            CreateRecipePack.dropContribution(serverLevel.getServer(), registeredKey);
+        }
         java.util.Map<String, String> own = currentEntriesMap();
-        int activeCount = CreateRecipePack.reconcileContributions(serverLevel.getServer(), loaderKey(),
+        int activeCount = CreateRecipePack.reconcileContributions(serverLevel.getServer(), key,
                 own.isEmpty() ? null : own);
+        registeredKey = key;
         active = !own.isEmpty() && activeCount > 0;
         syncState();
     }
@@ -83,8 +106,49 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     public void onRemoved() {
         if (level instanceof ServerLevel serverLevel) {
             CreateRecipePack.reconcileContributions(serverLevel.getServer(), loaderKey(), null);
+            registeredKey = null;
             active = false;
         }
+    }
+
+    /**
+     * Defensive hook for a piston move: drops the contribution registered under the
+     * OLD coordinates so it is re-registered at the new position.
+     *
+     * <p><b>Vanilla pistons cannot push this cabinet at all:</b>
+     * {@code PistonBaseBlock.isPushable(…)} ends in {@code !state.hasBlockEntity()},
+     * and Create's contraption movers remove the block entity before moving the
+     * block. So this method is pure defence — the real guarantees are the
+     * <b>persisted</b> {@code registeredKey} (so the next {@link #reconcile()} at the
+     * destination still knows the old key) plus
+     * {@code CreateRecipePack.sweepOrphanContributions} on server start.
+     *
+     * <p>The contents are never dropped — they travel with the block (dropping them
+     * would duplicate schemes).
+     */
+    public void onMovedByPiston() {
+        if (level instanceof ServerLevel serverLevel && registeredKey != null) {
+            // Rebuild right away (not just delete the file): the union written to the
+            // datapack must stop serving this cabinet's recipes at once, instead of
+            // waiting for the next unrelated reconcile.
+            CreateRecipePack.reconcileContributions(serverLevel.getServer(), registeredKey, null);
+        }
+        registeredKey = null;
+        active = false;
+        pendingReconcile = true; // re-register under the new coordinates on the next tick
+        setChanged();
+    }
+
+    /**
+     * Requests a re-registration on the next tick. Called on block placement, which
+     * also covers a block entity re-created at the destination of a Create
+     * contraption move (vanilla pistons never push a BE-holding block), so a
+     * relocated cabinet always re-reads its slots and registers under its current
+     * key — while the persisted old key triggers the stale-contribution drop.
+     */
+    public void markRelocated() {
+        pendingReconcile = true;
+        setChanged();
     }
 
     /**
@@ -177,6 +241,9 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
         }
         tag.put("Items", items);
         tag.putBoolean("Active", active);
+        // Persisted so a relocated cabinet can still identify (and drop) the
+        // contribution it left behind at its previous coordinates.
+        tag.putString("RegisteredKey", registeredKey == null ? "" : registeredKey);
     }
 
     @Override
@@ -191,6 +258,15 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
             inventory.loadFrom(list);
         }
         active = tag.getBoolean("Active");
+        if (tag.contains("RegisteredKey", Tag.TAG_STRING)) {
+            String storedKey = tag.getString("RegisteredKey");
+            if (!storedKey.isBlank()) {
+                // Restores the relocate detection across restart / BE re-creation:
+                // reconcile() compares this against the current position and drops
+                // the contribution registered under the old one.
+                registeredKey = storedKey;
+            }
+        }
         pendingReconcile = true; // re-install after restart while schemes are still inside
     }
 }

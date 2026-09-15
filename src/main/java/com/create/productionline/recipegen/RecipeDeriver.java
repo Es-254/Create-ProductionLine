@@ -49,11 +49,18 @@ public final class RecipeDeriver {
         if (level == null || source == null || source.outputs().isEmpty()) {
             return new Derived(source == null ? List.of() : source.uniqueInputs(), 1, List.of());
         }
-        int count = 1;
+        // B7: the LIVE recipe decides the yield, the JSON is only a fallback. A mod
+        // may produce more at runtime than its datapack JSON claims (source
+        // .outputCount() is getResultItem().getCount() of the live recipe), so the
+        // larger of the two wins; RecipeJsonReader.resultCount already returns 1
+        // when the file is missing or carries no count, and the outer Math.max(1, …)
+        // keeps a count-less recipe at "one craft yields one".
+        int count = Math.max(1, source.outputCount());
         List<String> ordered = source.uniqueInputs();
         ResourceLocation rid = ResourceLocation.tryParse(source.recipeId());
         if (rid != null) {
-            count = RecipeJsonReader.resultCount(level.getServer().getResourceManager(), rid);
+            int jsonCount = RecipeJsonReader.resultCount(level.getServer().getResourceManager(), rid);
+            count = Math.max(1, Math.max(source.outputCount(), jsonCount));
             List<String> o = RecipeJsonReader.shapedMaterialOrder(
                     level.getServer().getResourceManager(), rid, source.uniqueInputs());
             if (!o.isEmpty()) {
@@ -71,9 +78,15 @@ public final class RecipeDeriver {
             return out;
         }
         String output = source.outputs().get(0);
+        // ONE normalized material list for every derived payload: an empty/absent
+        // order falls back to the descriptor's own unique inputs, and both the flat
+        // and the assembly payloads read from the same list (tag fidelity included).
+        java.util.List<String> materials = (orderedInputs == null || orderedInputs.isEmpty())
+                ? source.uniqueInputs()
+                : orderedInputs;
         LineScheme.CreateRecipeEntry entry = CreateRecipePack.flatEntry(
-                Mappers.getDictionary(), source.categoryId(), source.uniqueInputs(), output, count);
-        if (entry == null && orderedInputs.size() > 1 && isConvertibleAssembly(source.categoryId())) {
+                Mappers.getDictionary(), source.categoryId(), materials, output, count);
+        if (entry == null && materials.size() > 1 && isConvertibleAssembly(source.categoryId())) {
             boolean mechanical = "mechanical".equalsIgnoreCase(Mappers.getAssemblyMode());
             if (mechanical) {
                 ResourceLocation rid = ResourceLocation.tryParse(source.recipeId());
@@ -90,7 +103,7 @@ public final class RecipeDeriver {
                 }
             }
             if (entry == null) {
-                entry = CreateRecipePack.sequenceEntry(orderedInputs, output, INTERMEDIATE_ID, count);
+                entry = CreateRecipePack.sequenceEntry(materials, output, INTERMEDIATE_ID, count);
             }
         }
         if (entry != null) {

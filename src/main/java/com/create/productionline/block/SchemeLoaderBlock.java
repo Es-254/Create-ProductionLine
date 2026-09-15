@@ -76,14 +76,37 @@ public class SchemeLoaderBlock extends Block implements EntityBlock {
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
-            if (!movedByPiston) {
-                if (level.getBlockEntity(pos) instanceof SchemeLoaderBlockEntity loader) {
+            if (level.getBlockEntity(pos) instanceof SchemeLoaderBlockEntity loader) {
+                if (movedByPiston) {
+                    // DEFENSIVE branch: vanilla pistons cannot move this block at all —
+                    // PistonBaseBlock.isPushable(…) ends in !state.hasBlockEntity() —
+                    // and Create's contraption movers remove the block entity first.
+                    // If a mover ever does report movedByPiston, only the OLD
+                    // contribution is dropped here (never the contents, which travel
+                    // with the block): leaving it behind would keep that cabinet's
+                    // recipes active with no cabinet in the world. The real cleanup
+                    // guarantee is the BE's persisted RegisteredKey plus
+                    // CreateRecipePack.sweepOrphanContributions on server start.
+                    loader.onMovedByPiston();
+                } else {
                     loader.onRemoved();
                     loader.dropContents(level, pos);
-                    level.updateNeighbourForOutputSignal(pos, this);
                 }
+                level.updateNeighbourForOutputSignal(pos, this);
             }
             super.onRemove(state, level, pos, newState, movedByPiston);
+        }
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof SchemeLoaderBlockEntity loader) {
+            // Covers the block entity being re-created at a new position (Create
+            // contraption move, /clone, world restore) as well as ordinary placement:
+            // make the cabinet re-register its contribution under its current
+            // position, so a relocated loader never loses its activation.
+            loader.markRelocated();
         }
     }
 }

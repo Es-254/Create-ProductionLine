@@ -1,72 +1,24 @@
 package com.create.productionline.line.mapper;
 
 import java.util.List;
-import java.util.Locale;
 
 import com.create.productionline.line.scheme.LineScheme;
 
 /**
- * Turns a {@link RecipeDescriptor} into an ordered {@link LineScheme} of Create
- * facilities (SRS 4.1).
+ * Renders a {@link LineScheme} as plain text build instructions (SRS 3.2), used
+ * for tooltips and the Create clipboard guide.
  *
- * <p>Mapping rules (heuristic, extensible through {@link MappingDictionary}):
- * <ul>
- *   <li>an assembly-like / multi-input recipe becomes one "deploy" step with
- *       {@code create:mechanical_arm}s (1 arm per distinct ingredient, capped);</li>
- *   <li>a machine process (e.g. {@code create:milling}) becomes an optional
- *       loading step plus the processing step at the mapped facility;</li>
- *   <li>an unmapped category yields {@link MappingResult#failure} — the computer
- *       shows the reason instead of generating a bogus plan (TC-01).</li>
- * </ul>
- *
- * <p>Note: JEI itself is client-side; the descriptors used here are normally built
- * from the server-side {@code RecipeManager}, which holds the same data recipes.
- * The JEI category name is used as the category id for compatibility.
+ * <p>This class no longer maps recipes. The former descriptor -&gt; scheme engine
+ * ({@code map(RecipeDescriptor)} returning a {@code MappingResult}) had no
+ * production caller left — the computer, the Scheme Loader and the Dismantler all
+ * go through {@link com.create.productionline.recipegen.RecipeDeriver}, which
+ * derives installable Create payloads server-side from the live
+ * {@code RecipeManager} (TC-01). Only {@link #renderBuildGuide} remains, and
+ * {@link com.create.productionline.compat.ClipboardCompat} is its sole caller.
  */
 public final class RecipeMapper {
 
-    private final MappingDictionary dictionary;
-
-    public RecipeMapper(MappingDictionary dictionary) {
-        this.dictionary = dictionary;
-    }
-
-    public MappingDictionary getDictionary() {
-        return dictionary;
-    }
-
-    /**
-     * Maps a descriptor to a scheme. Never returns {@code null}.
-     *
-     * <p>Each Create recipe type is performed by exactly one machine, so a
-     * mapped descriptor produces a single processing step at that facility with
-     * the recipe's inputs and output recorded. Unmapped categories yield
-     * {@link MappingResult#failure} (TC-01).
-     */
-    public MappingResult map(RecipeDescriptor descriptor) {
-        if (descriptor == null || descriptor.outputs().isEmpty()) {
-            return MappingResult.failure("recipe has no outputs");
-        }
-
-        String facility = dictionary.lookup(descriptor.categoryId());
-        if (facility == null) {
-            return MappingResult.failure(String.format(Locale.ROOT,
-                    "cannot map category '%s': no Create facility known (add it to config/%s)",
-                    descriptor.categoryId(), MappingDictionary.CONFIG_FILE));
-        }
-
-        LineScheme scheme = new LineScheme();
-        scheme.setRecipeId(descriptor.recipeId());
-        scheme.setOutputItem(descriptor.outputs().get(0));
-        List<String> inputs = descriptor.uniqueInputs();
-        LineScheme.Step step = scheme.addStep(facility, 1);
-        for (String input : inputs) {
-            step.addInput(input);
-        }
-        for (String output : descriptor.outputs()) {
-            step.addOutput(output);
-        }
-        return MappingResult.success(scheme);
+    private RecipeMapper() {
     }
 
     /**

@@ -43,12 +43,30 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     public static final int RESULT_GENERATED = 6; // native Create recipe JSON written onto the carrier
     public static final int RESULT_NOT_CONVERTIBLE = 7; // no Create recipe could be generated -> nothing written
     public static final int RESULT_NO_SCHEME = 2;
-    public static final int RESULT_NO_CLIPBOARD = 3;
     public static final int RESULT_NO_RECIPE = 4; // cannot map / no recipe found (TC-01)
     public static final int RESULT_NO_TARGET = 5;
 
+    /**
+     * Machine-readable reason for the last failed run (M7). {@code resultCode}
+     * only says WHICH stage failed ("no recipe" covers four different causes),
+     * so the GUI cannot tell the player what to actually fix without this:
+     * <ul>
+     *   <li>{@code 0} — no specific reason (success, or a stage that needs none)</li>
+     *   <li>{@code 1} — the server found no recipe producing the target item</li>
+     *   <li>{@code 2} — a recipe exists, but it has no usable output</li>
+     *   <li>{@code 3} — the target item has no registry id (unmappable)</li>
+     *   <li>{@code 4} — a live recipe exists, but it cannot become a Create line</li>
+     * </ul>
+     */
+    public static final int ERROR_NONE = 0;
+    public static final int ERROR_NO_RECIPE_PRODUCING = 1;
+    public static final int ERROR_NO_USABLE_OUTPUT = 2;
+    public static final int ERROR_NO_REGISTRY_ID = 3;
+    public static final int ERROR_NOT_CONVERTIBLE = 4;
+
     private final ModContainer inventory = new ModContainer(this, 3, this::onSlotChanged);
     private int resultCode = RESULT_EMPTY;
+    private int lastErrorCode = 0;
     private String lastError = "";
     private boolean computeQueued = false;
 
@@ -81,14 +99,6 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         // No auto computation: the player presses the "Compute" button once all
         // three slots are set (explicit trigger). We only track changes here.
         setChanged();
-    }
-
-    /** Requests one computation run (from the GUI compute button, server side). */
-    public void computeNow() {
-        if (level != null && !level.isClientSide) {
-            computeQueued = true;
-            setChanged();
-        }
     }
 
     /**
@@ -208,7 +218,7 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     private void processSource(com.create.productionline.line.mapper.RecipeDescriptor source,
             ItemStack carrier, ItemStack secondary, boolean authoritative) {
         if (source == null || source.outputs().isEmpty()) {
-            setResult(RESULT_NO_RECIPE, "recipe of this item has no usable output");
+            setResult(RESULT_NO_RECIPE, "no usable output: recipe of this item has no usable output");
             return;
         }
         ProductionLineMod.LOGGER.info("CPL plan: recipe={} cat={} inputs={} out={}",
@@ -223,13 +233,19 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         // mismatch made e.g. the diesel engine line never match (the plan said
         // base=engine_piston while the recipe expected base=flint_and_steel).
         String output = source.outputs().get(0);
-        int count = 1;
+        // B7: the LIVE recipe decides the yield. A mod may produce more at runtime
+        // than its datapack JSON claims, so source.outputCount()
+        // (getResultItem().getCount()) wins whenever it is larger; the JSON count
+        // is only the fallback (and RecipeJsonReader.resultCount already defaults
+        // to 1 when the file is missing/unreadable). Never below 1.
+        int count = Math.max(1, source.outputCount());
         java.util.List<String> orderedInputs = source.uniqueInputs();
         if (level instanceof net.minecraft.server.level.ServerLevel slo) {
             ResourceLocation rid2 = ResourceLocation.tryParse(source.recipeId());
             if (rid2 != null) {
-                count = com.create.productionline.util.RecipeJsonReader.resultCount(
-                        slo.getServer().getResourceManager(), rid2);
+                count = Math.max(1, Math.max(source.outputCount(),
+                        com.create.productionline.util.RecipeJsonReader.resultCount(
+                                slo.getServer().getResourceManager(), rid2)));
                 java.util.List<String> ordered =
                         com.create.productionline.util.RecipeJsonReader.shapedMaterialOrder(
                                 slo.getServer().getResourceManager(), rid2, source.uniqueInputs());
@@ -239,16 +255,17 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             }
         }
 
-        // Direct (single-layer) plan: the recipe's own materials + its machine.
-        // No upstream recursion (was rejected: it explodes a simple item into
-        // dozens of steps). Materials equal to the output are treated as
-        // 自备/现编 and omitted.
-        java.util.List<String> unique = new java.util.ArrayList<>();
-        for (String in : orderedInputs) {
-            if (in.equals(output)) {
-                continue; // self-reference -> 自备/现编
-            }
-            unique.add(in);
+        // ONE material list drives BOTH the plan and the embedded recipe. The old
+        // "self-reference is 自备/现编, omit it" shortcut made the plan one station
+        // shorter than the recipe that actually gets installed (players built the
+        // plan and still got no product), and a recipe derived from a filtered list
+        // would be weaker than the recipe it converts. Self-referencing materials
+        // are therefore kept as ordinary stations.
+        if (orderedInputs.isEmpty()) {
+            ProductionLineMod.LOGGER.info(
+                    "CPL compute: recipe {} has no usable materials - no plan written", source.recipeId());
+            setResult(RESULT_NOT_CONVERTIBLE, output);
+            return; // carriers are left untouched on purpose
         }
 
         // Embed a genuine native-Create recipe payload — derived through the
@@ -276,7 +293,7 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             ProductionLineMod.LOGGER.info(
                     "CPL compute: no convertible Create recipe for {} (recipe={} cat={} materials={}, authoritative={})"
                             + " - no plan written",
-                    output, source.recipeId(), source.categoryId(), unique, authoritative);
+                    output, source.recipeId(), source.categoryId(), orderedInputs, authoritative);
             setResult(RESULT_NOT_CONVERTIBLE, output);
             return; // carriers are left untouched on purpose
         }
@@ -303,9 +320,9 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             }
             machines = expanded;
         }
-        scheme.setBaseMaterial(unique.isEmpty() ? output : unique.get(0));
+        scheme.setBaseMaterial(orderedInputs.get(0));
         com.create.productionline.line.analyzer.MachineSelector.appendChainSteps(
-                scheme, unique, machines, output);
+                scheme, orderedInputs, machines, output);
 
         com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry entry = derived.get(0);
         for (com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry e : derived) {
@@ -331,14 +348,45 @@ public class ProductionComputerBlockEntity extends BlockEntity {
                 : stack;
     }
 
+    /**
+     * Records the outcome of one run AND its machine-readable cause (M7), so the
+     * GUI can show a specific reason instead of one generic "cannot map" line.
+     * The classification is derived from the (server-only, never translated)
+     * diagnostic string plus the stage:
+     *
+     * <ul>
+     *   <li>"no recipe producing …" → 1 (no recipe at all)</li>
+     *   <li>"no usable output…" → 2 (recipe exists, output unusable)</li>
+     *   <li>"target has no registry id" → 3 (item not registered)</li>
+     *   <li>otherwise {@link #RESULT_NOT_CONVERTIBLE} → 4 (live recipe, not convertible)</li>
+     *   <li>anything else → 0</li>
+     * </ul>
+     */
     private void setResult(int code, String error) {
         this.resultCode = code;
         this.lastError = error == null ? "" : error;
+        String diagnostic = this.lastError;
+        if (diagnostic.startsWith("no recipe producing")) {
+            this.lastErrorCode = ERROR_NO_RECIPE_PRODUCING;
+        } else if (diagnostic.startsWith("no usable output")) {
+            this.lastErrorCode = ERROR_NO_USABLE_OUTPUT;
+        } else if (diagnostic.startsWith("target has no registry id")) {
+            this.lastErrorCode = ERROR_NO_REGISTRY_ID;
+        } else if (code == RESULT_NOT_CONVERTIBLE) {
+            this.lastErrorCode = ERROR_NOT_CONVERTIBLE;
+        } else {
+            this.lastErrorCode = ERROR_NONE;
+        }
         setChanged();
     }
 
     public int getResultCode() {
         return resultCode;
+    }
+
+    /** Machine-readable reason of the last failed run (M7); 0 when there is none. */
+    public int getLastErrorCode() {
+        return lastErrorCode;
     }
 
     public String getLastError() {
@@ -374,6 +422,7 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         }
         tag.put("Items", items);
         tag.putInt("ResultCode", resultCode);
+        tag.putInt("LastErrorCode", lastErrorCode);
         tag.putString("LastError", lastError);
     }
 
@@ -389,6 +438,7 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             inventory.loadFrom(list);
         }
         resultCode = tag.getInt("ResultCode");
+        lastErrorCode = tag.getInt("LastErrorCode");
         lastError = tag.getString("LastError");
         computeQueued = false;
     }

@@ -120,15 +120,20 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
         // 若拆 1 个铁锭就退 1 个铁块,等于每次净赚 8 个铁锭(块/锭/粒互换的原版配方
         // 全是这个形状,Create 的多产出副产同理)。这里改成:一次性消耗 count 个产物,
         // 才退还 1 份输入——正好是配方的逆运算。
-        int count = 1;
+        //
+        // count 的来源必须"活配方优先并取更严的一侧":JSON 文本里的 result.count 只是
+        // datapack 声明的数量,模组配方在运行时真实产出可能更高(getResultItem 的
+        // ItemStack.getCount() 才是权威),只信 JSON 就会按过小的数量消费。
+        // 不变量:必须按"一次真实产出"的完整数量消费,所以取两者较大值——取小会让
+        // count>1 的配方被按 1 个产物套利,取大只会让玩家多凑几个产物(不产生收益)。
+        int jsonCount = 1;
         ResourceLocation rid = ResourceLocation.tryParse(recipeId);
         if (rid != null) {
-            count = com.create.productionline.util.RecipeJsonReader.resultCount(
+            jsonCount = com.create.productionline.util.RecipeJsonReader.resultCount(
                     serverLevel.getServer().getResourceManager(), rid);
         }
-        if (count < 1) {
-            count = 1;
-        }
+        int liveCount = desc.outputCount(); // 活配方单次产出的堆叠数(权威)
+        int count = Math.max(1, Math.max(jsonCount, liveCount));
         if (slotZero.getCount() < count) {
             // 数量不足 -> 整单拒绝(不部分消费、不部分退还),玩家可再补足后重试
             return false;

@@ -136,10 +136,32 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                     out.add(Component.translatable("screen.create_productionline.computer.not_convertible").getString());
             case ProductionComputerBlockEntity.RESULT_NO_SCHEME ->
                     out.add(Component.translatable("screen.create_productionline.computer.no_scheme").getString());
-            case ProductionComputerBlockEntity.RESULT_NO_CLIPBOARD ->
-                    out.add(Component.translatable("screen.create_productionline.computer.no_clipboard").getString());
-            case ProductionComputerBlockEntity.RESULT_NO_RECIPE ->
-                    out.add(Component.translatable("screen.create_productionline.computer.cannot_map").getString());
+            case ProductionComputerBlockEntity.RESULT_NO_RECIPE -> {
+                // M7: the result code alone cannot say WHY nothing could be mapped
+                // ("no recipe" == no recipe at all / no usable output / no registry
+                // id), so the server-reported cause is shown as an extra line.
+                //
+                // ORDER MATTERS: renderLabels() only has room for two 9px lines
+                // (y=38, y=47, then maxY=50 - below that sits the Compute button),
+                // and the generic cannot_map text alone wraps to ~4 lines at 160px.
+                // Appending the specific reason after it would therefore never be
+                // drawn, so the specific reason goes FIRST and cannot_map second.
+                switch (this.menu.getLastErrorCode()) {
+                    case ProductionComputerBlockEntity.ERROR_NO_RECIPE_PRODUCING ->
+                            out.add(Component.translatable(
+                                    "screen.create_productionline.computer.no_recipe_found").getString());
+                    case ProductionComputerBlockEntity.ERROR_NO_USABLE_OUTPUT ->
+                            out.add(Component.translatable(
+                                    "screen.create_productionline.computer.no_usable_output").getString());
+                    case ProductionComputerBlockEntity.ERROR_NO_REGISTRY_ID ->
+                            out.add(Component.translatable(
+                                    "screen.create_productionline.computer.no_registry_id").getString());
+                    default -> {
+                        // 0 / 4: nothing more specific to say
+                    }
+                }
+                out.add(Component.translatable("screen.create_productionline.computer.cannot_map").getString());
+            }
             case ProductionComputerBlockEntity.RESULT_NO_TARGET ->
                     out.add(Component.translatable("screen.create_productionline.computer.no_target").getString());
             default ->

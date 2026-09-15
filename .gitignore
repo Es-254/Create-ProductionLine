@@ -57,3 +57,13 @@ gradle-local.properties
 .secrets/
 *.token
 
+### Signing material and local environment files — never commit ###
+# A mod jar is unsigned, but signing keys, keystores and per-machine SDK paths
+# occasionally appear next to a build; keep them out of history unconditionally.
+*.jks
+*.keystore
+*.p12
+*.pfx
+local.properties
+*.env
+

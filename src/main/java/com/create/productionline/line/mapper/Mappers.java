@@ -17,14 +17,9 @@ import com.google.gson.JsonParser;
 public final class Mappers {
 
     private static volatile MappingDictionary dictionary = new MappingDictionary();
-    private static volatile RecipeMapper mapper = new RecipeMapper(dictionary);
     private static volatile String assemblyMode = "sequenced";
 
     private Mappers() {
-    }
-
-    public static RecipeMapper get() {
-        return mapper;
     }
 
     public static MappingDictionary getDictionary() {
@@ -68,7 +63,6 @@ public final class Mappers {
             }
         }
         dictionary = fresh;
-        mapper = new RecipeMapper(fresh);
         assemblyMode = mode;
     }
 

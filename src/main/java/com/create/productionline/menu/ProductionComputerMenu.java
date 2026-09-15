@@ -17,11 +17,14 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * GUI of the Production Computer. Three slots: target item, line scheme
- * (write), clipboard (guide). Data slot 0 = last computation result code.
+ * (write), clipboard (guide). Data slot 0 = last computation result code,
+ * data slot 1 = machine-readable reason of the last failure (M7).
  */
 public class ProductionComputerMenu extends AbstractContainerMenu {
 
     private static final int COMPUTER_SLOTS = 3;
+    /** Number of synchronized data slots: result code + last error code. */
+    private static final int DATA_SLOTS = 2;
 
     private final Container computerContainer;
     private final ContainerData data;
@@ -63,14 +66,7 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
     /** Client factory: all live state arrives via container data + slot sync. */
     public static ProductionComputerMenu createClient(int id, Inventory playerInventory) {
         return new ProductionComputerMenu(id, playerInventory, new SimpleContainer(COMPUTER_SLOTS),
-                new SimpleContainerData(1), null);
-    }
-
-    /** Requests a computation on the server-side block entity (button click). */
-    public void computeNow() {
-        if (computer != null) {
-            computer.computeNow();
-        }
+                new SimpleContainerData(DATA_SLOTS), null);
     }
 
     /**
@@ -94,7 +90,11 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
 
         @Override
         public int get(int index) {
-            return index == 0 ? be.getResultCode() : 0;
+            return switch (index) {
+                case 0 -> be.getResultCode();
+                case 1 -> be.getLastErrorCode();
+                default -> 0;
+            };
         }
 
         @Override
@@ -104,12 +104,17 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
 
         @Override
         public int getCount() {
-            return 1;
+            return DATA_SLOTS;
         }
     }
 
     public int getResultCode() {
         return data.get(0);
+    }
+
+    /** Reason of the last failure (M7): 0 none, 1 no recipe, 2 no usable output, 3 no registry id. */
+    public int getLastErrorCode() {
+        return data.get(1);
     }
 
     public ItemStack getTargetItem() {

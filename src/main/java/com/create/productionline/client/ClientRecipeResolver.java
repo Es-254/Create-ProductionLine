@@ -26,6 +26,18 @@ import net.minecraft.world.item.ItemStack;
  * {@code RecipeManager} and only accepts it when that recipe really produces the
  * item sitting in the computer's target slot (anti-injection); the remaining
  * fields are a display/fallback hint only.
+ *
+ * <p><b>Caching (M11):</b> a full scan enumerates and parses every
+ * {@code data/&lt;ns&gt;/recipe/*.json} of every loaded pack, which is far too
+ * expensive to repeat on each Compute click. Results — including the
+ * "nothing found" result — are memoized in a session-level, access-ordered
+ * LRU map keyed by target item id. The cache lives for the client process
+ * (i.e. the render/screen session) and is never persisted; resource reloads
+ * happen on the client thread that also drives the screen, so there is no
+ * cross-thread concurrency to guard against and no locking is used. Because a
+ * datapack/resource reload can change which recipes exist, a stale entry only
+ * ever means "the hint the server re-verifies is outdated" — never a wrong
+ * installable recipe, since the server re-resolves the id itself.
  */
 public final class ClientRecipeResolver {
 
@@ -50,6 +62,37 @@ public final class ClientRecipeResolver {
     private ClientRecipeResolver() {
     }
 
+    /**
+     * Session-level LRU of resolved targets, keyed by target item id. Initial
+     * capacity 32, load factor 0.75 and {@code accessOrder = true} so that both
+     * a {@code get} and a {@code put} make an entry the most recently used one —
+     * the first entry of the iteration order is then always the coldest.
+     * Client-thread only: the resolver is called from the screen, and nothing
+     * here is touched from the server or a network thread.
+     */
+    private static final java.util.LinkedHashMap<String, Resolved> CACHE =
+            new java.util.LinkedHashMap<>(32, 0.75f, true);
+
+    /** Maximum number of memoized targets; the coldest one is evicted first. */
+    private static final int CACHE_LIMIT = 32;
+
+    /**
+     * Stores a result and returns it, evicting the coldest entry when the cache is
+     * full. Negative results are cached too: "no recipe produces this item" is the
+     * most expensive answer to recompute (it requires the FULL scan).
+     */
+    private static Resolved remember(String targetId, Resolved resolved) {
+        if (CACHE.size() >= CACHE_LIMIT) {
+            java.util.Iterator<java.util.Map.Entry<String, Resolved>> oldest = CACHE.entrySet().iterator();
+            if (oldest.hasNext()) {
+                oldest.next();
+                oldest.remove();
+            }
+        }
+        CACHE.put(targetId, resolved);
+        return resolved;
+    }
+
     public static Resolved resolve(ItemStack target) {
         if (target == null || target.isEmpty()) {
             return new Resolved("", "", List.of(), "");
@@ -58,9 +101,14 @@ public final class ClientRecipeResolver {
         if (targetId == null) {
             return new Resolved("", "", List.of(), target.toString());
         }
+        String cacheKey = targetId.toString();
+        Resolved cached = CACHE.get(cacheKey); // access-order hit: bumps recency
+        if (cached != null) {
+            return cached;
+        }
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) {
-            return new Resolved("", "", List.of(), targetId.toString());
+            return new Resolved("", "", List.of(), cacheKey);
         }
         ResourceManager rm = mc.getResourceManager();
 
@@ -76,7 +124,7 @@ public final class ClientRecipeResolver {
                     continue;
                 }
                 String result = resultId(obj);
-                if (!targetId.toString().equals(result)) {
+                if (!cacheKey.equals(result)) {
                     continue;
                 }
                 String category = typeId(obj);
@@ -90,14 +138,15 @@ public final class ClientRecipeResolver {
                     bestCount = inputs.size();
                     best = new Resolved(recipeIdOf(full), category, inputs, result);
                     if (bestCount >= 3) {
-                        return best;
+                        return remember(cacheKey, best); // early exit: cache the hit too
                     }
                 }
             }
         } catch (Exception e) {
             com.create.productionline.ProductionLineMod.LOGGER.info("CPL client scan error: {}", e.toString());
         }
-        return best != null ? best : new Resolved("", "", List.of(), targetId.toString());
+        return remember(cacheKey,
+                best != null ? best : new Resolved("", "", List.of(), cacheKey));
     }
 
     /**

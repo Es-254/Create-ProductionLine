@@ -21,7 +21,9 @@ import net.minecraft.world.item.crafting.RecipeType;
  * Server-side recipe lookup. JEI itself only runs on the client, but every data
  * recipe (vanilla, Create and other mods alike) is present in the server
  * {@code RecipeManager}; JEI merely renders them. This class scans those recipes
- * and produces {@link RecipeDescriptor}s for the mapper.
+ * and produces {@link RecipeDescriptor}s, which the production path feeds to
+ * {@link com.create.productionline.recipegen.RecipeDeriver} to derive the
+ * installable Create payloads for a scheme.
  */
 public final class ServerRecipeLookup {
 
@@ -32,18 +34,6 @@ public final class ServerRecipeLookup {
     private static final Predicate<String> PREFERRED =
             cat -> cat.startsWith("create:") || cat.equals("minecraft:smelting")
                     || cat.equals("minecraft:smoking") || cat.equals("minecraft:blasting");
-
-    /**
-     * Finds recipes whose primary output is {@code targetItem}, ordered so that
-     * machine-process categories come first.
-     */
-    public static List<RecipeDescriptor> findRecipes(ServerLevel level, ResourceLocation targetItem) {
-        List<RecipeDescriptor> out = new ArrayList<>();
-        for (Found found : findDetailed(level, targetItem)) {
-            out.add(found.descriptor());
-        }
-        return out;
-    }
 
     /**
      * Resolves ONE recipe by its registry id and builds its neutral descriptor.
@@ -70,7 +60,11 @@ public final class ServerRecipeLookup {
         return toDescriptor(holder, typeId, level.registryAccess(), level);
     }
 
-    /** Like {@link #findRecipes} but keeps the underlying recipe object. */
+    /**
+     * Finds the live recipes whose primary output is {@code targetItem}, keeping
+     * the underlying recipe object alongside its descriptor. Ordered so that
+     * machine-process categories come first.
+     */
     public static List<Found> findDetailed(ServerLevel level, ResourceLocation targetItem) {
         RegistryAccess registryAccess = level.registryAccess();
         List<Found> found = new ArrayList<>();
@@ -150,7 +144,7 @@ public final class ServerRecipeLookup {
         try {
             net.minecraft.world.item.crafting.Recipe<?> recipe = holder.value();
             java.util.List<String> outputs = new ArrayList<>();
-            collectOutputs(recipe, registryAccess, outputs);
+            int outputCount = collectOutputs(recipe, registryAccess, outputs);
             if (outputs.isEmpty()) {
                 return null;
             }
@@ -163,7 +157,7 @@ public final class ServerRecipeLookup {
             if (inputs.isEmpty()) {
                 collectObjectInputs(recipe, registryAccess, inputs);
             }
-            return build(holder.id().toString(), typeId.toString(), inputs, outputs);
+            return build(holder.id().toString(), typeId.toString(), inputs, outputs, outputCount);
         } catch (RuntimeException e) {
             ProductionLineMod.LOGGER.debug("Skipped recipe {} during lookup: {}", holder.id(), e.toString());
             return null;
@@ -196,17 +190,26 @@ public final class ServerRecipeLookup {
         }
     }
 
-    /** Output id(s) of a recipe object — cheap, no JSON involved. */
-    private static void collectOutputs(net.minecraft.world.item.crafting.Recipe<?> recipe,
+    /**
+     * Output id(s) of a recipe object — cheap, no JSON involved.
+     *
+     * @return the stack size of the live result ({@code ItemStack.getCount()}),
+     *         i.e. how many items ONE craft really produces; {@code 0} when the
+     *         recipe yields nothing. The datapack JSON's {@code result.count}
+     *         text may understate this, so callers must prefer this value.
+     */
+    private static int collectOutputs(net.minecraft.world.item.crafting.Recipe<?> recipe,
             RegistryAccess registryAccess, List<String> outputs) {
         try {
             ItemStack result = recipe.getResultItem(registryAccess);
             if (!result.isEmpty()) {
                 outputs.add(itemId(result));
+                return result.getCount();
             }
         } catch (RuntimeException ignored) {
             // ignore exotic recipe shapes
         }
+        return 0;
     }
 
     /**
@@ -272,9 +275,10 @@ public final class ServerRecipeLookup {
     }
 
     private static RecipeDescriptor build(String recipeId, String categoryId,
-            List<String> inputs, List<String> outputs) {
+            List<String> inputs, List<String> outputs, int outputCount) {
         return new RecipeDescriptor(recipeId, categoryId,
                 inputs.stream().filter(s -> !s.equals("minecraft:air")).toList(),
-                outputs.stream().filter(s -> !s.equals("minecraft:air")).toList());
+                outputs.stream().filter(s -> !s.equals("minecraft:air")).toList(),
+                outputCount);
     }
 }

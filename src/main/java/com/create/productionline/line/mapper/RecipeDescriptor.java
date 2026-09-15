@@ -15,8 +15,15 @@ import java.util.List;
  * @param inputs     ingredient ids; item references are {@code "modid:item"}, tag
  *                   references keep their identity as {@code "#tag"} (never expanded)
  * @param outputs    result item ids
+ * @param outputCount stack size of ONE live output — the amount a single craft
+ *                   really produces ({@code ItemStack.getCount()} of the live
+ *                   recipe result). When the datapack JSON's {@code result.count}
+ *                   text is untrustworthy (a mod may produce more at runtime than
+ *                   the JSON claims), this value is authoritative; always clamped
+ *                   to at least {@code 1}.
  */
-public record RecipeDescriptor(String recipeId, String categoryId, List<String> inputs, List<String> outputs) {
+public record RecipeDescriptor(String recipeId, String categoryId, List<String> inputs, List<String> outputs,
+        int outputCount) {
 
     public RecipeDescriptor {
         inputs = inputs == null ? List.of() : List.copyOf(inputs);
@@ -27,6 +34,15 @@ public record RecipeDescriptor(String recipeId, String categoryId, List<String> 
         if (categoryId == null || categoryId.isBlank()) {
             categoryId = "unknown";
         }
+        outputCount = Math.max(1, outputCount);
+    }
+
+    /**
+     * Convenience constructor for call sites that only know the outputs, not the
+     * per-craft stack size; the count defaults to {@code 1}.
+     */
+    public RecipeDescriptor(String recipeId, String categoryId, List<String> inputs, List<String> outputs) {
+        this(recipeId, categoryId, inputs, outputs, 1);
     }
 
     /**

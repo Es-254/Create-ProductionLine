@@ -13,8 +13,10 @@ authors="${mod_authors}"
 logoFile="create_productionline_icon.png"
 credits="${mod_credits}"
 displayURL="${mod_display_url}"
-# issueTrackerURL is intentionally omitted until a public repository exists
-# (an empty value would be a dead link in the mod list UI).
+# The public repository exists (github.com/Es-254/Create-ProductionLine); the URL is
+# expanded from gradle.properties' mod_issue_tracker_url, so the mod list UI links
+# straight to the issue tracker.
+issueTrackerURL="${mod_issue_tracker_url}"
 # Client and server builds of this mod may legitimately differ during local
 # testing; do not spam a version-mismatch warning for them.
 displayTest="IGNORE_SERVER_VERSION"

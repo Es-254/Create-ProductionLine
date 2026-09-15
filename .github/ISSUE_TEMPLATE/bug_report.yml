@@ -63,7 +63,7 @@ body:
       label: Logs
       description: |
         Drag in `logs/latest.log`, plus `crash-reports/…` if the game crashed.
-        Developers: `gradlew runServer -PselfTest` runs the headless QA self-test (7 checks).
+        Developers: `gradlew runServer -PselfTest` runs the headless QA self-test (9 checks).
       render: text
     validations:
       required: false

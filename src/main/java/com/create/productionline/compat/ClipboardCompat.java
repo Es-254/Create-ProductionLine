@@ -1,7 +1,6 @@
 package com.create.productionline.compat;
 
 import java.util.List;
-import java.util.Locale;
 
 import com.create.productionline.line.mapper.RecipeMapper;
 import com.create.productionline.line.scheme.LineScheme;
@@ -110,23 +109,5 @@ public final class ClipboardCompat {
         custom.put(GUIDE_KEY, guide);
         stack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
                 net.minecraft.world.item.component.CustomData.of(custom));
-    }
-
-    /** Clears the guide from a stack (used when computing a fresh plan). */
-    public static void clearGuide(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return;
-        }
-        CompoundTag custom = customData(stack);
-        if (custom.contains(GUIDE_KEY)) {
-            custom.remove(GUIDE_KEY);
-            stack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-                    net.minecraft.world.item.component.CustomData.of(custom));
-        }
-    }
-
-    /** Human readable helper for display strings. */
-    public static String stepLabel(int oneBasedIndex) {
-        return String.format(Locale.ROOT, "Step_%d", oneBasedIndex);
     }
 }

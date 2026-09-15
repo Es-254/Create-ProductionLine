@@ -44,8 +44,12 @@ public class DismantlerBlock extends Block implements EntityBlock {
 
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        // 活塞搬移(movedByPiston)会把 BE 连同库存数据搬到新位置,源位不再掉落内容,
-        // 否则同一批物品会掉落两份(源位一份 + 目的地一份),形成复制(P0-1)。
+        // NOTE: vanilla pistons can never move a block that owns a block entity —
+        // PistonBaseBlock.isPushable ends with !state.hasBlockEntity() — so a
+        // Dismantler is never actually relocated by a piston and its inventory is
+        // never carried to a new position. The movedByPiston guard is therefore
+        // pure defence in depth (it also covers modded movers): were the block ever
+        // moved, the old position's contents must not be dropped a second time.
         if (!state.is(newState.getBlock()) && !movedByPiston) {
             if (level.getBlockEntity(pos) instanceof DismantlerBlockEntity be) {
                 be.dropContents(level, pos);

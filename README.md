@@ -13,9 +13,9 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 | Mod ID / 包名 | `create_productionline` / `com.create.productionline` |
 | Platform / 平台 | NeoForge (FML 1.x) / MC `[1.21.1]` / JDK 21 |
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
-| Artifact / 产物 | `build/libs/create_productionline-1.0.2.jar` (**176,195 B ≈ 172 KiB**, built 2026-09-13) — or download it from [Modrinth](https://modrinth.com/project/createproductionline) / the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page |
-| Source size / 工程规模 | `src/main/java` **46 Java files / 4,907 lines** (2026-09-13) |
-| Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
+| Artifact / 产物 | `build/libs/create_productionline-1.0.3.jar` (**179,034 B ≈ 175 KiB**, built 2026-09-16) — also downloadable from [Modrinth](https://modrinth.com/project/createproductionline) / the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page (Modrinth 项目仍在审核中，公开页面待通过后生效 / the Modrinth page goes live once the project passes review) |
+| Source size / 工程规模 | `src/main/java` **45 Java files** / **~6,100 lines** (line count is a snapshot — it moves with every commit; the file count is the stable part) |
+| Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程); `CONTRIBUTORS.md` (**contributors & funding** 贡献与资助名单); `THIRD_PARTY_NOTICES.md` (**third-party inventory** 第三方清单). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
 
 ---
 
@@ -72,7 +72,7 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 - **内建映射 24 条**（原版 6 + Create 18，同上），可用同一 JSON 的 `categories` 覆盖或扩展，`lookup()` 另有"尾键回退"匹配。
 - **唯一推导入口** `recipegen/RecipeDeriver`：`derive()` 一次性给出「输入顺序 + 产物 count + 可安装条目」，产线计算机与加载柜共用；方案内嵌 JSON 只是缓存，服务端始终以 `recipeId` + 实时 `RecipeManager` 为准。
 
-## Technical notes (from decompiling Create 6.0.10) / 关键技术点（反编译 Create 6.0.10 结论）
+## Technical notes (from Create's public sources & observed behaviour) / 关键技术点（依据 Create 公开源码与行为分析）
 
 **EN**
 
@@ -121,7 +121,7 @@ com/create/productionline/
 ├── item/                          LineSchemeItem / GenericIntermediateItem / LineSchemeMirrorItem
 ├── line/scheme                    LineScheme + LineSchemeSerializer (NBT incl. embedded recipe entries)
 ├── line/mapper                    RecipeDescriptor / ServerRecipeLookup / Mappers / MappingDictionary
-│                                  / RecipeMapper / MappingResult
+│                                  / RecipeMapper (build-guide text only)
 ├── line/analyzer                  RecipeAnalyzer (features) + MachineSelector (machine choice / step layout)
 ├── recipegen                      CreateRecipePack (flat/mechanical/sequenceEntry + multi-cabinet union rebuild)
 │                                  RecipeDeriver (server-side single derivation entry) / 服务端唯一推导入口
@@ -129,11 +129,8 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (6 headless checks) / events / payloads
+└── qa/ event/ network/            SelfTest (9 headless checks) / events / payloads
 ```
-
-> **EN** — Leftover empty `debug/` directory (0 files); `src/generated/` unused (no datagen output).
-> **中文** — 残留空目录 `debug/`（无文件）；`src/generated/` 未启用（无 datagen 产物）。
 
 ## Security (multiplayer anti-injection, landed 2026-09-07) / 安全（多人服防注入，2026-09-07 落地）
 
@@ -165,6 +162,7 @@ com/create/productionline/
 - Sequence lines consume 1 unit of each material per step (cheaper than the source grid when a material repeats) but still produce output.
 - Results carry item id + count only: recipes with NBT/enchantments/state yield the "plain" variant.
 - Multi-level intermediates are not recursed into a single scheme by default: compute each stage, activate them together as a union in the 16-slot loader for an end-to-end line.
+- Single-material recipes — one unique input such as sticks, planks, buttons, torches or iron blocks — have no faithful single-machine Create equivalent, so the computer refuses them with "cannot convert" instead of faking a plan (multi-material recipes are the sweet spot).
 - The dismantler refuses items with `#tag` inputs or recipes it cannot resolve server-side (refuse rather than swallow).
 - Create `assets/` is All Rights Reserved: this mod only "runtime-references" its GUI/textures and never bundles copies.
 - Every texture and icon in this project is original artwork drawn by the author; the mod bundles no third-party assets.
@@ -178,6 +176,35 @@ com/create/productionline/
 - Create `assets/` 为 All Rights Reserved：本 mod 只"运行时引用"其 GUI/贴图，不打包复制。
 - 本项目的全部贴图与图标均为作者原创手绘；模组不打包任何第三方素材。
 
+## Contributors & funding / 贡献与资助名单
+
+**EN** — This project is kept alive by people who give time **and** money. The full list lives in
+[`CONTRIBUTORS.md`](CONTRIBUTORS.md): **funding supporters first** (the main list), then **technical
+support** (tooling / AI agents that did code analysis, algorithm fixes, hardening, builds & docs),
+then code/art/testing contributors, then upstream projects. Amounts are optional and anonymous entries
+are welcome; every entry can be corrected or removed on request.
+
+**中文** — 本项目靠投入时间与**资金**的人维持。完整名单见 [`CONTRIBUTORS.md`](CONTRIBUTORS.md)：
+**资金支持者排在最前（主要名单）**，其后依次是**技术支持**（承担代码分析、算法修复、加固、构建与文档
+的工具/AI 代理）、代码/美术/测试贡献者、上游项目。金额可留空、可匿名，任何条目都可按要求更正或删除。
+
+**Funding supporters / 资金支持**
+
+| Supporter / 支持者 | Amount / 金额 | Date / 日期 | Note / 备注 |
+| --- | --- | --- | --- |
+| 那狐不开提那狐 [LUOZY] | ¥50 CNY | 2026-09-16 | 公开 / public |
+
+**Technical support / 技术支持**
+
+| Contributor / 贡献者 | Contribution / 贡献内容 | Period / 时间 |
+| --- | --- | --- |
+| **DeepSeek Harness (dsh) · deepseek-v4-flash** (AI coding agent / AI 编码代理) | 反编译取证、配方转换算法修复、多人服防注入加固、构建/网络工具链、双语文档与 QA 用例 / decompilation evidence, recipe-conversion fixes, anti-injection hardening, build & network tooling, bilingual docs and QA cases | 2026-09 |
+| **deepseek-v4-pro** (AI model / AI 模型) | 架构与实现评审、加固与发布方案评估 / architecture & implementation review, hardening and release assessment | 2026-09 |
+| **deepseek-v4-vision-exp** (AI vision model / AI 视觉模型) | 截图判读、GUI/资源核对 / screenshot reading and GUI/asset verification | 2026-09 |
+
+> To be added / 登记方式：把「署名（或匿名）/ 金额或区间 / 日期 / 是否公开」发给维护者即可。
+> Third-party code & license inventory / 第三方代码与许可清单：见 `THIRD_PARTY_NOTICES.md`。
+
 ## Headless self-test (QA) / 无头自检（QA）
 
 ```
@@ -185,43 +212,75 @@ com/create/productionline/
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM (a bare `-D` on the Gradle command line does not reach it). The property is read by `qa/SelfTest.isEnabled()`; after server start the 6 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**（在 Gradle 命令行上直接写 `-D` 传不到游戏进程）。该属性由 `qa/SelfTest.isEnabled()` 读取；服务器启动后跑完 **6 项**检查。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM (a bare `-D` on the Gradle command line does not reach it). The property is read by `qa/SelfTest.isEnabled()`; after server start the 9 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**（在 Gradle 命令行上直接写 `-D` 传不到游戏进程）。该属性由 `qa/SelfTest.isEnabled()` 读取；服务器启动后跑完 **9 项**检查。
 > The server halts itself afterwards, but the game process may not exit cleanly — if `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
 > 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出：若 `:runServer` 卡住，手动结束游戏进程即可；此时任务会显示 `FAILED`，但检查本身已通过，看下面的输出为准。
 
 ```
 [PASS] TC-05 scheme NBT round-trip
 [PASS] TC-02 clipboard guide injection
-[PASS] TC-01 mapping (positive, live recipes)
-[PASS] TC-01 mapping (negative, unmappable)
+[PASS] TC-01 recipe derivation (positive, live recipes)
+[PASS] TC-01 recipe derivation (negative, unmappable)
 [PASS] Create recipe JSON schema + datapack install
+[PASS] Tag ingredients kept in flat recipes
+[PASS] Deriver refuses unconvertible recipe
 [PASS] Scheme embeds generated recipes (round trip)
-CPL SELF-TEST RESULT: 6 passed, 0 failed
+[PASS] Plan topology (chain: base -> machine+material -> product)
+CPL SELF-TEST RESULT: 9 passed, 0 failed
 ```
 
-> **EN** — Historical docs mentioning "5 passed" refer to the 2nd-round build (which included the `DataPacket action whitelist` case, removed with the old architecture); current code has **6** checks and no DataPacket whitelist case.
-> **中文** — 历史文档里的 "5 passed" 对应第 2 轮版本（含 `DataPacket action whitelist`，该项随旧架构删除）；当前代码为 **6 项**，且不再有 DataPacket 白名单用例。
+> **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:94`), so the pass criterion is
+> *the last line matches `\d+ passed, 0 failed`* — never a literal number. The number below is only a
+> convenience snapshot and is the count of `check("…")` calls in `qa/SelfTest.java`.
+> **中文** — **验收时不要把项数写死。** `qa/SelfTest.java` 打印的是
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:94`），所以判据是
+> *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字只是便于阅读的快照，其值等于
+> `qa/SelfTest.java` 里 `check("…")` 的调用数。
+>
+> **EN** — Current snapshot: **9** checks. The 7th, `Plan topology (chain: base -> machine+material -> product)`,
+> was added in 1.0.2; the other two newer cases (`Tag ingredients kept in flat recipes`,
+> `Deriver refuses unconvertible recipe`) land in 1.0.3. Adding or removing a `check(…)`
+> changes this number, and nothing else needs editing except the snapshot mentions in this README,
+> in `CHANGELOG.md` and in `RELEASING.md`.
+> **中文** — 当前快照：**9 项**。第 7 项 `Plan topology (chain: base -> machine+material -> product)` 为 1.0.2 新增；
+> 另两项较新的用例（`Tag ingredients kept in flat recipes`、`Deriver refuses unconvertible recipe`）随 1.0.3 发布。
+> 增删一个 `check(…)` 只会改变这个数字；除本 README、`CHANGELOG.md`、`RELEASING.md` 中标注为"快照"的处所外，
+> 其他地方无需改动。
+>
+> **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" refer to earlier rounds (the
+> `DataPacket action whitelist` case was removed with the old architecture); current code has **9** checks
+> and no DataPacket whitelist case.
+> **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" 对应更早的轮次（`DataPacket action whitelist`
+> 一项随旧架构删除）；当前代码为 **9 项**，且不再有 DataPacket 白名单用例。
 
 ## Doc↔code consistency baseline (2026-09-13) / 文档—代码一致性核对基线（2026-09-13）
 
 **EN** — Records the "code is the source of truth" line-by-line review, for later reference.
 
-**Corrected in this README**: computer slots changed from "top/bottom" to **3 side by side** (`ProductionComputerMenu.java:38-50`: target 44,20 / carrier 80,20 / clipboard 116,20); loader slot changed to **genuine-scheme-only**; built-in mappings corrected 17 → **24**; added `recipegen/RecipeDeriver`, `compat/ClipboardCompat`, `util/RecipeJsonReader` entries; jar size and source size now measured values.
+**Corrected in this README**: computer slots changed from "top/bottom" to **3 side by side** (`ProductionComputerMenu.java:38-50`: target 44,20 / carrier 80,20 / clipboard 116,20); loader slot changed to **genuine-scheme-only**; built-in mappings corrected 17 → **24**; added `recipegen/RecipeDeriver`, `compat/ClipboardCompat`, `util/RecipeJsonReader` entries; jar size and source size now measured values. Also corrected later: the old "leftover `debug/` directory" and "`src/generated/` unused" notes (neither directory exists) and every "jar still ships `.bak` / `*_particle.png`" claim (the current jar was inspected and is clean).
 
 **中文** — 本节记录"以现有代码为准"逐条核对后的结论，供后续改动对照。
 
-**已按代码改正的本 README 条目**：计算机槽位由"上/下格"改为**3 格并排**（`ProductionComputerMenu.java:38-50`：目标 44,20 / 载体 80,20 / 剪贴板 116,20）；加载柜槽位由"载体槽"改为**只收真方案**；内建映射由 17 条更正为 **24 条**；新增 `recipegen/RecipeDeriver`、`compat/ClipboardCompat`、`util/RecipeJsonReader` 等模块条目；jar 体积/工程规模改为实测值。
+**已按代码改正的本 README 条目**：计算机槽位由"上/下格"改为**3 格并排**（`ProductionComputerMenu.java:38-50`：目标 44,20 / 载体 80,20 / 剪贴板 116,20）；加载柜槽位由"载体槽"改为**只收真方案**；内建映射由 17 条更正为 **24 条**；新增 `recipegen/RecipeDeriver`、`compat/ClipboardCompat`、`util/RecipeJsonReader` 等模块条目；jar 体积/工程规模改为实测值。后续又改正：删除"残留空目录 `debug/`"与"`src/generated/` 未启用"两处说明（两个目录都已不存在），以及所有"jar 里仍有 `.bak` / `*_particle.png`"的断言（已实测当前 jar，内容干净）。
 
-**Code vs text mismatches (to fix; not README errors) / 代码与文案仍不一致（属待修项，非本 README 描述错误）**
+**Code vs text mismatches still open (to fix; not README errors) / 代码与文案仍不一致的未修项（非本 README 描述错误）**
+
+Stale entries were **deleted, not softened**: any row that no longer matched the code as of this revision
+was removed rather than reworded. Verified-clean as of this revision (so no longer listed): the language
+files now describe the 3-slot side-by-side layout, `ClipboardCompat`'s javadoc no longer mentions the
+removed "controller", `SchemeLoaderMenu` / `SchemeLoaderBlockEntity` javadoc now state the genuine-scheme-only
+rule, the built jar ships no `.bak` / `*_particle.png` / `debug/` entries, and neither the empty `debug/`
+directory nor `src/generated/` exists any more.
+
+已过时条目一律**删除而非弱化措辞**：与当前代码不符的行直接删掉。本版已核实为干净（故不再列出）：
+语言文件已改为描述 3 格并排布局；`ClipboardCompat` javadoc 已不再提已删除的 "controller"；
+`SchemeLoaderMenu` / `SchemeLoaderBlockEntity` javadoc 已写明"只认真方案"；产物 jar 不含
+`.bak` / `*_particle.png` / `debug/` 条目；空目录 `debug/` 与 `src/generated/` 均已不存在。
 
 | Location / 位置 | State / 现状 | Note / 说明 |
 | --- | --- | --- |
-| `lang/zh_cn.json`·`en_us.json` `screen…computer.empty/no_scheme/no_target` | text says "top slot / bottom two slots" / 文案写"上面格/下面两格" | conflicts with the 3-slot side-by-side layout / 与代码的 3 格并排不符（`ProductionComputerMenu.java:38-50`） |
-| `lang` `loader.create_productionline.slots_filled` | hard-codes `%s/16` / 写死 `%s/16` | consistent with `SLOT_COUNT=16` but easy to miss on resize / 与 `SchemeLoaderBlockEntity.SLOT_COUNT=16` 一致，但改容量会漏改 |
+| `lang` `loader.create_productionline.slots_filled` | hard-codes `%s/16` / 写死 `%s/16` | consistent with `SchemeLoaderBlockEntity.SLOT_COUNT=16` / 与 `SchemeLoaderBlockEntity.SLOT_COUNT=16` 一致，但改容量会漏改 |
 | `SchemeLoaderScreen.java:77` | counts "embedded recipes N" via `scheme.getCreateRecipes().size()` / 用该字段统计"内嵌配方 N 条" | that field is now **cache only**; real entries come from `RecipeDeriver` server-side / 该字段现在只是缓存；真实生效条目由 `RecipeDeriver` 服务端推导，二者可能不等 |
-| `SchemeLoaderMenu.java:43` / `SchemeLoaderBlockEntity.java:22-28` javadoc | still says "a slot accepts any plan carrier / paper / clipboard / Line Scheme" | implementation is now `isLoaderCarrier` (genuine scheme only) / 实现已收口为 `isLoaderCarrier`（只认真方案） |
-| `ClipboardCompat.java:54-58` javadoc | still mentions "the controller", "its two item slots" | controller module removed; there are 3 slots now / 控制器模块已删除、槽位现有 3 个 |
 | `DismantlerScreen.java:19-20` | dismantler GUI reuses `textures/gui/scheme_loader.png` | that background is drawn with 16-slot decoration while the dismantler has 2 slots / 加载柜底图画了 16 格装饰，破拆机只有 2 槽 |
-| jar contents / jar 内容 | still ships `lang/*.json.bak`×2 and unreferenced `*_particle.png`×3 | `build.gradle` does not exclude them (release hygiene) / `build.gradle` 未排除，属发布卫生问题 |
-| `debug/` directory / 目录 | empty shell (0 files) / 空壳（0 文件） | old diagnostics deleted, directory left behind / 旧诊断类已删，目录残留 |

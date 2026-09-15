@@ -33,8 +33,6 @@ public final class MachineSelector {
     public static final String FEED = "cpl:feed";
     /** The transitional item chained between stations of a plan. */
     public static final String INTERMEDIATE = "create_productionline:generic_intermediate";
-    /** Feeder for inserting raw materials onto a belt: the Mechanical Arm (动力臂). */
-    public static final String ARM = "create:mechanical_arm";
     /** Deployer (机械手) applies/uses items — NOT a belt feeder. */
     public static final String DEPLOYER = "create:deployer";
     public static final String CRUSHING_WHEEL = "create:crushing_wheel";
@@ -50,7 +48,7 @@ public final class MachineSelector {
      * Chooses the machine set for a source recipe. Assembly / crafting recipes
      * are turned into a Deployer sequence (the embedded
      * {@code create:sequenced_assembly} recipe uses one deploy step per extra
-     * material — see {@link #appendAssemblySteps}); the returned list is only a
+     * material — see {@link #appendChainSteps}); the returned list is only a
      * hint for the fallback single-machine path. Otherwise the material features
      * select the machine. The Mechanical Crafter is NOT used.
      */
