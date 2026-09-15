@@ -13,7 +13,7 @@
 #   .\scripts\publish-modrinth.ps1 -Attempts 10
 #
 # Optional proxy (a real tunnel is the only cure when even curl fails):
-#   $env:MODRINTH_PROXY = "http://127.0.0.1:31181"
+#   $env:MODRINTH_PROXY = "http://127.0.0.1:<port>"
 
 [CmdletBinding()]
 param(
