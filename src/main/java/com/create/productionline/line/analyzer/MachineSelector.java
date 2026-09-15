@@ -1,160 +1,151 @@
 package com.create.productionline.line.analyzer;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import com.create.productionline.line.mapper.RecipeDescriptor;
 import com.create.productionline.line.scheme.LineScheme;
+import com.create.productionline.recipegen.CreateRecipePack;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
- * The machine-selection core ("万能算法"): maps recipe material features to a
- * feature-matched, complexity-scaled list of Create machines, then lays the
- * pipeline out as an ordered sequence.
+ * Plan generator: turns the <b>derived Create recipe JSON</b> into the display
+ * chain of a scheme.
  *
- * <p>Two kinds of plans exist:
+ * <p>The plan is a MIRROR of the recipe ("计划 = 推导配方的镜像"): both come from
+ * the single derivation entry point ({@code RecipeDeriver.entriesFor}), and the
+ * station list is read out of the very JSON that gets installed. There is no
+ * separate machine-picking heuristic any more, so a machine can never be paired
+ * with a material it does not actually process (the old index-by-index pairing
+ * was a fake semantics: it produced plans that looked plausible and matched
+ * nothing).
+ *
+ * <p>Two shapes exist, and both are read off the recipe {@code type}:
  * <ul>
- *   <li><b>Assembly / crafting plans</b> — executed by Create's
- *       {@code create:sequenced_assembly}: the first material enters the line
- *       first (any feeder), and <i>every following material is applied by its
- *       own Deployer station</i> (机械手) in order — Create consumes the item a
- *       deployer holds as the step ingredient, so the plan lists one Deployer
- *       per extra material, exactly matching the generated sequence recipe.</li>
- *   <li><b>Machine-process plans</b> — feature-chosen machines (press/mixer/
- *       crusher/…) plus flexible feed steps for extra materials.</li>
+ *   <li><b>{@code create:sequenced_assembly}</b> — the base material goes onto the
+ *       line first, then <i>every following material is applied by its own
+ *       Deployer station</i> (机械手), because Create's sequenced assembly consumes
+ *       the item a deployer holds as that step's ingredient. One machine, one
+ *       material, in recipe order.</li>
+ *   <li><b>every other type</b> (flat processing, {@code create:mechanical_crafting})
+ *       — ONE station carried by the machine that really performs that type
+ *       ({@link CreateRecipePack#facilityOf}); it lists the remaining materials as
+ *       its inputs (an empty list means "this machine processes the item the feed
+ *       already put on the line"). A single-material recipe therefore really is
+ *       "one machine + the material it converts".</li>
  * </ul>
  *
  * <pre>
- * 例：目标 步枪弹药，材料 钢锭+铜板+火药+底火 =>
- *   [钢锭 投料] → [机械手·铜板] → [机械手·火药] → [机械手·底火] → 步枪弹药×48
+ * 例：目标 铁镐（木板+木棍+铁锭 序列装配） =>
+ *   [木板 投料] → [机械手·木棍] → [机械手·铁锭] → 铁镐
+ * 例：目标 木棍（#木板 切割） =>
+ *   [木板 投料] → [机械锯·(线上物品)] → 木棍
  * </pre>
  */
 public final class MachineSelector {
 
+    /** The pseudo facility of the first station: materials entering the line. */
     public static final String FEED = "cpl:feed";
     /** The transitional item chained between stations of a plan. */
     public static final String INTERMEDIATE = "create_productionline:generic_intermediate";
     /** Deployer (机械手) applies/uses items — NOT a belt feeder. */
     public static final String DEPLOYER = "create:deployer";
-    public static final String CRUSHING_WHEEL = "create:crushing_wheel";
-    public static final String MILLSTONE = "create:millstone";
-    public static final String MIXER = "create:mechanical_mixer";
+    /** Fallback facility for an unknown / unparsable recipe type. */
     public static final String PRESS = "create:mechanical_press";
-    public static final String SAW = "create:mechanical_saw";
+
+    /** The recipe type of a sequenced assembly (the only multi-station shape). */
+    private static final String SEQUENCED_ASSEMBLY = "create:sequenced_assembly";
 
     private MachineSelector() {
     }
 
     /**
-     * Chooses the machine set for a source recipe. Assembly / crafting recipes
-     * are turned into a Deployer sequence (the embedded
-     * {@code create:sequenced_assembly} recipe uses one deploy step per extra
-     * material — see {@link #appendChainSteps}); the returned list is only a
-     * hint for the fallback single-machine path. Otherwise the material features
-     * select the machine. The Mechanical Crafter is NOT used.
-     */
-    public static List<String> selectForSource(String categoryId, RecipeAnalyzer.Result analysis) {
-        if (RecipeDescriptor.isAssemblyLikeCategory(categoryId)) {
-            return List.of(DEPLOYER);
-        }
-        return selectMachines(analysis);
-    }
-
-    /** Feature → machine rules (see the design draft). */
-    public static List<String> selectMachines(RecipeAnalyzer.Result analysis) {
-        List<String> machines = new ArrayList<>();
-
-        // 1. pre-processing stage
-        if (analysis.isOre) {
-            machines.add(CRUSHING_WHEEL);
-        } else if (analysis.isOrganic) {
-            machines.add(MILLSTONE);
-        }
-
-        // 2. mixing / pressing stage
-        if (analysis.uniqueCount >= 3 || analysis.hasFluid) {
-            machines.add(MIXER);
-        }
-
-        // 3. finishing stage
-        if (analysis.needsPrecision) {
-            machines.add(DEPLOYER);   // deployer applies items (wax/planting etc.)
-        } else if (analysis.isWood) {
-            machines.add(SAW);
-        }
-
-        // 4. fallback
-        if (machines.isEmpty()) {
-            machines.add(PRESS);
-        }
-        return machines;
-    }
-
-    /** Repeat factor from complexity (how many machines / how large the line). */
-    public static int scaleOf(RecipeAnalyzer.Result analysis) {
-        int c = analysis.complexity();
-        if (c <= 6) {
-            return 1;
-        }
-        if (c <= 12) {
-            return 2;
-        }
-        return 3;
-    }
-
-    /**
-     * Lays the whole plan out as ONE linear chain:
+     * Appends the plan chain of one derived recipe to {@code scheme}:
      *
      * <pre>
      * [基底] -&gt; [器械1 + 原料1] -&gt; [器械2 + 原料2] -&gt; … -&gt; [产物]
      * </pre>
      *
-     * <p>Reading the plan top to bottom is reading the line:
+     * <p>Step 1 is always the feed station: the base material ({@code orderedInputs[0]})
+     * enters the line and is carried on. What follows depends on the recipe type of
+     * {@code entry} (missing/malformed JSON is treated as a flat recipe):
      * <ul>
-     *   <li><b>step 1</b> — the base material goes onto the line (any feeder:
-     *       arm / funnel / chute / drop-in);</li>
-     *   <li><b>every following step</b> — exactly one machine paired with exactly
-     *       one material, i.e. the machine that applies that material. For a
-     *       sequenced-assembly plan that machine is always a Deployer, so the
-     *       station count equals the deploy steps of the embedded recipe; for a
-     *       machine-process plan the feature-selected machines are walked in
-     *       order;</li>
-     *   <li>the carried item is chained through the stations
-     *       (base → 通用中间产物 → …) and only the <b>last</b> station yields the
-     *       product.</li>
+     *   <li>{@code create:sequenced_assembly}: one {@code create:deployer} station
+     *       per extra material, in order; the carried item is the generic
+     *       intermediate between stations and only the LAST station yields the
+     *       product;</li>
+     *   <li>otherwise: exactly one station, run by
+     *       {@link CreateRecipePack#facilityOf} of that type ({@code create:mechanical_press}
+     *       when the type is unknown), whose inputs are every remaining material and
+     *       whose output is the product.</li>
      * </ul>
      *
-     * <p>If there are more machines than extra materials, the surplus machines
-     * still get their own (material-less) station so the plan does not hide any
-     * facility the player has to place.
-     *
-     * @param uniqueInputs ordered, de-duplicated materials; {@code [0]} is the base
-     * @param machines     the ordered machine list for this recipe (never empty)
-     * @param outputItem   the product, annotated on the final station
+     * @param scheme        the plan being built
+     * @param orderedInputs the recipe's materials, in recipe order; {@code [0]} is the base
+     * @param entry         the derived Create recipe entry the plan mirrors
+     * @param output        the product of the recipe
      */
-    public static void appendChainSteps(LineScheme scheme, List<String> uniqueInputs,
-            List<String> machines, String outputItem) {
-        if (scheme == null || uniqueInputs == null || uniqueInputs.isEmpty()) {
-            return;
+    public static void appendChainSteps(LineScheme scheme, List<String> orderedInputs,
+            LineScheme.CreateRecipeEntry entry, String output) {
+        if (scheme == null || orderedInputs == null || orderedInputs.isEmpty()) {
+            return; // defensively nothing to lay out (the caller guarantees materials)
         }
-        String base = uniqueInputs.get(0);
+        String product = (output == null || output.isBlank()) ? INTERMEDIATE : output;
 
-        // 1) the base enters the line
+        // 1) the base enters the line and stays on it
+        String base = orderedInputs.get(0);
         LineScheme.Step head = scheme.addStep(FEED, 1);
         head.addInput(base);
         head.addOutput(base);
 
-        List<String> ms = (machines == null || machines.isEmpty()) ? List.of(PRESS) : machines;
-        int extra = uniqueInputs.size() - 1;              // materials still to be applied
-        int stations = Math.max(extra, ms.size());        // never hide a machine
-        for (int i = 0; i < stations; i++) {
-            String machine = ms.get(Math.min(i, ms.size() - 1));
-            LineScheme.Step step = scheme.addStep(machine, 1);
-            if (i < extra) {
-                step.addInput(uniqueInputs.get(i + 1));   // the material this machine applies
+        String type = recipeType(entry);
+        if (SEQUENCED_ASSEMBLY.equals(type)) {
+            if (orderedInputs.size() == 1) {
+                // A sequence payload normally carries >= 1 deploy step; with no extra
+                // material the chain would never yield anything, so show the single
+                // deployer station that produces the item instead.
+                scheme.addStep(DEPLOYER, 1).addOutput(product);
+                return;
             }
-            boolean last = (i == stations - 1);
-            boolean hasProduct = outputItem != null && !outputItem.isBlank();
-            step.addOutput(last && hasProduct ? outputItem : INTERMEDIATE);
+            for (int i = 1; i < orderedInputs.size(); i++) {
+                LineScheme.Step station = scheme.addStep(DEPLOYER, 1);
+                station.addInput(orderedInputs.get(i));   // the one material this deployer applies
+                boolean last = (i == orderedInputs.size() - 1);
+                station.addOutput(last ? product : INTERMEDIATE);
+            }
+            return;
         }
+
+        // Flat processing / mechanical crafting: ONE machine, the one that performs
+        // the derived type, fed with every material the feed did not put on the belt.
+        String facility = CreateRecipePack.facilityOf(type);
+        LineScheme.Step station = scheme.addStep(facility == null ? PRESS : facility, 1);
+        for (int i = 1; i < orderedInputs.size(); i++) {
+            station.addInput(orderedInputs.get(i));
+        }
+        station.addOutput(product);
+    }
+
+    /**
+     * Reads the {@code type} of a derived recipe payload. A missing, blank or
+     * malformed payload/tag returns {@code null}, which the caller treats as a
+     * flat single-machine recipe.
+     */
+    private static String recipeType(LineScheme.CreateRecipeEntry entry) {
+        if (entry == null || entry.getJson() == null || entry.getJson().isBlank()) {
+            return null;
+        }
+        try {
+            JsonElement parsed = JsonParser.parseString(entry.getJson());
+            if (parsed != null && parsed.isJsonObject()) {
+                JsonObject root = parsed.getAsJsonObject();
+                if (root.has("type") && root.get("type").isJsonPrimitive()) {
+                    return root.get("type").getAsString();
+                }
+            }
+        } catch (RuntimeException e) {
+            // Unreadable payload: fall back to the flat layout (one machine).
+        }
+        return null;
     }
 }

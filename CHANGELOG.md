@@ -7,7 +7,7 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.0.3] — 2026-09-16
 
 Fixes for the issues found by the 2026-09-16 project assessment, plus the earlier in-tree
-hardening batch (A1–A7). Headless QA self test: **9 passed, 0 failed** on a real server
+hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a real server
 (`gradlew runServer -PselfTest`).
 
 ### Fixed
@@ -57,10 +57,23 @@ hardening batch (A1–A7). Headless QA self test: **9 passed, 0 failed** on a re
   `CreateRecipePack.install()/deactivate()`, whose first step deletes the whole `cpl_converted` pack —
   running the self test therefore wiped every scheme loader's `contributions/`. It now installs into an
   isolated `cpl_converted_selftest` pack and asserts that the live pack and its contributions survive.
-- **Self test grew from 7 to 9 checks**: `Tag ingredients kept in flat recipes` (A1 regression) and
-  `Deriver refuses unconvertible recipe` (single-material crafting must be refused, not faked). The
-  TC-01 positive/negative checks now run against the production derivation path (`RecipeDeriver`)
-  instead of the removed legacy mapper.
+- **Self test grew from 7 to 10 checks**: `Tag ingredients kept in flat recipes` (A1 regression),
+  `Deriver refuses native/unmappable recipes` (a native `create:` process or a material-less recipe must
+  yield no payload) and `Single-material recipes map to a semantic machine`. The TC-01 positive/negative
+  checks now run against the production derivation path (`RecipeDeriver`) instead of the removed legacy
+  mapper.
+- **The plan is now the mirror of the derived recipe (A6).** Steps used to pair machines with materials
+  by list index, so a plan could show a machine that the actual recipe never used. Step layout is now
+  generated FROM the derived Create recipe JSON's `type` (`MachineSelector.appendChainSteps`): sequenced
+  assembly → one Deployer per extra material; flat/mechanical → one station for the machine that really
+  executes the recipe. A step's machine is always the machine that really processes that material.
+- **Single-material recipes are now convertible (B3).** They used to be refused outright (sticks,
+  planks, buttons, smelting …), because no faithful single-machine mapping existed. The deriver now
+  chooses a real Create machine from the material's semantics (`RecipeAnalyzer.machineForMaterial`:
+  wood → saw/cutting, ore/`raw_*` → crushing wheel, organic → millstone, metal/gem → press, fallback
+  press), and multi-material recipes without a flat dictionary method fall back to `create:mixing`.
+  Only targets already produced by a native Create process, or recipes with no usable materials, are
+  still refused.
 - **The client caches recipe scans (M11).** The compute button re-enumerated and parsed every recipe
   JSON on the client for every click; the resolver now keeps a small session cache keyed by item id.
 - **The union datapack is only rewritten when it actually changes (B6).** Placing or touching a loader
@@ -138,8 +151,8 @@ JEI is optional (recipe viewer only — this mod does not call its API).
 - Extensible mapping dictionary (24 built-in categories) via
   `config/create_productionline-mappings.json`, which also selects `assemblyMode`
   (`sequenced` default, `mechanical` optional).
-- Headless QA self-test (9 checks) on a real server:
-  `gradlew runServer -PselfTest` (9 checks, then the server halts).
+- Headless QA self-test (10 checks) on a real server:
+  `gradlew runServer -PselfTest` (10 checks, then the server halts).
   Pass criterion: the last log line matches `\d+ passed, 0 failed` — the count is a snapshot
   (number of `check("…")` calls in `qa/SelfTest.java`), never a hard-coded acceptance value.
 

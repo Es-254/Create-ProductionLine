@@ -64,6 +64,26 @@ public final class CreateRecipePack {
             "create:haunted_bell", "create:haunting",
             "create:encased_fan", "create:splashing");
 
+    /**
+     * Create recipe type id -> the Create machine block that performs it.
+     * Deliberately an explicit table instead of an inversion of
+     * {@link #FACILITY_TO_TYPE}: the two are not exact inverses (one facility
+     * performs several types — the deployer does {@code deploying},
+     * {@code item_application}, {@code sandpaper_polishing}), so the plan
+     * generator needs the concrete type -> machine direction for the types that
+     * this mod derives.
+     */
+    private static final Map<String, String> TYPE_TO_FACILITY = Map.of(
+            "create:mixing", "create:mechanical_mixer",
+            "create:crushing", "create:crushing_wheel",
+            "create:milling", "create:millstone",
+            "create:pressing", "create:mechanical_press",
+            "create:cutting", "create:mechanical_saw",
+            "create:haunting", "create:haunted_bell",
+            "create:splashing", "create:encased_fan",
+            "create:deploying", "create:deployer",
+            "create:mechanical_crafting", "create:mechanical_crafter");
+
     /** Default processing time per flat type (ms). */
     private static final Map<String, Integer> TYPE_TIME = Map.of(
             "create:mixing", 100, "create:crushing", 300, "create:milling", 200,
@@ -76,6 +96,19 @@ public final class CreateRecipePack {
     /** Maps a Create facility id to the recipe type it performs, or null. */
     public static String methodOf(String facilityId) {
         return facilityId == null ? null : FACILITY_TO_TYPE.get(facilityId);
+    }
+
+    /**
+     * Maps a Create recipe type id to the machine block that performs it, or
+     * {@code null} when no such facility is known. Used by the plan generator to
+     * bind a station to the type of the recipe that was really derived, so the
+     * displayed machine always mirrors the installed JSON.
+     */
+    public static String facilityOf(String recipeType) {
+        if (recipeType == null) {
+            return null;
+        }
+        return TYPE_TO_FACILITY.get(recipeType.toLowerCase(java.util.Locale.ROOT).trim());
     }
 
     // --- JSON builders (spec-conformant) ---------------------------------------

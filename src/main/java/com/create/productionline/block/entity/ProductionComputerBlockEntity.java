@@ -2,8 +2,6 @@ package com.create.productionline.block.entity;
 
 import com.create.productionline.ProductionLineMod;
 import com.create.productionline.compat.ClipboardCompat;
-import com.create.productionline.line.mapper.Mappers;
-import com.create.productionline.line.mapper.RecipeDescriptor;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.registry.ModBlockEntities;
 
@@ -279,10 +277,11 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         //
         // This is also the gate for whether a plan is written AT ALL: a scheme
         // with no installable recipe would be a promise the mod cannot keep
-        // (e.g. single-material crafting such as iron_block, or a target that is
-        // already a native Create recipe), and it would burn the player's paper /
+        // (a target that is already made by a native Create process, or a recipe
+        // with no usable material), and it would burn the player's paper /
         // clipboard / blank Line Scheme for nothing. Refuse instead and leave the
-        // carriers untouched.
+        // carriers untouched. A single-material recipe is NOT refused any more:
+        // its material semantics pick a real Create machine (B3).
         java.util.List<com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry> derived =
                 new java.util.ArrayList<>();
         if (authoritative && level instanceof net.minecraft.server.level.ServerLevel srv) {
@@ -298,33 +297,17 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             return; // carriers are left untouched on purpose
         }
 
-        // Plan topology: ONE linear chain, left to right —
-        //   [基底] -> [器械1+原料1] -> [器械2+原料2] -> … -> [产物]
-        // Step 1 feeds the base; every following station is one machine paired
-        // with the one material it applies; the carried item is chained through
-        // the stations and only the last one yields the product.
-        boolean assembly =
-                com.create.productionline.recipegen.RecipeDeriver.isConvertibleAssembly(source.categoryId());
-        java.util.List<String> machines;
-        if (assembly) {
-            machines = java.util.List.of(com.create.productionline.line.analyzer.MachineSelector.DEPLOYER);
-        } else {
-            var analysis = com.create.productionline.line.analyzer.RecipeAnalyzer.analyze(source);
-            java.util.List<String> selected =
-                    com.create.productionline.line.analyzer.MachineSelector.selectForSource(
-                            source.categoryId(), analysis);
-            int scale = com.create.productionline.line.analyzer.MachineSelector.scaleOf(analysis);
-            java.util.List<String> expanded = new java.util.ArrayList<>();
-            for (int s = 0; s < scale; s++) {
-                expanded.addAll(selected);
-            }
-            machines = expanded;
-        }
+        // Plan topology: the Steps are a pure MIRROR of the derived recipe JSON —
+        // the SAME derivation that produced `entry` decides the stations, so a
+        // machine is only ever paired with the material it really processes. No
+        // machine is picked from recipe "features" any more (that index-by-index
+        // pairing was fake semantics: a plausible-looking plan that matched
+        // nothing). See MachineSelector.appendChainSteps.
         scheme.setBaseMaterial(orderedInputs.get(0));
-        com.create.productionline.line.analyzer.MachineSelector.appendChainSteps(
-                scheme, orderedInputs, machines, output);
-
         com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry entry = derived.get(0);
+        com.create.productionline.line.analyzer.MachineSelector.appendChainSteps(
+                scheme, orderedInputs, entry, output);
+
         for (com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry e : derived) {
             scheme.addCreateRecipe(e.getFileName(), e.getJson());
         }

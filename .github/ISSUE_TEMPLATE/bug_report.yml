@@ -1,4 +1,4 @@
-name: Bug report
+﻿name: Bug report
 description: Something is broken or behaves unexpectedly
 title: "[Bug] "
 labels: ["bug"]
@@ -63,7 +63,7 @@ body:
       label: Logs
       description: |
         Drag in `logs/latest.log`, plus `crash-reports/…` if the game crashed.
-        Developers: `gradlew runServer -PselfTest` runs the headless QA self-test (9 checks).
+        Developers: `gradlew runServer -PselfTest` runs the headless QA self-test (10 checks).
       render: text
     validations:
       required: false

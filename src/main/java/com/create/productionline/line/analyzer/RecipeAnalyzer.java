@@ -1,75 +1,98 @@
 package com.create.productionline.line.analyzer;
 
-import java.util.List;
-
-import com.create.productionline.line.mapper.RecipeDescriptor;
+import java.util.Locale;
 
 /**
- * Analyses the raw materials of a recipe and extracts feature metrics that
- * drive machine selection ("特征 → 机器匹配", instead of per-item hard-coding).
+ * Single-material semantic machine picker ("单材料语义选机").
+ *
+ * <p>Its ONE job: given the registry id of a <b>single</b> material (an item id
+ * such as {@code "minecraft:iron_ore"} or a tag reference such as
+ * {@code "#minecraft:planks"}), return the real Create machine that can process
+ * that material. The classification is a purely deterministic name heuristic —
+ * the same id always yields the same machine, on every side and every run.
+ *
+ * <p>Only the single-material path of the derivation calls this (see
+ * {@code RecipeDeriver.entriesFor} step 5): a multi-material recipe is never
+ * routed through a single machine, so this class deliberately has no notion of
+ * "features", "complexity" or "scaling". The former feature-bag
+ * {@code analyze(...)}/{@code Result} machinery (which fed an index-by-index
+ * machine list) has been removed together with its only caller.
  */
 public final class RecipeAnalyzer {
 
-    public static final class Result {
-        public final int totalCount;
-        public final int uniqueCount;
-        public final boolean hasFluid;
-        public final boolean isOre;
-        public final boolean isOrganic;
-        public final boolean isWood;
-        public final boolean needsPrecision;
+    /** Woodworking / cutting: saw. */
+    public static final String SAW = "create:mechanical_saw";
+    /** Ore & raw material reduction: crushing wheels. */
+    public static final String CRUSHING_WHEEL = "create:crushing_wheel";
+    /** Organic / milling: millstone. */
+    public static final String MILLSTONE = "create:millstone";
+    /** Metals, gems and everything else: mechanical press (also the fallback). */
+    public static final String PRESS = "create:mechanical_press";
 
-        Result(int totalCount, int uniqueCount, boolean hasFluid, boolean isOre,
-                boolean isOrganic, boolean isWood, boolean needsPrecision) {
-            this.totalCount = totalCount;
-            this.uniqueCount = uniqueCount;
-            this.hasFluid = hasFluid;
-            this.isOre = isOre;
-            this.isOrganic = isOrganic;
-            this.isWood = isWood;
-            this.needsPrecision = needsPrecision;
-        }
-
-        /** Estimated pipeline complexity: more raw materials & kinds => bigger line. */
-        public int complexity() {
-            return totalCount * 1 + uniqueCount * 2;
-        }
-    }
+    private static final String[] WOODWORKING = {
+            "log", "planks", "wood", "stick", "bamboo", "paper", "button", "fence",
+            "slab", "trapdoor", "sign",
+    };
+    private static final String[] ORGANIC = {
+            "wheat", "seed", "flour", "dough", "sugar", "plant", "cactus", "kelp",
+            "vine", "leaf", "carrot", "potato", "beetroot", "berry", "mushroom",
+            "bone", "egg",
+    };
+    private static final String[] METAL_OR_GEM = {
+            "dust", "ingot", "nugget", "gem", "diamond", "emerald", "quartz",
+            "amethyst", "lapis", "redstone", "coal", "charcoal", "clay", "brick",
+    };
 
     private RecipeAnalyzer() {
     }
 
     /**
-     * Analyses the descriptor inputs. The feature detection uses lightweight
-     * registry-name heuristics; unusual items can still be steered through the
-     * user mapping config.
+     * Picks the Create machine for ONE material. Rules are applied in a fixed
+     * order (first hit wins), so the result is deterministic:
+     *
+     * <ol>
+     *   <li>woodworking keywords → {@code create:mechanical_saw};</li>
+     *   <li>ore / {@code raw_} materials → {@code create:crushing_wheel};</li>
+     *   <li>organic &amp; milling keywords → {@code create:millstone};</li>
+     *   <li>metal / gem / earth keywords → {@code create:mechanical_press};</li>
+     *   <li>fallback → {@code create:mechanical_press}.</li>
+     * </ol>
+     *
+     * @param materialId an item id ({@code "modid:item"}) or a tag
+     *                   ({@code "#tag"}); may be {@code null}
+     * @return a Create machine block id, never {@code null}
      */
-    public static Result analyze(RecipeDescriptor descriptor) {
-        List<String> inputs = descriptor.inputs();
-        int total = inputs.size();
-        int unique = descriptor.uniqueInputs().size();
-
-        boolean hasFluid = false;
-        boolean isOre = false;
-        boolean isOrganic = false;
-        boolean isWood = false;
-        boolean needsPrecision = false;
-        for (String id : descriptor.uniqueInputs()) {
-            String lower = id.toLowerCase();
-            String path = lower.contains(":") ? lower.substring(lower.indexOf(':') + 1) : lower;
-            hasFluid |= path.endsWith("_bucket") || path.contains("water") || path.contains("lava")
-                    || path.contains("fluid") || path.contains("milk");
-            isOre |= path.contains("ore") || path.startsWith("raw_") || path.contains("deepslate_")
-                    || path.contains("ingot") || path.contains("dust");
-            isOrganic |= path.contains("seed") || path.contains("wheat") || path.contains("crop")
-                    || path.contains("bone") || path.contains("flower") || path.contains("apple")
-                    || path.contains("potato") || path.contains("carrot") || path.contains("berry")
-                    || path.contains("egg") || path.contains("sugar") || path.contains("melon");
-            isWood |= path.contains("log") || path.contains("planks") || path.contains("wood")
-                    || path.contains("sapling");
-            needsPrecision |= path.contains("wax") || path.contains("copper_block")
-                    || path.contains("honeycomb") || path.contains("mold") || path.contains("piston");
+    public static String machineForMaterial(String materialId) {
+        if (materialId == null || materialId.isBlank()) {
+            return PRESS;
         }
-        return new Result(total, unique, hasFluid, isOre, isOrganic, isWood, needsPrecision);
+        String lower = materialId.toLowerCase(Locale.ROOT).trim();
+        // The item PATH is what carries the semantics ("minecraft:raw_iron"), the
+        // namespace is ignored — but a bare (namespace-less) id still works.
+        int colon = lower.indexOf(':');
+        String path = colon >= 0 ? lower.substring(colon + 1) : lower;
+
+        if (containsAny(lower, WOODWORKING)) {
+            return SAW;
+        }
+        if (lower.contains("ore") || path.startsWith("raw_") || lower.startsWith("raw_")) {
+            return CRUSHING_WHEEL;
+        }
+        if (containsAny(lower, ORGANIC)) {
+            return MILLSTONE;
+        }
+        if (containsAny(lower, METAL_OR_GEM)) {
+            return PRESS;
+        }
+        return PRESS;
+    }
+
+    private static boolean containsAny(String haystack, String[] needles) {
+        for (String needle : needles) {
+            if (haystack.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -1,4 +1,4 @@
-# Releasing / 发布流程
+﻿# Releasing / 发布流程
 
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
@@ -262,7 +262,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (9 checks, then the server halts)
+# Headless QA self-test on a real server (10 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -275,7 +275,7 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:94`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **9 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **10 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; the 7th, `Plan topology (chain: base -> machine+material ->
 product)`, was added in 1.0.2, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 unconvertible recipe` landed after that release). If the number grows, only the snapshot mentions in
@@ -379,7 +379,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      9 passed; never hard-code the number)
+      10 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed; GitHub Release created with the jar attached

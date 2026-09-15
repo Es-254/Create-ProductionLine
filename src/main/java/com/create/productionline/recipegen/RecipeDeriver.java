@@ -3,6 +3,7 @@ package com.create.productionline.recipegen;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.create.productionline.line.analyzer.RecipeAnalyzer;
 import com.create.productionline.line.mapper.Mappers;
 import com.create.productionline.line.mapper.RecipeDescriptor;
 import com.create.productionline.line.scheme.LineScheme;
@@ -70,23 +71,76 @@ public final class RecipeDeriver {
         return new Derived(ordered, count, entriesFor(level, source, ordered, count));
     }
 
-    /** The installable native-Create entries for a descriptor (single source of truth). */
+    /**
+     * The installable native-Create entries for a descriptor (single source of
+     * truth). At most ONE entry is ever produced, and the decision flow is a
+     * fixed, ordered chain:
+     *
+     * <ol>
+     *   <li>no materials at all -> nothing (a recipe without usable input cannot
+     *       become a line);</li>
+     *   <li><b>native protection</b>: a {@code create:} category that is not an
+     *       assembly category is already produced by a Create process of its own —
+     *       converting it would duplicate native content, so refuse;</li>
+     *   <li><b>dictionary</b> (user-config contract) wins for a single-material
+     *       recipe; for two or more materials it is only trusted when its method
+     *       accepts several ingredients ({@code create:mixing}) — a single-input
+     *       machine would otherwise be handed an ingredient list it cannot match;</li>
+     *   <li><b>assembly</b> (crafting-like, incl. {@code create:mechanical_crafting})
+     *       with 2+ materials -> mechanical crafting JSON when the config asks for
+     *       it and a shaped pattern is readable, otherwise a
+     *       {@code create:sequenced_assembly};</li>
+     *   <li><b>single material</b> -> the material's own semantics pick a real
+     *       Create machine ({@link RecipeAnalyzer#machineForMaterial}) and its flat
+     *       processing type (B3: planks -> stick, log -> planks, buttons, … are
+     *       convertible);</li>
+     *   <li><b>multi-material fallback</b> -> a flat {@code create:mixing} payload,
+     *       the only Create process that consumes an arbitrary ingredient set;</li>
+     *   <li>anything else -> nothing.</li>
+     * </ol>
+     */
     public static List<LineScheme.CreateRecipeEntry> entriesFor(ServerLevel level,
             RecipeDescriptor source, List<String> orderedInputs, int count) {
         List<LineScheme.CreateRecipeEntry> out = new ArrayList<>();
         if (level == null || source == null || source.outputs().isEmpty() || source.categoryId() == null) {
             return out;
         }
+        String category = source.categoryId();
         String output = source.outputs().get(0);
         // ONE normalized material list for every derived payload: an empty/absent
         // order falls back to the descriptor's own unique inputs, and both the flat
         // and the assembly payloads read from the same list (tag fidelity included).
-        java.util.List<String> materials = (orderedInputs == null || orderedInputs.isEmpty())
+        List<String> materials = (orderedInputs == null || orderedInputs.isEmpty())
                 ? source.uniqueInputs()
                 : orderedInputs;
+        if (materials.isEmpty()) {
+            return out;
+        }
+
+        // 2) Native protection: already a Create process of its own.
+        if (category.startsWith("create:") && !isConvertibleAssembly(category)) {
+            return out;
+        }
+
+        // 3) Dictionary (user config) first — with the multi-ingredient guard.
         LineScheme.CreateRecipeEntry entry = CreateRecipePack.flatEntry(
-                Mappers.getDictionary(), source.categoryId(), materials, output, count);
-        if (entry == null && materials.size() > 1 && isConvertibleAssembly(source.categoryId())) {
+                Mappers.getDictionary(), category, materials, output, count);
+        if (entry != null) {
+            var dictionary = Mappers.getDictionary();
+            String dictionaryMethod = CreateRecipePack.methodOf(
+                    dictionary == null ? null : dictionary.lookup(category));
+            // Safe for several materials only when the mapped facility really takes
+            // an ingredient list; otherwise fall through to the assembly / mixing
+            // paths below instead of writing a flat recipe with 2+ ingredients.
+            if ("create:mixing".equals(dictionaryMethod) || materials.size() < 2) {
+                out.add(entry);
+                return out;
+            }
+            entry = null; // not multi-ingredient safe: fall through to assembly / mixing
+        }
+
+        // 4) Assembly / crafting: one deploy step per extra material.
+        if (isConvertibleAssembly(category) && materials.size() >= 2) {
             boolean mechanical = "mechanical".equalsIgnoreCase(Mappers.getAssemblyMode());
             if (mechanical) {
                 ResourceLocation rid = ResourceLocation.tryParse(source.recipeId());
@@ -105,10 +159,37 @@ public final class RecipeDeriver {
             if (entry == null) {
                 entry = CreateRecipePack.sequenceEntry(materials, output, INTERMEDIATE_ID, count);
             }
+            if (entry != null) {
+                out.add(entry);
+                return out;
+            }
         }
-        if (entry != null) {
+
+        // 5) Single material: its semantics choose a real Create machine (B3).
+        if (materials.size() == 1) {
+            String facility = RecipeAnalyzer.machineForMaterial(materials.get(0));
+            String method = CreateRecipePack.methodOf(facility);
+            if (method == null) {
+                method = "create:pressing";
+            }
+            entry = new LineScheme.CreateRecipeEntry(
+                    CreateRecipePack.fileBase(output, method),
+                    CreateRecipePack.toJsonString(CreateRecipePack.flat(method, materials, output, count)));
             out.add(entry);
+            return out;
         }
+
+        // 6) Multi-material fallback: mixing is the only process that takes a set.
+        if (materials.size() >= 2) {
+            String method = "create:mixing";
+            entry = new LineScheme.CreateRecipeEntry(
+                    CreateRecipePack.fileBase(output, method),
+                    CreateRecipePack.toJsonString(CreateRecipePack.flat(method, materials, output, count)));
+            out.add(entry);
+            return out;
+        }
+
+        // 7) No rule matched.
         return out;
     }
 }

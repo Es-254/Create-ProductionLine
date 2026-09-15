@@ -31,7 +31,7 @@
   "item.create_productionline.line_scheme.sample": "Sample Line Scheme (Iron Block -> Ingots)",
   "container.create_productionline.production_computer": "Production Computer",
   "screen.create_productionline.computer.empty": "Usage: left slot = item to produce; middle/right slots = paper / clipboard / blank Line Scheme. Press [Compute] when all are set.",
-  "screen.create_productionline.computer.not_convertible": "This recipe cannot become a Create line (e.g. a single-material recipe, or the item is already made by a native Create process). Nothing was written; your carriers are returned untouched.",
+  "screen.create_productionline.computer.not_convertible": "This recipe cannot be converted into a Create line (e.g. the target is already produced by a native Create process, or the recipe has no usable materials). Nothing was written; your carriers are untouched.",
   "screen.create_productionline.computer.generated": "Generated native Create recipe JSON — written into the Line Scheme item; insert it into a Scheme Loader to activate!",
   "screen.create_productionline.computer.no_scheme": "Missing carrier: put paper, a clipboard or a blank Line Scheme in the middle or right slot, then press [Compute].",
   "screen.create_productionline.computer.no_recipe_found": "No recipe producing this item was found on the server",
