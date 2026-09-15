@@ -20,14 +20,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
----
-
-Third-party notices
-
-* NeoForge MDK template files (gradle wrapper, build script skeleton) are
-  licensed under the MIT License, Copyright (c) 2023 NeoForged project
-  (see TEMPLATE_LICENSE.txt).
-
-* Create (the mod this project is an addon for) is licensed separately and is
-  NOT redistributed here. Create's assets are referenced at runtime only and
-  are never copied into this project's jar.
