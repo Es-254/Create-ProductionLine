@@ -82,6 +82,14 @@ if (-not (Test-Path $jar)) { throw "Jar not found: $jar - run 'gradlew build' fi
 
 $proxyUrl = if ($env:MODRINTH_PROXY) { $env:MODRINTH_PROXY } else { $env:HTTPS_PROXY }
 $curlCommon = @('--silent', '--show-error', '--max-time', $TimeoutSeconds)
+# On networks where the CRL/OCSP endpoints are unreachable (common behind
+# international-route filtering) Schannel fails the handshake with
+# CRYPT_E_NO_REVOCATION_CHECK. Disabling the revocation lookup keeps full
+# certificate-chain verification intact; only the best-effort revocation check
+# is skipped. Harmless no-op on curl builds without Schannel.
+if ((& $curl --help all 2>&1 | Select-String -SimpleMatch 'ssl-no-revoke')) {
+    $curlCommon += '--ssl-no-revoke'
+}
 if ($proxyUrl) { $curlCommon += @('--proxy', $proxyUrl); Write-Host "Using proxy $proxyUrl" }
 
 # --- changelog: the section for this version ---------------------------------
