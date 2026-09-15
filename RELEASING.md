@@ -108,11 +108,12 @@ foreach ($h in 'api.modrinth.com','cdn.modrinth.com','modrinth.com') {
 Both scripts honour a proxy, which is the fix when only a tunnel works:
 
 ```powershell
-$env:MODRINTH_PROXY = "http://127.0.0.1:31181"   # your accelerator's local proxy port
+$env:MODRINTH_PROXY = "http://127.0.0.1:<port>"   # your local proxy / accelerator port
 ```
 
-For the Gradle/Minotaur path, uncomment the `systemProp.*.proxyHost/Port` block in
-`gradle.properties` with the same port instead.
+For the Gradle/Minotaur path, set the matching `systemProp.*.proxyHost/Port` in your
+**user-level** `~/.gradle/gradle.properties` (the commented block in this repo's
+`gradle.properties` is a template — keep machine-specific values out of the repository).
 
 ### M.3 Option B — upload by hand (no token, no Gradle)
 
