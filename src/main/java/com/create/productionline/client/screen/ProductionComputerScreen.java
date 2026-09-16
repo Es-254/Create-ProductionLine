@@ -9,7 +9,6 @@ import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.menu.ProductionComputerMenu;
 import com.create.productionline.network.ModPayloads;
 
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -39,11 +38,11 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
     public ProductionComputerScreen(ProductionComputerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         this.imageWidth = 176;
-        this.imageHeight = 166;
+        this.imageHeight = 196;
         this.titleLabelX = 8;
         this.titleLabelY = 6;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 80;
+        this.inventoryLabelY = 102;
     }
 
     @Override
@@ -52,7 +51,7 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
         int left = (this.width - this.imageWidth) / 2;
         int top = (this.height - this.imageHeight) / 2;
         int bx = left + (this.imageWidth - BUTTON_W) / 2;
-        int by = top + 56;
+        int by = top + 46;
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.create_productionline.compute"),
                 b -> sendCompute())
@@ -99,13 +98,13 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                 this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
 
         List<String> lines = statusLines();
-        int y = 38;
-        int maxY = 50;
+        int y = 64;
+        int maxY = 100;
         for (String line : lines) {
             if (y > maxY) {
                 break;
             }
-            for (String wrapped : wrap(this.font, line, 160)) {
+            for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font, line, 160)) {
                 if (y > maxY) {
                     break;
                 }
@@ -130,6 +129,8 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                     out.add(Component.translatable("screen.create_productionline.computer.product", name).getString());
                     out.add(Component.translatable("screen.create_productionline.computer.plan_size",
                             scheme.getSteps().size(), scheme.totalFacilityCount()).getString());
+                    out.add(Component.translatable("screen.create_productionline.computer.embedded",
+                            scheme.getCreateRecipes().size()).getString());
                 }
             }
             case ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE ->
@@ -140,12 +141,6 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                 // M7: the result code alone cannot say WHY nothing could be mapped
                 // ("no recipe" == no recipe at all / no usable output / no registry
                 // id), so the server-reported cause is shown as an extra line.
-                //
-                // ORDER MATTERS: renderLabels() only has room for two 9px lines
-                // (y=38, y=47, then maxY=50 - below that sits the Compute button),
-                // and the generic cannot_map text alone wraps to ~4 lines at 160px.
-                // Appending the specific reason after it would therefore never be
-                // drawn, so the specific reason goes FIRST and cannot_map second.
                 switch (this.menu.getLastErrorCode()) {
                     case ProductionComputerBlockEntity.ERROR_NO_RECIPE_PRODUCING ->
                             out.add(Component.translatable(
@@ -179,43 +174,6 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
             }
         }
         return itemId;
-    }
-
-    /** Splits a line so it fits the given pixel width (word- and char-aware). */
-    private static List<String> wrap(Font font, String text, int maxWidth) {
-        List<String> lines = new ArrayList<>();
-        if (text == null || text.isEmpty()) {
-            return lines;
-        }
-        String[] words = text.split("(?<=\\s)|(?=\\s)");
-        StringBuilder line = new StringBuilder();
-        for (String word : words) {
-            String probe = line.length() == 0 ? word : line + word;
-            if (font.width(probe) <= maxWidth || line.length() == 0) {
-                line.append(word);
-            } else {
-                lines.add(line.toString().trim());
-                line.setLength(0);
-                if (font.width(word) > maxWidth) {
-                    String rest = word;
-                    while (font.width(rest) > maxWidth) {
-                        int cut = 1;
-                        while (cut < rest.length() && font.width(rest.substring(0, cut + 1)) <= maxWidth) {
-                            cut++;
-                        }
-                        lines.add(rest.substring(0, cut));
-                        rest = rest.substring(cut);
-                    }
-                    line.append(rest);
-                } else {
-                    line.append(word);
-                }
-            }
-        }
-        if (line.length() > 0) {
-            lines.add(line.toString().trim());
-        }
-        return lines;
     }
 
     @Override

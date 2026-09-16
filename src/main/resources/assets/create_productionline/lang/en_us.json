@@ -17,7 +17,8 @@
   "loader.create_productionline.active": "Pipeline recipes active (redstone on)",
   "loader.create_productionline.inactive": "Waiting: insert written Line Schemes to activate their recipes",
   "loader.create_productionline.recipes_loaded": "Loaded %s Create recipe JSON file(s)",
-  "loader.create_productionline.slots_filled": "Schemes inserted: %s/16 — %s embedded Create recipe(s)",
+  "loader.create_productionline.slots_filled": "Schemes inserted: %s/16",
+  "loader.create_productionline.active_recipes": "Active Create recipes: %s (server count)",
   "loader.create_productionline.no_recipes": "This scheme is a build guide only (no embedded Create recipe; nothing to activate)",
   "item.create_productionline.line_scheme.recipes": "Embedded Create recipes: %s (insert into a Scheme Loader to activate)",
   "cpl.create_productionline.feed": "Feed (Mechanical Arm / Funnel / Chute / drop-in — any)",
@@ -41,6 +42,7 @@
   "screen.create_productionline.computer.no_target": "Put the item to produce into the left slot.",
   "screen.create_productionline.computer.product": "Output: %s",
   "screen.create_productionline.computer.plan_size": "Plan: %s steps / %s facilities (see item tooltip)",
+  "screen.create_productionline.computer.embedded": "Embedded Create recipes: %s",
   "gui.create_productionline.compute": "Compute",
   "item.create_productionline.guide.title": "Build guide:"
 }

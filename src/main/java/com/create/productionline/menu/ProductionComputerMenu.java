@@ -52,7 +52,7 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
             }
         });
 
-        addPlayerSlots(playerInventory, 84);
+        addPlayerSlots(playerInventory, 112);
         addDataSlots(data);
     }
 

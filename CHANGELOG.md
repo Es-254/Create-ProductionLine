@@ -83,6 +83,13 @@ hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a r
   loader's contributions), `installEntries`, `tryConvertOne`, `keyMap`, `patternFromRowMajor`, the
   planning-only `RecipeMapper.map`/`Mappers.get()`/`MappingResult` engine, `RESULT_NO_CLIPBOARD`,
   `computeNow()`, and several unused helpers are gone.
+- **GUI reworked.** The computer and loader panels grew to 176×196 with roomier status areas (the specific
+  failure reason and the success summary now fit without clipping); the computer additionally shows the
+  embedded recipe count, and the loader now displays the **server-derived** active recipe count (a new menu
+  data slot) instead of counting the item's cached JSON. The dismantler got its own background instead of
+  the 16-slot loader sheet. All three backgrounds are proper 256×256 sheets — the previous 176×166 files
+  were sampled as if 256×256, so the panel rendered as a stretched top-left crop. Text wrapping moved into
+  one shared helper (`CreateGui.wrap`).
 - **In-game mod metadata now links the issue tracker** (`issueTrackerURL` expanded from
   `gradle.properties`, which no longer claims the repository does not exist).
 

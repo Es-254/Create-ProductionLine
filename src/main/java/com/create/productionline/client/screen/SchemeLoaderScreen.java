@@ -7,7 +7,6 @@ import com.create.productionline.line.scheme.LineScheme;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.menu.SchemeLoaderMenu;
 
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -27,11 +26,11 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
     public SchemeLoaderScreen(SchemeLoaderMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         this.imageWidth = 176;
-        this.imageHeight = 166;
+        this.imageHeight = 196;
         this.titleLabelX = 8;
         this.titleLabelY = 6;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 76;
+        this.inventoryLabelY = 102;
     }
 
     @Override
@@ -63,7 +62,6 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
             lines.add(Component.translatable("loader.create_productionline.inactive").getString());
         }
         int filled = 0;
-        int recipes = 0;
         for (int i = 0; i < com.create.productionline.menu.SchemeLoaderMenu.LOADER_SLOT_COUNT; i++) {
             ItemStack stack = this.menu.getLoaderContainer().getItem(i);
             if (stack.isEmpty()) {
@@ -74,59 +72,24 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
                 continue;
             }
             filled++;
-            recipes += scheme.getCreateRecipes().size();
         }
-        lines.add(Component.translatable("loader.create_productionline.slots_filled",
-                filled, recipes).getString());
+        lines.add(Component.translatable("loader.create_productionline.slots_filled", filled).getString());
+        lines.add(Component.translatable("loader.create_productionline.active_recipes",
+                this.menu.getActiveCount()).getString());
         int y = 56;
+        int maxY = 100;
         for (String line : lines) {
-            if (y > 70) {
+            if (y > maxY) {
                 break;
             }
-            for (String wrapped : wrap(this.font, line, 160)) {
-                if (y > 70) {
+            for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font, line, 160)) {
+                if (y > maxY) {
                     break;
                 }
                 guiGraphics.drawString(this.font, wrapped, 8, y, 0x404040, false);
                 y += 9;
             }
         }
-    }
-
-    private static List<String> wrap(Font font, String text, int maxWidth) {
-        List<String> lines = new ArrayList<>();
-        if (text == null || text.isEmpty()) {
-            return lines;
-        }
-        String[] words = text.split("(?<=\\s)|(?=\\s)");
-        StringBuilder line = new StringBuilder();
-        for (String word : words) {
-            String probe = line.length() == 0 ? word : line + word;
-            if (font.width(probe) <= maxWidth || line.length() == 0) {
-                line.append(word);
-            } else {
-                lines.add(line.toString().trim());
-                line.setLength(0);
-                if (font.width(word) > maxWidth) {
-                    String rest = word;
-                    while (font.width(rest) > maxWidth) {
-                        int cut = 1;
-                        while (cut < rest.length() && font.width(rest.substring(0, cut + 1)) <= maxWidth) {
-                            cut++;
-                        }
-                        lines.add(rest.substring(0, cut));
-                        rest = rest.substring(cut);
-                    }
-                    line.append(rest);
-                } else {
-                    line.append(word);
-                }
-            }
-        }
-        if (line.length() > 0) {
-            lines.add(line.toString().trim());
-        }
-        return lines;
     }
 
     @Override

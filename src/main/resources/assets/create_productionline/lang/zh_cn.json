@@ -17,7 +17,8 @@
   "loader.create_productionline.active": "流水线配方已生效（红石信号开启）",
   "loader.create_productionline.inactive": "等待方案：放入写好的产线方案使配方生效",
   "loader.create_productionline.recipes_loaded": "已加载 %s 条 Create 配方 JSON",
-  "loader.create_productionline.slots_filled": "已放入方案 %s/16 · 内嵌配方 %s 条",
+  "loader.create_productionline.slots_filled": "已放入方案：%s/16",
+  "loader.create_productionline.active_recipes": "生效的 Create 配方：%s 条（服务端统计）",
   "loader.create_productionline.no_recipes": "该方案为建造指引（无内嵌 Create 配方，无需激活）",
   "item.create_productionline.line_scheme.recipes": "内嵌 Create 配方：%s 条（放入方案加载柜生效）",
   "cpl.create_productionline.feed": "投料（动力臂/漏斗/溜槽/直接放料，任选其一）",
@@ -41,6 +42,7 @@
   "screen.create_productionline.computer.no_target": "请在左侧格子放入要生产的物品。",
   "screen.create_productionline.computer.product": "目标产物：%s",
   "screen.create_productionline.computer.plan_size": "方案：%s 步 / 共 %s 个设施（详见物品提示）",
+  "screen.create_productionline.computer.embedded": "内嵌 Create 配方：%s 条",
   "gui.create_productionline.compute": "计算",
   "item.create_productionline.guide.title": "施工指引："
 }

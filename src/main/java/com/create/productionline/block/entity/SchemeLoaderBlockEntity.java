@@ -36,6 +36,7 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
 
     private final ModContainer inventory = new ModContainer(this, SLOT_COUNT, this::onSlotChanged);
     private boolean active = false;
+    private int activeCount = 0;
     private boolean pendingReconcile = true;
     /**
      * Key (dimension + position) this cabinet's contribution is currently
@@ -87,10 +88,11 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
             CreateRecipePack.dropContribution(serverLevel.getServer(), registeredKey);
         }
         java.util.Map<String, String> own = currentEntriesMap();
-        int activeCount = CreateRecipePack.reconcileContributions(serverLevel.getServer(), key,
+        int cnt = CreateRecipePack.reconcileContributions(serverLevel.getServer(), key,
                 own.isEmpty() ? null : own);
+        this.activeCount = cnt;
         registeredKey = key;
-        active = !own.isEmpty() && activeCount > 0;
+        active = !own.isEmpty() && cnt > 0;
         syncState();
     }
 
@@ -188,6 +190,11 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
 
     public boolean isActive() {
         return active;
+    }
+
+    /** Number of Create recipes actually active on the server for this loader. */
+    public int getActiveCount() {
+        return activeCount;
     }
 
     /** Number of slots holding a usable scheme. */

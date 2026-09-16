@@ -17,7 +17,7 @@ import net.minecraft.world.entity.player.Inventory;
 public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
 
     private static final ResourceLocation BACKGROUND =
-            ResourceLocation.fromNamespaceAndPath("create_productionline", "textures/gui/scheme_loader.png");
+            ResourceLocation.fromNamespaceAndPath("create_productionline", "textures/gui/dismantler.png");
 
     public DismantlerScreen(DismantlerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -37,7 +37,7 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.create_productionline.dismantle"),
                 b -> ModPayloads.sendDismantleRequest())
-                .bounds(left + (this.imageWidth - 70) / 2, top + 46, 70, 16)
+                .bounds(left + (this.imageWidth - 70) / 2, top + 58, 70, 16)
                 .build());
     }
 
@@ -62,8 +62,16 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
         guiGraphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, 0x404040, false);
         guiGraphics.drawString(this.font, Component.translatable("container.inventory"),
                 this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
-        guiGraphics.drawString(this.font,
-                Component.translatable("dismantler.create_productionline.hint"), 8, 40, 0x555555, false);
+        int y = 40;
+        int maxY = 56;
+        for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font,
+                Component.translatable("dismantler.create_productionline.hint").getString(), 160)) {
+            if (y > maxY) {
+                break;
+            }
+            guiGraphics.drawString(this.font, wrapped, 8, y, 0x555555, false);
+            y += 9;
+        }
     }
 
     @Override

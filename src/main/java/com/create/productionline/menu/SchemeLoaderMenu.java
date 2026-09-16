@@ -17,12 +17,13 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Scheme Loader GUI: 16 carrier slots (2 rows of 8) plus the player inventory.
  * All schemes placed inside are active at once (their embedded recipes form a
- * union). Data slot 0 = any pipeline recipe active flag.
+ * union). Data slot 0 = any pipeline recipe active flag; slot 1 = active
+ * recipe count (server-side).
  */
 public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     public static final int DATA_ACTIVE = 0;
-    public static final int DATA_COUNT = 1;
+    public static final int DATA_COUNT = 2;
     /** Index of the first loader slot; loader slots occupy [0, 16). */
     public static final int LOADER_SLOT_COUNT = SchemeLoaderBlockEntity.SLOT_COUNT;
 
@@ -35,7 +36,7 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
         this.data = data;
 
         addLoaderSlots();
-        addPlayerSlots(playerInventory, 84);
+        addPlayerSlots(playerInventory, 112);
         addDataSlots(data);
     }
 
@@ -62,7 +63,7 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     public static SchemeLoaderMenu createClient(int id, Inventory playerInventory) {
         return new SchemeLoaderMenu(id, playerInventory, new SimpleContainer(LOADER_SLOT_COUNT),
-                new SimpleContainerData(DATA_COUNT));
+                new SimpleContainerData(2));
     }
 
     private static final class Data implements ContainerData {
@@ -74,7 +75,13 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
 
         @Override
         public int get(int index) {
-            return index == DATA_ACTIVE ? (be.isActive() ? 1 : 0) : 0;
+            if (index == DATA_ACTIVE) {
+                return be.isActive() ? 1 : 0;
+            }
+            if (index == 1) {
+                return be.getActiveCount();
+            }
+            return 0;
         }
 
         @Override
@@ -90,6 +97,10 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     public boolean isActive() {
         return data.get(DATA_ACTIVE) != 0;
+    }
+
+    public int getActiveCount() {
+        return data.get(1);
     }
 
     public Container getLoaderContainer() {

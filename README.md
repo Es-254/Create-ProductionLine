@@ -280,15 +280,17 @@ was removed rather than reworded. Verified-clean as of this revision (so no long
 files now describe the 3-slot side-by-side layout, `ClipboardCompat`'s javadoc no longer mentions the
 removed "controller", `SchemeLoaderMenu` / `SchemeLoaderBlockEntity` javadoc now state the genuine-scheme-only
 rule, the built jar ships no `.bak` / `*_particle.png` / `debug/` entries, and neither the empty `debug/`
-directory nor `src/generated/` exists any more.
+directory nor `src/generated/` exists any more. Also fixed since: the dismantler got its own GUI background
+(no longer the 16-slot loader sheet), and the loader screen's "embedded recipes" count now comes from the
+server-derived active count instead of the item's cached JSON.
 
 已过时条目一律**删除而非弱化措辞**：与当前代码不符的行直接删掉。本版已核实为干净（故不再列出）：
 语言文件已改为描述 3 格并排布局；`ClipboardCompat` javadoc 已不再提已删除的 "controller"；
 `SchemeLoaderMenu` / `SchemeLoaderBlockEntity` javadoc 已写明"只认真方案"；产物 jar 不含
 `.bak` / `*_particle.png` / `debug/` 条目；空目录 `debug/` 与 `src/generated/` 均已不存在。
+此后又修复：破拆机改用专属 GUI 底图（不再复用 16 格加载柜底图）；加载柜界面的"内嵌配方数"改显示
+服务端推导的真实生效数量，不再读物品缓存 JSON。
 
 | Location / 位置 | State / 现状 | Note / 说明 |
 | --- | --- | --- |
 | `lang` `loader.create_productionline.slots_filled` | hard-codes `%s/16` / 写死 `%s/16` | consistent with `SchemeLoaderBlockEntity.SLOT_COUNT=16` / 与 `SchemeLoaderBlockEntity.SLOT_COUNT=16` 一致，但改容量会漏改 |
-| `SchemeLoaderScreen.java:77` | counts "embedded recipes N" via `scheme.getCreateRecipes().size()` / 用该字段统计"内嵌配方 N 条" | that field is now **cache only**; real entries come from `RecipeDeriver` server-side / 该字段现在只是缓存；真实生效条目由 `RecipeDeriver` 服务端推导，二者可能不等 |
-| `DismantlerScreen.java:19-20` | dismantler GUI reuses `textures/gui/scheme_loader.png` | that background is drawn with 16-slot decoration while the dismantler has 2 slots / 加载柜底图画了 16 格装饰，破拆机只有 2 槽 |
