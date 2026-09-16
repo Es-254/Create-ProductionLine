@@ -36,7 +36,7 @@ public class DismantlerMenu extends AbstractContainerMenu {
                 return !stack.isEmpty() && stack.getItem() instanceof com.create.productionline.item.LineSchemeItem;
             }
         });
-        addPlayerSlots(playerInventory, 84);
+        addPlayerSlots(playerInventory, 112);
     }
 
     public static DismantlerMenu fromServer(int id, Inventory playerInventory, DismantlerBlockEntity be) {

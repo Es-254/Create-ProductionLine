@@ -34,36 +34,31 @@ public final class CreateGui {
                 256, 256);
     }
 
-    /** Splits a line so it fits the given pixel width (word- and char-aware). */
+    /**
+     * Splits a line so it fits the given pixel width. Character-based on purpose:
+     * a run without whitespace (e.g. a whole CJK sentence, or a long id) must be
+     * broken mid-run — a word-aware splitter would emit it as one over-wide line
+     * and the text would overflow the panel. Every returned line is therefore
+     * guaranteed to be at most {@code maxWidth} pixels wide.
+     */
     public static List<String> wrap(Font font, String text, int maxWidth) {
         List<String> lines = new java.util.ArrayList<>();
         if (text == null || text.isEmpty()) {
             return lines;
         }
-        String[] words = text.split("(?<=\\s)|(?=\\s)");
         StringBuilder line = new StringBuilder();
-        for (String word : words) {
-            String probe = line.length() == 0 ? word : line + word;
-            if (font.width(probe) <= maxWidth || line.length() == 0) {
-                line.append(word);
-            } else {
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);
+            String ch = new String(Character.toChars(cp));
+            i += Character.charCount(cp);
+            if (line.length() > 0 && font.width(line.toString() + ch) > maxWidth) {
                 lines.add(line.toString().trim());
                 line.setLength(0);
-                if (font.width(word) > maxWidth) {
-                    String rest = word;
-                    while (font.width(rest) > maxWidth) {
-                        int cut = 1;
-                        while (cut < rest.length() && font.width(rest.substring(0, cut + 1)) <= maxWidth) {
-                            cut++;
-                        }
-                        lines.add(rest.substring(0, cut));
-                        rest = rest.substring(cut);
-                    }
-                    line.append(rest);
-                } else {
-                    line.append(word);
+                if (Character.isWhitespace(cp)) {
+                    continue; // drop the leading space after a break
                 }
             }
+            line.append(ch);
         }
         if (line.length() > 0) {
             lines.add(line.toString().trim());

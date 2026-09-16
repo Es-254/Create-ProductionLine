@@ -22,11 +22,11 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
     public DismantlerScreen(DismantlerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         this.imageWidth = 176;
-        this.imageHeight = 166;
+        this.imageHeight = 196;
         this.titleLabelX = 8;
         this.titleLabelY = 6;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 72;
+        this.inventoryLabelY = 102;
     }
 
     @Override
@@ -37,7 +37,7 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.create_productionline.dismantle"),
                 b -> ModPayloads.sendDismantleRequest())
-                .bounds(left + (this.imageWidth - 70) / 2, top + 58, 70, 16)
+                .bounds(left + (this.imageWidth - 70) / 2, top + 78, 70, 16)
                 .build());
     }
 
@@ -63,7 +63,7 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
         guiGraphics.drawString(this.font, Component.translatable("container.inventory"),
                 this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
         int y = 40;
-        int maxY = 56;
+        int maxY = 76;
         for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font,
                 Component.translatable("dismantler.create_productionline.hint").getString(), 160)) {
             if (y > maxY) {
