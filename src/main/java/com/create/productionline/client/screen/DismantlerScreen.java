@@ -69,7 +69,7 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
             if (y > maxY) {
                 break;
             }
-            guiGraphics.drawString(this.font, wrapped, 8, y, 0x555555, false);
+            guiGraphics.drawString(this.font, wrapped, 8, y, 0x3C3C3C, false);
             y += 9;
         }
     }
