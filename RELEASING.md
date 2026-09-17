@@ -365,6 +365,12 @@ generated notes after it. To do it by hand instead, create a Release for the tag
 > Tagging rules: `v1.0.x` = release (not a pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).
 > Dev snapshots `0.0.0-dev.1` … `0.0.0-dev.4` are **not** tagged retroactively — they are documented
 > in `CHANGELOG.md` only. The retired `v1.0.2` tag/Release belonged to the old numbering.
+>
+> **Never move or delete a tag that has a Release.** GitHub reacts to a tag being re-cut by turning
+> its Release into a draft (invisible to everyone but the owner), and that can land *after* the CI run
+> that just published it. If you must re-cut a tag, re-check the Release afterwards and publish it
+> again — the workflow passes `--draft=false`, but a late draft flip still wins. Publishing a release
+> with a stale asset in it is worse than re-cutting: bump the version instead.
 
 ## 4. Publishing commands
 
