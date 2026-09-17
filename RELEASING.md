@@ -18,6 +18,9 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   version is still listed: Modrinth **refuses to delete a version while the project is under review**
 >   (`400 project must have no required validation nags before or while under review`), so remove it
 >   right after approval — the public version list should start at the first official release.
+>   Sync the project body in the same pass: `docs/platform-listing.md` no longer matches the live
+>   text (it described the old computer slots, i.e. paper / clipboard in the middle and right slots,
+>   where slot 2 now takes a blank Line Scheme and slot 3 optional paper).
 >   Everything else about the Modrinth path (token, ids, scripts) is ready.
 > - **CurseForge — not set up** (`curseforge_project_id` is empty). Treat **§0.3** and the CurseForge
 >   halves of §4 / §5 as *later*.
@@ -373,6 +376,12 @@ generated notes after it. To do it by hand instead, create a Release for the tag
 > that just published it. If you must re-cut a tag, re-check the Release afterwards and publish it
 > again — the workflow passes `--draft=false`, but a late draft flip still wins. Publishing a release
 > with a stale asset in it is worse than re-cutting: bump the version instead.
+>
+> **The released `1.0.1` is the jar attached to the `v1.0.1` tag** (190,504 B, `sha256:2c644ed6…`),
+> and building that tag still reproduces it byte for byte. A build from `main` is *not* that jar: the
+> in-game description in `META-INF/neoforge.mods.toml` was corrected after the tag, so `main` builds
+> 190,536 B / `sha256:6ba3ccfc…` while still reporting version `1.0.1`. Treat the Release asset as the
+> artifact of record; the next cut carries the description fix.
 
 ## 4. Publishing commands
 
