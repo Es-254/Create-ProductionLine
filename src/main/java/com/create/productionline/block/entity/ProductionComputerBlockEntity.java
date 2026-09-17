@@ -78,6 +78,13 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     private String hintRecipeId = "";
     private com.create.productionline.line.mapper.RecipeDescriptor hintFallback = null;
 
+    /**
+     * True while the computer itself writes the computed plan onto the carrier slots.
+     * Those writes also fire {@link #onSlotChanged(int)}; without this guard the
+     * fresh "generated" status would be wiped immediately.
+     */
+    private boolean writingCarriers = false;
+
     public ProductionComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PRODUCTION_COMPUTER.get(), pos, state);
     }
@@ -95,7 +102,17 @@ public class ProductionComputerBlockEntity extends BlockEntity {
 
     private void onSlotChanged(int slot) {
         // No auto computation: the player presses the "Compute" button once all
-        // three slots are set (explicit trigger). We only track changes here.
+        // three slots are set (explicit trigger). Any change made BY THE PLAYER
+        // invalidates the previous run, so the GUI falls back to its initial text
+        // instead of still showing the last computed item.
+        if (!writingCarriers) {
+            resultCode = RESULT_EMPTY;
+            lastErrorCode = ERROR_NONE;
+            lastError = "";
+            hintRecipeId = "";
+            hintFallback = null;
+            computeQueued = false;
+        }
         setChanged();
     }
 
@@ -164,30 +181,25 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         if (!hintId.isBlank()) {
             com.create.productionline.line.mapper.RecipeDescriptor verified =
                     com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, hintId);
-            if (verified != null && verified.outputs().contains(targetId.toString())) {
+            if (verified != null && verified.outputs().contains(targetId.toString())
+                    && verified.hasUsableMaterials() && !isOwnRecipe(verified.recipeId())) {
                 source = verified; // server-derived inputs, not the client's
                 ProductionLineMod.LOGGER.info("CPL compute: client recipe hint '{}' verified server-side", hintId);
             } else {
                 ProductionLineMod.LOGGER.warn(
-                        "CPL compute: rejected recipe hint '{}' for target {} (not a live server recipe for this item)",
+                        "CPL compute: rejected recipe hint '{}' for target {} "
+                                + "(not a live recipe, wrong output, self-referential only, or our own conversion)",
                         hintId, targetId);
             }
         }
 
         // 2) Server-side lookup — always available, never trusts the client.
         boolean authoritative = source != null;
+        java.util.List<com.create.productionline.line.mapper.ServerRecipeLookup.Found> found =
+                java.util.List.of();
         if (source == null) {
-            List<com.create.productionline.line.mapper.ServerRecipeLookup.Found> found =
-                    com.create.productionline.line.mapper.ServerRecipeLookup.findDetailed(serverLevel, targetId);
-            for (com.create.productionline.line.mapper.ServerRecipeLookup.Found f : found) {
-                if (!f.descriptor().categoryId().startsWith("create:")) {
-                    source = f.descriptor();
-                    break;
-                }
-            }
-            if (source == null && !found.isEmpty()) {
-                source = found.get(0).descriptor();
-            }
+            found = com.create.productionline.line.mapper.ServerRecipeLookup.findDetailed(serverLevel, targetId);
+            source = chooseSource(serverLevel, found);
             authoritative = source != null;
         }
 
@@ -196,7 +208,8 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         //    only — no installable recipe is derived from unverified data.
         if (source == null && fallback != null && !fallback.inputs().isEmpty()
                 && !fallback.categoryId().isBlank() && !fallback.outputs().isEmpty()
-                && fallback.outputs().get(0).equals(targetId.toString())) {
+                && fallback.outputs().get(0).equals(targetId.toString())
+                && fallback.hasUsableMaterials()) {
             source = fallback;
             ProductionLineMod.LOGGER.info(
                     "CPL compute: server found no recipe for {}; using the client-reported recipe for the plan only "
@@ -205,7 +218,11 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         }
 
         if (source == null) {
-            setResult(RESULT_NO_RECIPE, "no recipe producing " + targetId + " was found");
+            boolean onlySelfRecipes = !found.isEmpty()
+                    && found.stream().noneMatch(f -> f.descriptor().hasUsableMaterials());
+            setResult(RESULT_NO_RECIPE, onlySelfRecipes
+                    ? "only self-referential (copy/repair) recipes exist for " + targetId
+                    : "no recipe producing " + targetId + " was found");
             return;
         }
 
@@ -312,11 +329,16 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             scheme.addCreateRecipe(e.getFileName(), e.getJson());
         }
 
-        LineSchemeSerializer.saveToStack(carrier, scheme);
-        ClipboardCompat.writeGuide(carrier, scheme);
-        if (!secondary.isEmpty() && secondary != carrier) {
-            LineSchemeSerializer.saveToStack(secondary, scheme);
-            ClipboardCompat.writeGuide(secondary, scheme);
+        writingCarriers = true;
+        try {
+            LineSchemeSerializer.saveToStack(carrier, scheme);
+            ClipboardCompat.writeGuide(carrier, scheme);
+            if (!secondary.isEmpty() && secondary != carrier) {
+                LineSchemeSerializer.saveToStack(secondary, scheme);
+                ClipboardCompat.writeGuide(secondary, scheme);
+            }
+        } finally {
+            writingCarriers = false;
         }
 
         setResult(RESULT_GENERATED, "embedded create recipe: " + entry.getFileName());
@@ -345,6 +367,50 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      *   <li>anything else → 0</li>
      * </ul>
      */
+    /**
+     * Recipe selection for the server-side scan. Prefers a recipe that
+     * (a) is not a native Create type, (b) has at least one material that is not the product
+     * itself, and (c) actually yields an installable entry. Copy/repair/dye recipes whose only
+     * ingredient is the target are skipped entirely — converting one produced the nonsense
+     * plan {@code [target] -> press -> target}.
+     */
+    private static com.create.productionline.line.mapper.RecipeDescriptor chooseSource(
+            ServerLevel level,
+            java.util.List<com.create.productionline.line.mapper.ServerRecipeLookup.Found> found) {
+        com.create.productionline.line.mapper.RecipeDescriptor firstUsable = null;
+        for (com.create.productionline.line.mapper.ServerRecipeLookup.Found f : found) {
+            com.create.productionline.line.mapper.RecipeDescriptor d = f.descriptor();
+            if (d.categoryId().startsWith("create:") || !d.hasUsableMaterials() || isOwnRecipe(d.recipeId())) {
+                continue;
+            }
+            if (com.create.productionline.recipegen.RecipeDeriver.derive(level, d).hasEntries()) {
+                return d; // convertible with real materials: the best possible choice
+            }
+            if (firstUsable == null) {
+                firstUsable = d; // usable materials but not convertible -> plan-only fallback
+            }
+        }
+        for (com.create.productionline.line.mapper.ServerRecipeLookup.Found f : found) {
+            com.create.productionline.line.mapper.RecipeDescriptor d = f.descriptor();
+            if (!d.hasUsableMaterials() || isOwnRecipe(d.recipeId())) {
+                continue;
+            }
+            if (com.create.productionline.recipegen.RecipeDeriver.derive(level, d).hasEntries()) {
+                return d;
+            }
+            if (firstUsable == null) {
+                firstUsable = d;
+            }
+        }
+        return firstUsable;
+    }
+
+    /** True for recipes this mod itself installed ({@code cpl:…}) — never re-convert those. */
+    private static boolean isOwnRecipe(String recipeId) {
+        return recipeId != null && recipeId.startsWith(
+                com.create.productionline.recipegen.CreateRecipePack.PACK_NAMESPACE + ":");
+    }
+
     private void setResult(int code, String error) {
         this.resultCode = code;
         this.lastError = error == null ? "" : error;

@@ -99,11 +99,14 @@ public final class RecipeJsonReader {
             if (el.isJsonObject()) {
                 var o = el.getAsJsonObject();
                 if (o.has("item")) {
-                    return o.get("item").getAsString();
+                    return normalizeMaterial(o.get("item").getAsString());
                 }
                 if (o.has("tag")) {
                     return "#" + o.get("tag").getAsString();
                 }
+            }
+            if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isString()) {
+                return normalizeMaterial(el.getAsString());
             }
         } catch (RuntimeException ignored) {
         }
@@ -221,8 +224,8 @@ public final class RecipeJsonReader {
             if (e.isJsonObject()) {
                 var o = e.getAsJsonObject();
                 if (o.has("item")) {
-                    String id = o.get("item").getAsString();
-                    if (out.isEmpty() || !out.contains(id)) {
+                    String id = normalizeMaterial(o.get("item").getAsString());
+                    if (id != null && (out.isEmpty() || !out.contains(id))) {
                         out.add(id);
                     }
                 } else if (o.has("tag")) {
@@ -237,12 +240,146 @@ public final class RecipeJsonReader {
                     }
                 }
             } else if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
-                String id = e.getAsString();
-                if (out.isEmpty() || !out.contains(id)) {
+                String id = normalizeMaterial(e.getAsString());
+                if (id != null && (out.isEmpty() || !out.contains(id))) {
                     out.add(id);
                 }
             }
         } catch (RuntimeException ignored) {
+        }
+    }
+
+    /**
+     * Normalizes a material token coming from a foreign recipe format.
+     *
+     * <p>Some mods (e.g. superbwarfare's {@code vehicle_assembling}) write their
+     * ingredients as <b>count-prefixed strings</b>: {@code "8 #c:storage_blocks/steel"},
+     * {@code "24 superbwarfare:cemented_carbide_block"}, {@code "2 superbwarfare:track"}.
+     * Passing those through verbatim produced raw unreadable tooltips, invalid
+     * {@code {"item": "8 #…"}} payloads (recipe never loads) and text overflow.
+     * This strips the numeric prefix and returns {@code "#tag"} / {@code "modid:item"}.
+     *
+     * @return the normalized token, or {@code null} when nothing usable remains
+     */
+    public static String normalizeMaterial(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String token = raw.trim();
+        if (token.isEmpty()) {
+            return null;
+        }
+        // "8 #c:storage_blocks/steel" / "24 superbwarfare:cemented_carbide_block" / "2x item"
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("^(\\d+)\\s*[xX]?\\s+(.+)$")
+                .matcher(token);
+        if (m.matches()) {
+            token = m.group(2).trim();
+        }
+        // A remaining whitespace means the token is still not a single id: keep the
+        // first word so we never emit an illegal ingredient.
+        int space = token.indexOf(' ');
+        if (space > 0) {
+            token = token.substring(0, space);
+        }
+        return token.isEmpty() ? null : token;
+    }
+
+    /**
+     * True when the recipe's result is an ENTITY ({@code "result": {"entity": …}}),
+     * i.e. it is assembled by a machine of its own mod (vehicles, turrets, …) and
+     * must not be converted into a Create processing line.
+     */
+    public static boolean resultIsEntity(ResourceManager manager, ResourceLocation recipeId) {
+        JsonObject obj = readRecipeJson(manager, recipeId);
+        if (obj == null || !obj.has("result") || !obj.get("result").isJsonObject()) {
+            return false;
+        }
+        JsonObject r = obj.getAsJsonObject("result");
+        return r.has("entity") || r.has("entity_type");
+    }
+
+    /**
+     * A parsed {@code create:sequenced_assembly} payload: the base material, the material
+     * each deploy step adds (in order) and the final result item. Used by the Dismantler to
+     * refund exactly the materials an unfinished intermediate has already absorbed.
+     */
+    public record SequenceParts(String base, List<String> stepMaterials, String resultItem) {
+    }
+
+    /** Parses a sequenced-assembly recipe JSON, or {@code null} when it is not one. */
+    public static SequenceParts sequenceParts(ResourceManager manager, ResourceLocation recipeId) {
+        JsonObject obj = readRecipeJson(manager, recipeId);
+        if (obj == null || !obj.has("sequence") || !obj.get("sequence").isJsonArray()) {
+            return null;
+        }
+        String base = null;
+        if (obj.has("ingredient")) {
+            base = normalizeMaterial(ingredientItem(obj.get("ingredient")));
+        }
+        List<String> materials = new ArrayList<>();
+        for (JsonElement el : obj.getAsJsonArray("sequence")) {
+            if (!el.isJsonObject()) {
+                continue;
+            }
+            JsonObject step = el.getAsJsonObject();
+            if (!step.has("ingredients") || !step.get("ingredients").isJsonArray()) {
+                continue;
+            }
+            var arr = step.getAsJsonArray("ingredients");
+            // ingredients[0] is the current item (base / transitional), [1] the added material
+            if (arr.size() >= 2) {
+                String added = normalizeMaterial(ingredientItem(arr.get(1)));
+                if (added != null) {
+                    materials.add(added);
+                }
+            }
+        }
+        return new SequenceParts(base, materials, resultItemId(obj));
+    }
+
+    /** Reads the single result item id of a recipe JSON, or {@code null}. */
+    public static String resultItemId(JsonObject obj) {
+        if (obj == null) {
+            return null;
+        }
+        if (obj.has("result") && obj.get("result").isJsonObject()) {
+            JsonObject r = obj.getAsJsonObject("result");
+            if (r.has("id")) {
+                return r.get("id").getAsString();
+            }
+            if (r.has("item")) {
+                return r.get("item").getAsString();
+            }
+        }
+        if (obj.has("results") && obj.get("results").isJsonArray() && !obj.getAsJsonArray("results").isEmpty()) {
+            JsonElement first = obj.getAsJsonArray("results").get(0);
+            if (first.isJsonObject()) {
+                JsonObject r = first.getAsJsonObject();
+                if (r.has("id")) {
+                    return r.get("id").getAsString();
+                }
+                if (r.has("item")) {
+                    return r.get("item").getAsString();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Reads a recipe JSON by id, or {@code null} when unavailable/unreadable. */
+    public static JsonObject readRecipeJson(ResourceManager manager, ResourceLocation recipeId) {        if (manager == null || recipeId == null) {
+            return null;
+        }
+        try {
+            var opt = manager.getResource(ResourceLocation.fromNamespaceAndPath(
+                    recipeId.getNamespace(), "recipe/" + recipeId.getPath() + ".json"));
+            if (opt.isEmpty()) {
+                return null;
+            }
+            return com.google.gson.JsonParser.parseString(readAll(opt.get().open())).getAsJsonObject();
+        } catch (Exception ignored) {
+            return null;
         }
     }
 

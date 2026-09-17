@@ -60,9 +60,30 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
             return;
         }
         if (be.pendingReconcile) {
+            // Deferred reload: a datapack reload is expensive, so the union is only rebuilt
+            // after the player CLOSES this cabinet's GUI (and, inside reconcile(), only when
+            // the merged content actually changed). The player is still watching the slot
+            // they just filled, so this keeps the hitch away from the interaction.
+            if (be.isViewedByAnyPlayer()) {
+                return;
+            }
             be.pendingReconcile = false;
             be.reconcile();
         }
+    }
+
+    /** True while any player has this cabinet's GUI open. */
+    private boolean isViewedByAnyPlayer() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+        for (net.minecraft.server.level.ServerPlayer player : serverLevel.getServer().getPlayerList().getPlayers()) {
+            if (player.containerMenu instanceof com.create.productionline.menu.SchemeLoaderMenu menu
+                    && menu.getLoaderContainer() == inventory) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void onSlotChanged(int slot) {

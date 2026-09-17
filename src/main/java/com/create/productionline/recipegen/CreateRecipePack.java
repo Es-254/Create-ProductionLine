@@ -84,11 +84,21 @@ public final class CreateRecipePack {
             "create:deploying", "create:deployer",
             "create:mechanical_crafting", "create:mechanical_crafter");
 
-    /** Default processing time per flat type (ms). */
-    private static final Map<String, Integer> TYPE_TIME = Map.of(
-            "create:mixing", 100, "create:crushing", 300, "create:milling", 200,
-            "create:pressing", 100, "create:cutting", 50, "create:haunting", 100,
-            "create:splashing", 100);
+    /**
+     * Processing time (ms) for the flat types that ACTUALLY accept a duration.
+     *
+     * <p>Create validates this: {@code ProcessingRecipe.canSpecifyDuration()} defaults to
+     * {@code false} and a recipe carrying {@code processing_time} anyway fails to load with
+     * <i>"Recipe specified a duration. Durations have no impact on this type of recipe."</i>
+     * Only milling / crushing / cutting override it (Basin/mixing does too, but Create's own
+     * mixing files omit the field, so we mirror them and omit it as well). Writing a duration
+     * for pressing / splashing / haunting / mixing made those recipes unloadable — the machine
+     * then did nothing even though the GUI reported success.
+     */
+    private static final Map<String, Integer> DURATION_TYPES = Map.of(
+            "create:crushing", 300,
+            "create:milling", 200,
+            "create:cutting", 50);
 
     private CreateRecipePack() {
     }
@@ -130,7 +140,7 @@ public final class CreateRecipePack {
             ingredients.add(asIngredient(in));
         }
         root.add("ingredients", ingredients);
-        Integer time = TYPE_TIME.get(type);
+        Integer time = DURATION_TYPES.get(type);
         if (time != null) {
             root.addProperty("processing_time", time);
         }
@@ -612,11 +622,16 @@ public final class CreateRecipePack {
      * pinned to one arbitrary tag member.
      */
     private static JsonObject asIngredient(String value) {
+        // Foreign formats may hand us count-prefixed tokens ("8 #c:storage_blocks/steel");
+        // normalize so we never emit an illegal ingredient that silently fails to load.
+        String token = com.create.productionline.util.RecipeJsonReader.normalizeMaterial(value);
         JsonObject entry = new JsonObject();
-        if (value != null && value.startsWith("#")) {
-            entry.addProperty("tag", value.substring(1));
+        if (token == null) {
+            entry.addProperty("item", "minecraft:air");
+        } else if (token.startsWith("#")) {
+            entry.addProperty("tag", token.substring(1));
         } else {
-            entry.addProperty("item", value == null ? "" : value);
+            entry.addProperty("item", token);
         }
         return entry;
     }

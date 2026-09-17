@@ -4,13 +4,70 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.3] — 2026-09-16
+**Version policy / 版本规范** (see `RELEASING.md`):
 
-Fixes for the issues found by the 2026-09-16 project assessment, plus the earlier in-tree
-hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a real server
-(`gradlew runServer -PselfTest`).
+- **release** — `1.0.x`, the value of `mod_version`; `1.0.1` is the first official release.
+- **dev (beta)** — `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`).
+  Only `1.0.x` is tagged `v1.0.x` and published as `release`; a dev build is a pre-release/beta.
+
+The 1.0.0 / 1.0.1 / 1.0.2 / 1.0.3 jars below were development snapshots and are recorded
+here as `0.0.0-dev.1` … `0.0.0-dev.4`; every one of them is superseded by **1.0.1**.
+
+## [1.0.1] — 2026-09-17 (release)
+
+**First official release.** It supersedes every dev snapshot (`0.0.0-dev.1` … `0.0.0-dev.4`):
+the assessment hardening batch (A1–A7, B1–B7, M7, M11), the second-pass fixes (recipe
+selection, `processing_time`, dismantler rework, count-prefixed ingredients, entity-result
+recipes, tooltip overflow) and the interface/feature work (plan mirrors the derived recipe,
+semantic machine choice, all three screens reworked) are all in this jar.
+Headless QA self test: **13 passed, 0 failed** on a real server (`gradlew runServer -PselfTest`).
+
+Any earlier jar, whatever its file name, is obsolete — use `create_productionline-1.0.1.jar`.
 
 ### Fixed
+
+- **Recipe selection when several recipes produce the target.** A mod may ship a "copy / repair /
+  dye" recipe whose only ingredient *is* the product; the computer could pick that one and emit the
+  nonsense plan `[遥控器] -> 动力压床 -> 遥控器`. Selection now (a) skips every recipe without a real
+  material (`RecipeDescriptor.hasUsableMaterials`), (b) never picks a recipe this mod itself installed
+  (`cpl:…`, which would re-convert a conversion), and (c) prefers the first candidate that actually
+  derives an installable entry — server-side, and mirrored by the client resolver so the hint matches.
+- **`processing_time` on types that reject it (machines did nothing).** Create validates the field:
+  `ProcessingRecipe.canSpecifyDuration()` defaults to `false`, and a recipe carrying a duration anyway
+  fails to load with *"Recipe specified a duration. Durations have no impact on this type of recipe."*
+  We emitted it for pressing / splashing / haunting / mixing, so those files never registered — the GUI
+  reported "generated" while the machine stayed dead (`Parsing error loading recipe
+  cpl:cpl_…_pressing` in the log). Only milling / crushing / cutting may carry it now
+  (`CreateRecipePack.DURATION_TYPES`), mirroring Create's own datapack files; the self test asserts the
+  rule.
+- **Dismantler rework (was effectively dead).** Slot 1 (Line Scheme) is no longer mandatory, and the
+  machine no longer refuses every input whose material is a tag:
+  - an **unfinished intermediate** (Generic Intermediate carrying Create's `SEQUENCED_ASSEMBLY`
+    component) is refunded by re-reading the sequence recipe it names: base + exactly the materials the
+    completed steps consumed (multiplicity preserved), then a mirror;
+  - a **finished product** still refunds one full inverse batch (consume `count`, refund the inputs),
+    resolved server-side from its recipe;
+  - tags refund their first registered member (best effort), fluids are impossible in deploy steps;
+  - the mirror shows the plan from the scheme when one is present, otherwise a snapshot synthesized
+    from the parsed recipe; nothing is consumed when nothing can be refunded.
+- **Count-prefixed string ingredients.** Some mods write ingredients as strings with a leading amount —
+  `"8 #c:storage_blocks/steel"`, `"24 superbwarfare:cemented_carbide_block"`, `"2 superbwarfare:track"`
+  (`superbwarfare:vehicle_assembling`). The reader passed those through verbatim, which produced
+  unreadable tooltips (no `#tag` resolution), **invalid payloads** (`{"item": "8 #…"}` — written,
+  reported as success, never loadable) and text overflow. `RecipeJsonReader.normalizeMaterial()` now
+  strips the amount prefix everywhere materials are read (ingredient objects, arrays, plain strings,
+  shaped keys) and `CreateRecipePack.asIngredient()` normalises defensively before emitting JSON.
+- **Entity-result recipes are refused.** A recipe whose result is an entity
+  (`"result": {"entity": …}` — vehicles, turrets, …) is assembled by its own mod's machine; converting
+  it into Create processing was wrong. Such recipes now yield `RESULT_NOT_CONVERTIBLE` and nothing is
+  written.
+- **Unknown machine categories are refused instead of forced into mixing.** The unconditional
+  "2+ materials → `create:mixing`" fallback is gone: an unmapped, non-assembly category with several
+  materials is reported as not convertible rather than silently turned into a mixing line.
+- **Tooltips can no longer overflow the screen.** Long unbroken runs (CJK sentences, long registry
+  ids, tag paths) are now wrapped by estimated pixel width (`util/TextWrap`, ASCII ≈ 6 px /
+  CJK ≈ 9 px), with indented continuation lines, in the Line Scheme, mirror and clipboard-guide
+  tooltips.
 
 - **Tag ingredients in converted processing recipes (A1).** `CreateRecipePack.flat()` wrote every
   ingredient as `{"item": …}`, so a tag material (kept as `"#tag"` by the reader) produced an invalid
@@ -57,11 +114,12 @@ hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a r
   `CreateRecipePack.install()/deactivate()`, whose first step deletes the whole `cpl_converted` pack —
   running the self test therefore wiped every scheme loader's `contributions/`. It now installs into an
   isolated `cpl_converted_selftest` pack and asserts that the live pack and its contributions survive.
-- **Self test grew from 7 to 10 checks**: `Tag ingredients kept in flat recipes` (A1 regression),
+- **Self test grew to 13 checks**: `Tag ingredients kept in flat recipes` (A1 regression),
   `Deriver refuses native/unmappable recipes` (a native `create:` process or a material-less recipe must
-  yield no payload) and `Single-material recipes map to a semantic machine`. The TC-01 positive/negative
-  checks now run against the production derivation path (`RecipeDeriver`) instead of the removed legacy
-  mapper.
+  yield no payload), `Single-material recipes map to a semantic machine`, `Duration only on
+  duration-capable types`, `Loader accepts written schemes only` and `Self-referential recipes are
+  skipped`. The TC-01 positive/negative checks now run against the production derivation path
+  (`RecipeDeriver`) instead of the removed legacy mapper.
 - **The plan is now the mirror of the derived recipe (A6).** Steps used to pair machines with materials
   by list index, so a plan could show a machine that the actual recipe never used. Step layout is now
   generated FROM the derived Create recipe JSON's `type` (`MachineSelector.appendChainSteps`): sequenced
@@ -93,7 +151,16 @@ hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a r
 - **In-game mod metadata now links the issue tracker** (`issueTrackerURL` expanded from
   `gradle.properties`, which no longer claims the repository does not exist).
 
-## [1.0.2] — 2026-09-13
+## 0.0.0-dev.4 — 2026-09-16 (beta)
+
+Superseded dev snapshot — the first 1.0.3-era cut, i.e. the in-tree hardening batch (A1–A7):
+tag ingredients in flat recipes, one shared material list for plan + embedded recipe, loader
+contributions that cannot outlive their cabinet, deterministic union order, data pack format 48,
+a self test that asserts recipes really load, the dismantler refund cross-checked against the live
+recipe, and the computer GUI naming the failure reason. Everything in it shipped in **1.0.1**;
+this entry is kept for provenance only.
+
+## 0.0.0-dev.3 — 2026-09-13 (beta)
 
 ### Changed
 
@@ -112,7 +179,7 @@ hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a r
   a native Create process) and it consumed the player's paper / clipboard / blank Line Scheme for nothing.
   The computer now refuses instead, says why, and leaves the carriers untouched.
 
-## [1.0.1] — 2026-09-13
+## 0.0.0-dev.2 — 2026-09-13 (beta)
 
 ### Fixed
 
@@ -126,9 +193,10 @@ hardening batch (A1–A7). Headless QA self test: **10 passed, 0 failed** on a r
   the recipe. Holding fewer items than the batch size is refused outright (nothing consumed,
   nothing produced), and the in-game hint says so.
 
-## [1.0.0] — 2026-09-13
+## 0.0.0-dev.1 — 2026-09-13 (beta)
 
-First public release. Requires **Minecraft 1.21.1**, **NeoForge 21.1.249+** and **Create 6.0.10+**.
+First public dev snapshot (beta; superseded by 1.0.1). Requires **Minecraft 1.21.1**,
+**NeoForge 21.1.249+** and **Create 6.0.10+**.
 JEI is optional (recipe viewer only — this mod does not call its API).
 
 ### Added
@@ -158,8 +226,8 @@ JEI is optional (recipe viewer only — this mod does not call its API).
 - Extensible mapping dictionary (24 built-in categories) via
   `config/create_productionline-mappings.json`, which also selects `assemblyMode`
   (`sequenced` default, `mechanical` optional).
-- Headless QA self-test (10 checks) on a real server:
-  `gradlew runServer -PselfTest` (10 checks, then the server halts).
+- Headless QA self-test on a real server: `gradlew runServer -PselfTest` (10 checks at the time,
+  13 in 1.0.1; the server halts afterwards).
   Pass criterion: the last log line matches `\d+ passed, 0 failed` — the count is a snapshot
   (number of `check("…")` calls in `qa/SelfTest.java`), never a hard-coded acceptance value.
 
@@ -200,11 +268,7 @@ JEI is optional (recipe viewer only — this mod does not call its API).
 - Licensing: **MIT**.
 - Build: `gradlew build` (JDK 21). See `RELEASING.md` for the publication flow.
 
-<!-- 1.0.0 / 1.0.1 were never tagged on GitHub (only v1.0.2 exists), so those two entries point at the
-     Modrinth version list instead of a compare URL that would 404. Switch them to
-     https://github.com/Es-254/Create-ProductionLine/compare/v1.0.1...v1.0.2 style links once the
-     older tags are pushed. -->
-[1.0.3]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.3
-[1.0.2]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.2
-[1.0.1]: https://modrinth.com/project/createproductionline/versions
-[1.0.0]: https://modrinth.com/project/createproductionline/versions
+<!-- Dev snapshots (0.0.0-dev.N) are intentionally not tagged on GitHub and have no release
+     page; only release versions (v1.0.x) get a tag and a GitHub Release. -->
+
+[1.0.1]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.1

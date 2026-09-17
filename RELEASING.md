@@ -1,24 +1,53 @@
-﻿# Releasing / 发布流程
+# Releasing / 发布流程
 
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
 
-> **Current state (verified against this repository + the live APIs):**
+> **Current state (verified against this repository + the live APIs, 2026-09-17):**
 >
-> - **GitHub — live.** `origin` is <https://github.com/Es-254/Create-ProductionLine>, `main` is pushed
->   (21 commits), the tag `v1.0.2` exists and there is one GitHub Release for `v1.0.2`.
-> - **Modrinth — submitted, in review; not yet publicly visible.** Anonymous calls return **404** for
->   both the slug `createproductionline` and the base62 id `7dcs0ruf`, but the **author view** (token)
->   returns `200` with `status = "processing"` — the project was submitted on 2026-09-13 and is going
->   through Modrinth's review/scan pipeline. Version **`1.0.2` already exists and is `listed`**
->   (1.0.0 / 1.0.1 were deleted), so publishing itself works; what is missing is only the public
->   approval that makes the project page and its versions visible. Everything else about the Modrinth
->   path (token, ids, scripts) is ready.
+> - **GitHub — live and public.** `origin` is <https://github.com/Es-254/Create-ProductionLine>, the
+>   repository is **public** (`private: false`, indexed by GitHub search), and `main` is pushed. The
+>   only tag ever pushed was `v1.0.2` — a dev-era artifact that **this release retires** (see
+>   *Version policy*); the first official tag is `v1.0.1`.
+> - **Modrinth — submitted, in review; not yet publicly visible.** Anonymous calls still return **404**
+>   for both the slug `createproductionline` and the base62 id `7dcs0ruf` (re-checked 2026-09-17), while
+>   the **author view** (token) returned `200` with `status = "processing"` — the project was submitted
+>   on 2026-09-13 and is going through Modrinth's review/scan pipeline. Publishing itself works
+>   (the draft holds an older `1.0.2` version); what is missing is the public approval. **To do once it
+>   is approved:** delete that old `1.0.2` version and publish `1.0.1` with channel **Release**, so the
+>   public version list starts at the first official release. Everything else about the Modrinth path
+>   (token, ids, scripts) is ready.
 > - **CurseForge — not set up** (`curseforge_project_id` is empty). Treat **§0.3** and the CurseForge
 >   halves of §4 / §5 as *later*.
 >
 > Because the repository is public and pushed, §0.4 (bootstrap) is **history rather than a to-do**, and
 > §3 (tag + GitHub Release) is a normal step of every release. §M remains the day-to-day path.
+
+---
+
+## Version policy / 版本规范
+
+| Line / 版本线 | Version | Build command | Published as |
+| --- | --- | --- | --- |
+| **release** | `1.0.x` — the value of `mod_version` in `gradle.properties` | `.\gradlew.bat build` | `release` (Modrinth/CurseForge channel *Release*, GitHub Release, **not** a pre-release) |
+| **dev (beta)** | `0.0.0-dev.N` — N comes from `dev-build.txt` | `.\gradlew.bat build -PdevBuild` | `beta` (channel *Beta*, GitHub **pre-release**) |
+
+Rules / 规则:
+
+1. `mod_version` holds the **release** version only; never park a dev number there.
+2. A dev build reads N from `dev-build.txt` and **advances that file after the jar is written**
+   (`0.0.0-dev.5` → file becomes `6`); commit the bumped file together with the dev build so the
+   numbering stays traceable. `-PdevBuildNumber=<N>` reproduces N without touching the file — that is
+   how CI rebuilds a `v0.0.0-dev.N` tag.
+3. A dev version is a beta by definition: the publish tasks default to `beta` for it and **refuse**
+   `release` (`-PreleaseType=release` on a dev version fails on purpose). 开发版默认 beta；
+   只有 `1.0.x` 能以 `release` 类型发布。
+4. Tags: `v1.0.x` for a release, `v0.0.0-dev.N` for a dev build. A pushed `v*` tag makes
+   `build.yml` build that exact version and create/update the GitHub Release (pre-release when the
+   tag contains `-dev.`), so tagging is normally all you do on the GitHub side.
+5. History: the `1.0.0` / `1.0.1` / `1.0.2` / `1.0.3` jars were development snapshots and are
+   recorded in `CHANGELOG.md` as `0.0.0-dev.1` … `0.0.0-dev.4`. **`1.0.1` is the first official
+   release**; the old public `v1.0.2` tag/Release is retired.
 
 ---
 
@@ -58,8 +87,10 @@ approved and listed (§M.1.2).
    - `status: "draft"` → not submitted yet: submit it for review on the project page first.
    - `404` even with the token → the id is wrong (re-check `modrinth_project_id` in `gradle.properties`).
 
-   At the time of writing the id is `7dcs0ruf`, the project `status` is `processing` and version `1.0.2`
-   is `listed` — the only thing gating the Modrinth half of a release is Modrinth's own approval.
+   At the time of writing the id is `7dcs0ruf`, the project `status` is `processing` and a draft version
+   `1.0.2` (old numbering) is `listed` — the only thing gating the Modrinth half of a release is
+   Modrinth's own approval. Once approved, delete that old version and publish `1.0.1` (channel
+   *Release*).
 
 3. `gradle.properties` already has `modrinth_project_id=7dcs0ruf` — the **base62 project id**, *not*
    the slug (`createproductionline`). The id is used on purpose: it is stable even if the slug is
@@ -87,11 +118,12 @@ approved and listed (§M.1.2).
 $env:MODRINTH_TOKEN = "mrp_…"
 
 .\gradlew.bat build
-.\gradlew.bat -PpublishMods modrinth            # uploads the jar as mod_version from gradle.properties
+.\gradlew.bat -PpublishMods modrinth            # uploads the resolved project version (1.0.x, or 0.0.0-dev.N with -PdevBuild)
 .\gradlew.bat -PpublishMods modrinthSyncBody    # pushes docs/platform-listing.md as the description
 ```
 
-`-PreleaseType=beta` (or `alpha`) publishes as a pre-release. The changelog sent with the version is
+`-PreleaseType=beta` (or `alpha`) publishes as a pre-release; the default is `release` for `1.0.x` and
+`beta` for a dev version. The changelog sent with the version is
 `CHANGELOG.md`; the description is `docs/platform-listing.md`. Both are already written — nothing to
 copy by hand.
 
@@ -155,18 +187,19 @@ Nothing leaves your machine except the jar, and no credentials are involved.
    ```
 3. On the project page: **Versions → Create version**, then
 
-   `<version>` below always means the value of `mod_version` in `gradle.properties` — never a literal.
+   `<version>` below always means `project.version`: the value of `mod_version` in `gradle.properties`
+   for a release (`1.0.x`), or `0.0.0-dev.N` for a `-PdevBuild` artifact — never a literal.
 
    | Field | Value |
    | --- | --- |
    | Name | `v<version>` (or leave default) |
-   | Version number | `<version>` — must match `mod_version` |
-   | Release channel | `Release` |
+   | Version number | `<version>` — must match the jar name and the in-game mod list entry |
+   | Release channel | `Release` for `1.0.x`; **`Beta` for `0.0.0-dev.N`** |
    | Game versions | `1.21.1` |
    | Loaders | `NeoForge` |
    | Dependencies | **Create** → *Required* |
    | File | `build/libs/create_productionline-<version>.jar` |
-   | Changelog | paste the matching `## [<version>]` section of `CHANGELOG.md` |
+   | Changelog | paste the matching `## [<version>]` section of `CHANGELOG.md` (for a dev build: the `0.0.0-dev.N` entry) |
 
 4. If the description/icon are not set yet, upload `icon_512x512.png` as the project icon and paste
    `docs/platform-listing.md` as the project description — the **whole file**. It contains **no HTML
@@ -222,8 +255,9 @@ Create an account / project when you can reach <https://authors.curseforge.com/>
 ### 0.4 GitHub — done (kept for reference only)
 
 The repository is **public and pushed**: `origin` is
-<https://github.com/Es-254/Create-ProductionLine>, `main` holds the full history (21 commits) and the
-`v1.0.2` tag + GitHub Release exist. The bootstrap below is recorded so the original setup stays
+<https://github.com/Es-254/Create-ProductionLine> and `main` holds the full history. The only tag ever
+pushed was `v1.0.2`, from the old numbering; it is retired in favour of `v1.0.1` (see *Version policy*).
+The bootstrap below is recorded so the original setup stays
 reproducible — **do not re-run it on a clone that already has `origin`.**
 
 The repository root is **this directory** (`create_productionline/`), not the enclosing workspace
@@ -244,11 +278,12 @@ git push -u origin main
 
 ## 1. Prepare the version
 
-1. Bump `mod_version` in `gradle.properties` (semantic versioning).
-2. Move the `CHANGELOG.md` "Unreleased" items into a new `## [x.y.z] — YYYY-MM-DD` section, update the
-   comparison link at the bottom, **and add the matching `[x.y.z]: …` link definition** — a heading
-   like `## [1.0.2]` renders as literal brackets unless its reference is defined at the end of the file.
-   (1.0.2 and 1.0.1 were missing theirs; this is now fixed.)
+1. Pick the line (see *Version policy*): a release bumps `mod_version` in `gradle.properties` to the
+   next `1.0.x`; a dev build just uses `dev-build.txt` (`-PdevBuild`).
+2. Move the `CHANGELOG.md` "Unreleased" items into a new section — `## [x.y.z] — YYYY-MM-DD` for a
+   release, `## 0.0.0-dev.N — YYYY-MM-DD (beta)` for a dev build — and **for a release add the matching
+   `[x.y.z]: …` link definition at the bottom**, otherwise a heading like `## [1.0.1]` renders as
+   literal brackets. Dev headings carry no brackets on purpose (dev snapshots are not tagged).
 3. If the description changed, edit `docs/platform-listing.md`.
 
 ## 2. Verify
@@ -275,10 +310,12 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:94`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **10 passed** (the count of
-`check("…")` calls in `qa/SelfTest.java`; the 7th, `Plan topology (chain: base -> machine+material ->
-product)`, was added in 1.0.2, and `Tag ingredients kept in flat recipes` / `Deriver refuses
-unconvertible recipe` landed after that release). If the number grows, only the snapshot mentions in
+misjudge the very next release that adds a case. The current snapshot is **13 passed** (the count of
+`check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
+arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
+native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
+duration-capable types` / `Loader accepts written schemes only` / `Self-referential recipes are skipped`
+landed by release 1.0.1). If the number grows, only the snapshot mentions in
 this file, `README.md` and `CHANGELOG.md` need touching — never the criterion.
 
 ```powershell
@@ -300,14 +337,14 @@ Get-FileHash $jar.FullName -Algorithm SHA256
 
 This is a real gate, not a formality: `build.gradle` excludes the editor leftovers (`**/*.bak`,
 `*.orig`, `*.rej`, `*.psd`, `*.xcf`, `*.kra`, `*.bbmodel`, `Thumbs.db`, `desktop.ini`) and the empty
-`debug/` package and `src/generated/` no longer exist. Verified for `1.0.2`: **143 entries, no
-`.bak` / `*_particle.png` / `debug/` match.**
+`debug/` package and `src/generated/` no longer exist. Re-verify on every cut:
+**no `.bak` / `*_particle.png` / `debug/` match** (the CI build fails the run if one appears).
 
 Record the size and SHA-256 for the release notes.
 
 ## 3. Tag and publish on GitHub
 
-GitHub is live, so this is a normal step of every release (it was done for `v1.0.2`).
+GitHub is live, so this is a normal step of every release.
 
 ```powershell
 git add -A
@@ -316,13 +353,15 @@ git tag -a v<version> -m "Create: Production Line <version>"
 git push origin main --tags        # origin already exists — do NOT re-add it
 ```
 
-Then create a GitHub Release for the tag and attach
-`build/libs/create_productionline-<version>.jar`. (The `build.yml` workflow also uploads the jar as
-a build artifact on every push, so you can grab it from the Actions run instead.)
+Pushing the tag is normally the whole GitHub step: `build.yml` builds **that** version
+(`-PdevBuildNumber=N` for a `v0.0.0-dev.N` tag), verifies the jar name matches the tag, and
+creates/updates the Release with the jar attached — a pre-release when the tag contains `-dev.`.
+To do it by hand instead, create a Release for the tag and attach
+`build/libs/create_productionline-<version>.jar`.
 
-> Only `v1.0.2` is tagged. `1.0.0` / `1.0.1` have no tag or Release, which is why their `CHANGELOG.md`
-> link definitions point at Modrinth instead of a GitHub compare URL — see the comment at the bottom
-> of `CHANGELOG.md`. Push the older tags first if you ever want compare links.
+> Tagging rules: `v1.0.x` = release (not a pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).
+> Dev snapshots `0.0.0-dev.1` … `0.0.0-dev.4` are **not** tagged retroactively — they are documented
+> in `CHANGELOG.md` only. The retired `v1.0.2` tag/Release belonged to the old numbering.
 
 ## 4. Publishing commands
 
@@ -352,8 +391,9 @@ $env:CURSEFORGE_TOKEN   = "<token>"
 
 Options:
 
-- `-PreleaseType=beta` (or `alpha`) publishes as a pre-release on both platforms
-  (default `release`).
+- `-PreleaseType=beta` (or `alpha`) publishes as a pre-release on both platforms. The default follows
+  the version line: `release` for `1.0.x`, `beta` for `0.0.0-dev.N` (a dev version published as
+  `release` is rejected).
 - Nothing in the publishing path is evaluated without `-PpublishMods`, so ordinary builds and CI
   never need the tokens or the project ids.
 
@@ -375,14 +415,17 @@ If you would rather not hand tokens to Gradle, upload by hand:
       for the tree as committed; it is not a property of git *history*, so check `git status` and the
       staged diff on every commit rather than trusting the tick
 - [x] No placeholders left in the repo (`LICENSE` / `mod_authors` are `Es254`)
-- [ ] `mod_version` bumped; `CHANGELOG.md` section written and dated **and its `[x.y.z]:` link
+- [ ] Version decided by line: release → `mod_version` bumped in `gradle.properties`; dev →
+      `dev-build.txt` holds the next N and is committed after the build
+- [ ] `CHANGELOG.md` section written and dated **and, for a release, its `[x.y.z]:` link
       definition added at the bottom**
-- [ ] `gradlew build` succeeds
+- [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      10 passed; never hard-code the number)
+      13 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
-- [ ] Git tag pushed; GitHub Release created with the jar attached
+- [ ] Git tag pushed (`v1.0.x` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
+      (CI does this from the tag — pre-release for `-dev.`)
 - [ ] Modrinth version published (MC 1.21.1, NeoForge, Create = required dependency)
 - [ ] CurseForge file published (1.21.1 / NeoForge / Java 21, Create = required dependency) — *blocked:
       CurseForge is not set up yet*

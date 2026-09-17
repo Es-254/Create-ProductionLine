@@ -84,7 +84,17 @@ public final class Names {
         if ("cpl:feed".equals(id)) {
             return net.minecraft.network.chat.Component.translatable("cpl.create_productionline.feed").getString();
         }
-        return nameOfBlock(id);
+        // A step may carry a RECIPE TYPE (e.g. create:deploying) instead of a machine block
+        // id — mirrors/topologies built from a parsed recipe do. Map it to the machine first,
+        // otherwise the tooltip prints the raw "create:deploying".
+        String facility = com.create.productionline.recipegen.CreateRecipePack.facilityOf(id);
+        String blockId = facility != null ? facility : id;
+        String name = nameOfBlock(blockId);
+        if (!name.equals(blockId)) {
+            return name;
+        }
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        return key == null ? id : key.getPath();
     }
 
     public static String cap(String s) {

@@ -37,18 +37,21 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
         this.data = data;
         this.computer = computer;
 
-        // Computer slots
+        // Computer slots (strict roles):
+        //   0 target item  — anything the player wants produced
+        //   1 blank Line Scheme — the computed plan is written here (required carrier)
+        //   2 paper — OPTIONAL second carrier; only vanilla paper is accepted
         addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_TARGET, 44, 20));
         addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_SCHEME, 80, 20) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return com.create.productionline.compat.ClipboardCompat.isCarrier(stack);
+                return isBlankScheme(stack);
             }
         });
         addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_CLIPBOARD, 116, 20) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return com.create.productionline.compat.ClipboardCompat.isClipboardLike(stack);
+                return isPaper(stack);
             }
         });
 
@@ -182,5 +185,17 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         return computerContainer.stillValid(player);
+    }
+
+    /** Slot 2 takes only a BLANK line scheme (a written plan would be overwritten). */
+    private static boolean isBlankScheme(ItemStack stack) {
+        return stack != null && !stack.isEmpty()
+                && stack.getItem() instanceof LineSchemeItem
+                && com.create.productionline.line.scheme.LineSchemeSerializer.fromStack(stack).isEmpty();
+    }
+
+    /** Slot 3 takes only vanilla paper — the optional second carrier. */
+    private static boolean isPaper(ItemStack stack) {
+        return stack != null && !stack.isEmpty() && stack.is(net.minecraft.world.item.Items.PAPER);
     }
 }

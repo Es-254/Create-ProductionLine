@@ -132,16 +132,8 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                             scheme.getSteps().size(), scheme.totalFacilityCount()).getString());
                     out.add(Component.translatable("screen.create_productionline.computer.embedded",
                             scheme.getCreateRecipes().size()).getString());
-                    // Compact preview of the plan chain (the item tooltip shows the
-                    // full list); two steps are enough to confirm what got planned.
-                    int shown = 0;
-                    for (LineScheme.Step step : scheme.getSteps()) {
-                        if (shown >= 2) {
-                            break;
-                        }
-                        out.add(stepPreview(shown + 1, step));
-                        shown++;
-                    }
+                    // No topology preview here on purpose: the plan chain belongs to the
+                    // item tooltip (see ScreenTopology); the computer only reports totals.
                 }
             }
             case ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE ->
@@ -171,29 +163,6 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                     out.add(Component.translatable("screen.create_productionline.computer.empty").getString());
         }
         return out;
-    }
-
-    /** One compact chain line: {@code 1. [material] -> Machine}. */
-    private static String stepPreview(int index, LineScheme.Step step) {
-        StringBuilder sb = new StringBuilder(index + ". ");
-        java.util.List<String> inputs = step.getInputs();
-        if (!inputs.isEmpty()) {
-            sb.append('[');
-            for (int i = 0; i < Math.min(3, inputs.size()); i++) {
-                if (i > 0) {
-                    sb.append('+');
-                }
-                sb.append(com.create.productionline.util.Names.cap(
-                        com.create.productionline.util.Names.nameOfItem(inputs.get(i))));
-            }
-            if (inputs.size() > 3) {
-                sb.append("+…");
-            }
-            sb.append("] ");
-        }
-        sb.append(com.create.productionline.util.Names.cap(
-                com.create.productionline.util.Names.facilityName(step.getFacilityType())));
-        return sb.toString();
     }
 
     private static String displayName(String itemId) {

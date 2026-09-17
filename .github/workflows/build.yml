@@ -35,8 +35,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      # A dev tag (v0.0.0-dev.N) rebuilds that exact numbered artifact; a release tag
+      # (v1.0.x) builds mod_version from gradle.properties. See RELEASING.md.
+      - name: Resolve version arguments
+        id: ver
+        if: startsWith(github.ref, 'refs/tags/v0.0.0-dev.')
+        run: echo "gradleArgs=-PdevBuildNumber=${GITHUB_REF_NAME#v0.0.0-dev.}" >> "$GITHUB_OUTPUT"
+
       - name: Build with Gradle
-        run: ./gradlew build --stacktrace
+        run: ./gradlew build --stacktrace ${{ steps.ver.outputs.gradleArgs }}
 
       - name: Report jar contents and check hygiene
         run: |
@@ -74,9 +81,23 @@ jobs:
           name: create_productionline-jar
           path: dist
 
+      # The tag and the jar must agree: v1.0.1 -> create_productionline-1.0.1.jar,
+      # v0.0.0-dev.5 -> create_productionline-0.0.0-dev.5.jar.
+      - name: Verify the jar matches the tag
+        run: |
+          EXPECTED="create_productionline-${GITHUB_REF_NAME#v}.jar"
+          if [ ! -f "dist/$EXPECTED" ]; then
+            echo "::error::tag $GITHUB_REF_NAME expects $EXPECTED"
+            ls -l dist
+            exit 1
+          fi
+          echo "Tag and jar agree: $EXPECTED"
+
       - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.jar
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # Dev builds are betas: they go out as pre-releases, releases do not.
+          prerelease: ${{ contains(github.ref_name, '-dev.') }}

@@ -86,6 +86,9 @@ public final class SelfTest {
             check("TC-01 recipe derivation (negative, not convertible)", () -> liveRecipeNegative(level));
             check("Create recipe JSON schema + datapack install", () -> createRecipeInstall(server));
             check("Tag ingredients kept in flat recipes", () -> flatRecipeKeepsTagIngredients());
+            check("Duration only on duration-capable types", () -> flatRecipeDurationRules());
+            check("Loader accepts written schemes only", () -> loaderCarrierContract());
+            check("Self-referential recipes are skipped", () -> selfRecipesAreSkipped());
             check("Deriver refuses native/unmappable recipes", () -> deriverRefusesNative(level));
             check("Single-material recipes map to a semantic machine", () -> singleMaterialSemanticMachine(level));
             check("Scheme embeds generated recipes (round trip)", () -> schemeEmbedsRecipes());
@@ -187,6 +190,78 @@ public final class SelfTest {
                 && !str.contains("\"item\": \"#c:ingots/steel\"");
         if (!ok) {
             System.out.println("   tag ingredient not preserved in flat recipe: " + str);
+        }
+        return ok;
+    }
+
+    /**
+     * Recipe selection: a "copy/repair" recipe whose only ingredient IS the product must never
+     * be chosen (it produced the nonsense {@code [target] -> press -> target} plan); a recipe
+     * with real materials must be accepted.
+     */
+    private static boolean selfRecipesAreSkipped() {
+        com.create.productionline.line.mapper.RecipeDescriptor self =
+                new com.create.productionline.line.mapper.RecipeDescriptor(
+                        "mod:copy", "minecraft:crafting",
+                        List.of("minecraft:stick"), List.of("minecraft:stick"));
+        com.create.productionline.line.mapper.RecipeDescriptor real =
+                new com.create.productionline.line.mapper.RecipeDescriptor(
+                        "mod:real", "minecraft:crafting",
+                        List.of("minecraft:oak_planks", "minecraft:stick"), List.of("minecraft:stick"));
+        boolean ok = !self.hasUsableMaterials() && real.hasUsableMaterials();
+        if (!ok) {
+            System.out.println("   self=" + self.hasUsableMaterials() + " real=" + real.hasUsableMaterials());
+        }
+        return ok;
+    }
+
+    /**
+     * Slot contract: the Scheme Loader only accepts an ALREADY WRITTEN Line Scheme. A blank
+     * scheme (or paper / mirror / forged NBT) must be rejected, otherwise the cabinet would
+     * happily rebuild its union from nothing.
+     */
+    private static boolean loaderCarrierContract() {
+        net.minecraft.world.item.ItemStack blankStack =
+                new net.minecraft.world.item.ItemStack(
+                        com.create.productionline.registry.ModItems.LINE_SCHEME.get());
+        LineSchemeSerializer.saveToStack(blankStack, new LineScheme());
+        net.minecraft.world.item.ItemStack writtenStack =
+                new net.minecraft.world.item.ItemStack(
+                        com.create.productionline.registry.ModItems.LINE_SCHEME.get());
+        LineScheme written = new LineScheme();
+        written.setRecipeId("minecraft:crafting/stick");
+        written.setOutputItem("minecraft:stick");
+        LineScheme.Step step = written.addStep("create:mechanical_saw", 1);
+        step.addInput("minecraft:oak_planks");
+        LineSchemeSerializer.saveToStack(writtenStack, written);
+        boolean ok = !com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(blankStack)
+                && com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(writtenStack);
+        if (!ok) {
+            System.out.println("   blank accepted="
+                    + com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(blankStack)
+                    + " written accepted="
+                    + com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(writtenStack));
+        }
+        return ok;
+    }
+
+    /**
+     * Duration regression: Create rejects {@code processing_time} for any recipe type whose
+     * {@code canSpecifyDuration()} is false ("Recipe specified a duration. Durations have no
+     * impact on this type of recipe."). Emitting it for pressing/splashing/haunting/mixing made
+     * those files unloadable — the GUI reported success while the machine did nothing. Only
+     * milling / crushing / cutting may carry it.
+     */
+    private static boolean flatRecipeDurationRules() {
+        String pressing = com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                com.create.productionline.recipegen.CreateRecipePack.flat(
+                        "create:pressing", List.of("minecraft:iron_ingot"), "minecraft:iron_block"));
+        String milling = com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                com.create.productionline.recipegen.CreateRecipePack.flat(
+                        "create:milling", List.of("minecraft:wheat"), "minecraft:wheat_seeds"));
+        boolean ok = !pressing.contains("processing_time") && milling.contains("processing_time");
+        if (!ok) {
+            System.out.println("   pressing=" + pressing + " / milling=" + milling);
         }
         return ok;
     }

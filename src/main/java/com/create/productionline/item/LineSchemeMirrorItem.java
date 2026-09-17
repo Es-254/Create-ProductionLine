@@ -91,37 +91,24 @@ public class LineSchemeMirrorItem extends Item {
         }
         tooltip.add(Component.translatable("item.create_productionline.line_scheme.output",
                 Names.nameOfItem(tag.getString(N_OUTPUT))).withStyle(ChatFormatting.GREEN));
-        int i = 1;
+        java.util.List<com.create.productionline.util.SchemeTopology.Station> stations =
+                new java.util.ArrayList<>();
         if (tag.contains(N_STEPS, Tag.TAG_LIST)) {
             ListTag steps = tag.getList(N_STEPS, Tag.TAG_COMPOUND);
             for (int k = 0; k < steps.size(); k++) {
                 CompoundTag s = steps.getCompound(k);
-                StringBuilder text = new StringBuilder(String.valueOf(i++)).append(". ");
-                ListTag ins = s.getList(N_INPUTS, Tag.TAG_STRING);
-                if (!ins.isEmpty()) {
-                    StringBuilder joined = new StringBuilder();
-                    for (int j = 0; j < ins.size(); j++) {
-                        if (j > 0) {
-                            joined.append('+');
-                        }
-                        joined.append(Names.cap(Names.nameOfItem(ins.getString(j))));
-                    }
-                    text.append('[').append(joined).append("] -> ");
+                java.util.List<String> ins = new java.util.ArrayList<>();
+                ListTag insTag = s.getList(N_INPUTS, Tag.TAG_STRING);
+                for (int j = 0; j < insTag.size(); j++) {
+                    ins.add(insTag.getString(j));
                 }
-                text.append(Names.cap(Names.facilityName(s.getString(N_FACILITY))));
-                ListTag outs = s.getList(N_OUTPUTS, Tag.TAG_STRING);
-                if (!outs.isEmpty()) {
-                    StringBuilder joined = new StringBuilder();
-                    for (int j = 0; j < outs.size(); j++) {
-                        if (j > 0) {
-                            joined.append(',');
-                        }
-                        joined.append(Names.cap(Names.nameOfItem(outs.getString(j))));
-                    }
-                    text.append(" -> [").append(joined).append(']');
-                }
-                tooltip.add(Component.literal(text.toString()).withStyle(ChatFormatting.GRAY));
+                stations.add(new com.create.productionline.util.SchemeTopology.Station(
+                        s.getString(N_FACILITY), ins));
             }
+        }
+        for (String line : com.create.productionline.util.SchemeTopology.lines(
+                tag.getString(N_BASE), stations, tag.getString(N_OUTPUT))) {
+            tooltip.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
         }
     }
 }

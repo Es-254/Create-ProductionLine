@@ -54,28 +54,8 @@ public final class ItemTooltipHandler {
                                     com.create.productionline.util.Names.nameOfItem(scheme.getBaseMaterial())))
                             .withStyle(ChatFormatting.GOLD));
                 }
-                int i = 1;
-                for (LineScheme.Step step : scheme.getSteps()) {
-                    String text = i++ + ". ";
-                    if (!step.getInputs().isEmpty()) {
-                        java.util.List<String> ins = new java.util.ArrayList<>();
-                        for (String in : step.getInputs()) {
-                            ins.add(com.create.productionline.util.Names.cap(
-                                    com.create.productionline.util.Names.nameOfItem(in)));
-                        }
-                        text += "[" + String.join("+", ins) + "] -> ";
-                    }
-                    text += com.create.productionline.util.Names.cap(
-                            com.create.productionline.util.Names.facilityName(step.getFacilityType()));
-                    if (!step.getOutputs().isEmpty()) {
-                        java.util.List<String> outs = new java.util.ArrayList<>();
-                        for (String out : step.getOutputs()) {
-                            outs.add(com.create.productionline.util.Names.cap(
-                                    com.create.productionline.util.Names.nameOfItem(out)));
-                        }
-                        text += " -> [" + String.join(",", outs) + "]";
-                    }
-                    tooltip.add(Component.literal(text).withStyle(ChatFormatting.GRAY));
+                for (String line : com.create.productionline.util.SchemeTopology.lines(scheme)) {
+                    tooltip.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
                 }
                 return;
             }
@@ -89,7 +69,9 @@ public final class ItemTooltipHandler {
                 for (int i = 1; i <= total; i++) {
                     String line = guide.getString("Step_" + i);
                     if (!line.isBlank()) {
-                        tooltip.add(Component.literal("  " + line).withStyle(ChatFormatting.GRAY));
+                        for (String wrapped : com.create.productionline.util.TextWrap.wrapIndented("  " + line, "  ")) {
+                            tooltip.add(Component.literal(wrapped).withStyle(ChatFormatting.GRAY));
+                        }
                     }
                 }
             }

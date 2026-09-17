@@ -127,16 +127,32 @@ public final class ClientRecipeResolver {
                 if (!cacheKey.equals(result)) {
                     continue;
                 }
+                String id = recipeIdOf(full);
+                if (id.startsWith(com.create.productionline.recipegen.CreateRecipePack.PACK_NAMESPACE + ":")) {
+                    continue; // never pick our own generated conversion as the source recipe
+                }
                 String category = typeId(obj);
                 List<String> inputs = new ArrayList<>();
                 RecipeJsonReader.collectFromJson(obj, inputs);
                 if (inputs.isEmpty()) {
                     RecipeJsonReader.collectAllItemRefs(obj, inputs, result);
                 }
+                // Copy / repair / dye recipes consume only the product itself: they can never
+                // become a production line ([target] -> machine -> target), so skip them.
+                boolean hasOtherMaterial = false;
+                for (String in : inputs) {
+                    if (in != null && !in.isBlank() && !in.equals(result)) {
+                        hasOtherMaterial = true;
+                        break;
+                    }
+                }
+                if (!hasOtherMaterial) {
+                    continue;
+                }
                 // Prefer the recipe with the most ingredients (most complete plan).
                 if (inputs.size() > bestCount) {
                     bestCount = inputs.size();
-                    best = new Resolved(recipeIdOf(full), category, inputs, result);
+                    best = new Resolved(id, category, inputs, result);
                     if (bestCount >= 3) {
                         return remember(cacheKey, best); // early exit: cache the hit too
                     }
@@ -184,6 +200,18 @@ public final class ClientRecipeResolver {
             }
             if (r.has("item")) {
                 return r.get("item").getAsString();
+            }
+        }
+        if (obj.has("results") && obj.get("results").isJsonArray() && !obj.getAsJsonArray("results").isEmpty()) {
+            var first = obj.getAsJsonArray("results").get(0);
+            if (first.isJsonObject()) {
+                var r = first.getAsJsonObject();
+                if (r.has("id")) {
+                    return r.get("id").getAsString();
+                }
+                if (r.has("item")) {
+                    return r.get("item").getAsString();
+                }
             }
         }
         return "";

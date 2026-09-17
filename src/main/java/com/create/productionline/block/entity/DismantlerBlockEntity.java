@@ -44,126 +44,143 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
     /**
      * Consume-then-refund dismantle, authoritative on the server side.
      *
-     * <p>Guards (all must pass before anything is consumed or produced): slot 1
-     * must hold a genuine Line Scheme item, the scheme must be non-empty, slot 0
-     * must hold exactly the item the scheme produces, no refundable input may be
-     * a {@code #tag} reference (it cannot be materialized into a concrete
-     * item — 宁可拒绝,不可吞物), and slot 0 must hold at least as many items as
-     * the recipe yields per craft.
+     * <p>Slot 0 may hold either of two things:
+     * <ol>
+     *   <li><b>an unfinished intermediate</b> (Generic Intermediate carrying Create's
+     *       {@code SEQUENCED_ASSEMBLY} component). Its component names the sequence recipe and
+     *       how many deploy steps already ran, so the server re-reads that recipe JSON and
+     *       refunds the base plus exactly the materials those steps consumed — i.e. what is
+     *       really "inside" the item. Fluids/tags that cannot exist as items are skipped
+     *       (tags refund their first registered member as a best effort).</li>
+     *   <li><b>a finished product</b>; then the recipe is resolved server-side (scheme
+     *       {@code recipeId}, verified against the live {@code RecipeManager}) and the refund is
+     *       one batch of its inputs, consuming {@code count} products to stay the inverse of the
+     *       recipe (a {@code count > 1} recipe must not be farmed one product at a time).</li>
+     * </ol>
+     * The Line Scheme in slot 1 is now <b>optional</b>: when present it supplies the mirror's
+     * plan text, otherwise a mirror snapshot is synthesized from the recipe that was parsed.
      *
-     * <p><b>Batch requirement:</b> the refund is the inverse of the recipe, so a
-     * recipe that yields {@code count} items is only dismantled in batches of
-     * {@code count} — consuming fewer inputs than the recipe produces would let
-     * any {@code count > 1} recipe mint items (e.g. vanilla
-     * {@code minecraft:iron_ingot_from_iron_block} is 1 iron block to 9 iron
-     * ingots, so refunding a whole block for a single ingot would be a 9x dupe).
-     *
-     * @return {@code true} when {@code count} slot-0 items were consumed and the
-     *         raw materials (plus the mirror) were produced; {@code false} when
-     *         nothing was consumed and nothing was produced — the slots are left
-     *         untouched and the call may safely be retried after fixing them.
+     * @return {@code true} when the item was consumed and materials (plus a mirror) were
+     *         produced; {@code false} when nothing was consumed and nothing was produced.
      */
     public boolean revert() {
         if (!(level instanceof ServerLevel serverLevel)) {
             return false;
         }
-        // 槽 1 必须是真正的产线方案(LineSchemeItem):镜像/纸/剪贴板虽然携带相同的
-        // 方案 NBT,但在这里不能充当方案(P0-1:此前镜像可被复喂,使 revert() 无守卫执行)。
-        ItemStack schemeStack = inventory.getItem(SLOT_SCHEME);
-        if (schemeStack.isEmpty()
-                || !(schemeStack.getItem() instanceof com.create.productionline.item.LineSchemeItem)) {
-            return false;
-        }
-        LineScheme scheme = LineSchemeSerializer.fromStack(schemeStack);
-        if (scheme.isEmpty()) {
-            return false;
-        }
-        // 槽 0 必须非空,且其物品注册表 id 必须与方案的 outputItem 完全一致;
-        // 不一致直接拒绝——不消费、不产出,杜绝"拿任意/空槽刷退还物"。
         ItemStack slotZero = inventory.getItem(SLOT_ITEM);
         if (slotZero.isEmpty()) {
             return false;
         }
-        ResourceLocation slotZeroKey = BuiltInRegistries.ITEM.getKey(slotZero.getItem());
-        if (slotZeroKey == null || !scheme.getOutputItem().equals(slotZeroKey.toString())) {
-            return false;
-        }
-        // 退款集合不信任方案 Steps：仅按 scheme.recipeId 在服务端 RecipeManager
-        // 重新解析出的"真实唯一输入"退还；解析不到/输出不符/tag 输入一律拒绝，
-        // 从结构上杜绝"伪造方案刷贵重原料"。
-        String recipeId = scheme.getRecipeId();
-        if (recipeId == null || recipeId.isBlank()) {
-            return false;
-        }
-        com.create.productionline.line.mapper.RecipeDescriptor desc =
-                com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
-        if (desc == null || desc.outputs().isEmpty()) {
-            return false;
-        }
-        String authoritativeOutput = desc.outputs().get(0);
-        if (!scheme.getOutputItem().equals(authoritativeOutput)) {
-            return false; // 方案声称的产物与服务端配方不一致 -> 拒绝
-        }
-        Set<String> toRestore = new LinkedHashSet<>();
-        for (String in : desc.uniqueInputs()) {
-            if (in.startsWith("#")) {
-                // '#tag' 输入无法还原成具体物品:宁可拒绝,不可吞物
-                return false;
-            }
-            if (!in.equals(authoritativeOutput)) {
-                toRestore.add(in); // 自引用(原料==产物)不入退款
+        // Slot 1 (Line Scheme) is optional: genuine schemes supply the mirror text, mirrors /
+        // paper / clipboard carriers are ignored (they must not act as authoritative input).
+        LineScheme scheme = null;
+        ItemStack schemeStack = inventory.getItem(SLOT_SCHEME);
+        if (!schemeStack.isEmpty()
+                && schemeStack.getItem() instanceof com.create.productionline.item.LineSchemeItem) {
+            LineScheme parsed = LineSchemeSerializer.fromStack(schemeStack);
+            if (!parsed.isEmpty()) {
+                scheme = parsed;
             }
         }
 
-        // 退款必须与配方的"产出数量"配平,否则任何 count>1 的配方都是刷物品漏洞:
-        // 例如原版 minecraft:iron_ingot_from_iron_block 是 1 铁块 -> 9 铁锭,
-        // 若拆 1 个铁锭就退 1 个铁块,等于每次净赚 8 个铁锭(块/锭/粒互换的原版配方
-        // 全是这个形状,Create 的多产出副产同理)。这里改成:一次性消耗 count 个产物,
-        // 才退还 1 份输入——正好是配方的逆运算。
-        //
-        // count 的来源必须"活配方优先并取更严的一侧":JSON 文本里的 result.count 只是
-        // datapack 声明的数量,模组配方在运行时真实产出可能更高(getResultItem 的
-        // ItemStack.getCount() 才是权威),只信 JSON 就会按过小的数量消费。
-        // 不变量:必须按"一次真实产出"的完整数量消费,所以取两者较大值——取小会让
-        // count>1 的配方被按 1 个产物套利,取大只会让玩家多凑几个产物(不产生收益)。
-        int jsonCount = 1;
-        ResourceLocation rid = ResourceLocation.tryParse(recipeId);
-        if (rid != null) {
-            jsonCount = com.create.productionline.util.RecipeJsonReader.resultCount(
-                    serverLevel.getServer().getResourceManager(), rid);
+        var manager = serverLevel.getServer().getResourceManager();
+        java.util.List<String> toRestore = new java.util.ArrayList<>();
+        int consume = 1;
+        LineScheme mirrorScheme = scheme;
+
+        if (slotZero.getItem() == ModItems.GENERIC_INTERMEDIATE.get()) {
+            // --- unfinished intermediate: refund what it already absorbed -------------
+            var assembly = slotZero.get(com.simibubi.create.AllDataComponents.SEQUENCED_ASSEMBLY);
+            if (assembly == null) {
+                return false; // a plain intermediate carries no provenance
+            }
+            com.create.productionline.util.RecipeJsonReader.SequenceParts parts =
+                    com.create.productionline.util.RecipeJsonReader.sequenceParts(
+                            manager, assembly.id());
+            if (parts == null) {
+                return false; // recipe gone / not a sequence recipe -> nothing to refund safely
+            }
+            if (parts.base() != null) {
+                toRestore.add(parts.base());
+            }
+            int applied = Math.min(assembly.step(), parts.stepMaterials().size());
+            for (int i = 0; i < applied; i++) {
+                toRestore.add(parts.stepMaterials().get(i)); // multiplicity is intentional
+            }
+            if (toRestore.isEmpty()) {
+                return false;
+            }
+            if (mirrorScheme == null) {
+                mirrorScheme = synthesizeSequenceMirror(parts);
+            }
+        } else {
+            // --- finished product: inverse of one full craft -------------------------
+            String recipeId = scheme != null ? scheme.getRecipeId() : null;
+            com.create.productionline.line.mapper.RecipeDescriptor desc =
+                    com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
+            if (desc == null || desc.outputs().isEmpty()) {
+                return false;
+            }
+            String authoritativeOutput = desc.outputs().get(0);
+            ResourceLocation slotKey = BuiltInRegistries.ITEM.getKey(slotZero.getItem());
+            if (slotKey == null || !slotKey.toString().equals(authoritativeOutput)) {
+                return false;
+            }
+            for (String in : desc.uniqueInputs()) {
+                if (!in.equals(authoritativeOutput)) {
+                    toRestore.add(in);
+                }
+            }
+            if (toRestore.isEmpty()) {
+                return false;
+            }
+            // The refund is the inverse of the recipe, so a recipe yielding `count` items is
+            // only dismantled in batches of `count`; the live recipe wins over the JSON text.
+            int jsonCount = 1;
+            ResourceLocation rid = ResourceLocation.tryParse(desc.recipeId());
+            if (rid != null) {
+                jsonCount = com.create.productionline.util.RecipeJsonReader.resultCount(manager, rid);
+            }
+            consume = Math.max(1, Math.max(jsonCount, desc.outputCount()));
+            if (slotZero.getCount() < consume) {
+                return false; // not enough products for one full inverse batch
+            }
+            if (mirrorScheme == null) {
+                mirrorScheme = synthesizeDescriptorMirror(desc);
+            }
         }
-        int liveCount = desc.outputCount(); // 活配方单次产出的堆叠数(权威)
-        int count = Math.max(1, Math.max(jsonCount, liveCount));
-        if (slotZero.getCount() < count) {
-            // 数量不足 -> 整单拒绝(不部分消费、不部分退还),玩家可再补足后重试
+
+        // Resolve everything BEFORE consuming: if nothing can be materialized we must not eat
+        // the item (refuse instead of swallowing).
+        java.util.List<net.minecraft.world.item.Item> refunds = new java.util.ArrayList<>();
+        for (String id : toRestore) {
+            net.minecraft.world.item.Item item = materialize(id);
+            if (item != null) {
+                refunds.add(item);
+            }
+        }
+        if (refunds.isEmpty()) {
             return false;
         }
 
         BlockPos pos = getBlockPos();
-        // 顺序不可颠倒:先消费槽 0 的 count 份,再退还原料,最后处理镜像——重复/并发调用
-        // 绝不会多退一份原料(每次调用至多产出一套退还物 + 一面镜像)。
-        if (slotZero.getCount() > count) {
-            slotZero.shrink(count);
+        // Order matters: consume first, then refund, then the mirror — a repeated/concurrent
+        // call can never refund twice for the same item.
+        if (slotZero.getCount() > consume) {
+            slotZero.shrink(consume);
             inventory.setChanged();
         } else {
             inventory.setItem(SLOT_ITEM, ItemStack.EMPTY);
         }
-        // 退还 base material + 各步 inputs,维持原"每种 1 个"的尽力而为语义。
-        for (String id : toRestore) {
-            ResourceLocation key = ResourceLocation.tryParse(id);
-            if (key == null) {
-                continue;
-            }
-            var item = BuiltInRegistries.ITEM.get(key);
-            if (item == null || item == net.minecraft.world.item.Items.AIR) {
-                continue;
-            }
+        for (net.minecraft.world.item.Item item : refunds) {
             net.minecraft.world.level.block.Block.popResource(serverLevel, pos, new ItemStack(item));
         }
         ItemStack mirror = new ItemStack(ModItems.LINE_SCHEME_MIRROR.get());
-        com.create.productionline.item.LineSchemeMirrorItem.write(mirror, scheme);
-        // 槽 0 若已被清空,镜像直接放回槽 0;若只是 shrink(槽内还剩同类物品),则把镜像
-        // 弹出到世界而不是用 setItem 覆盖——覆盖会静默吞掉剩余物品(选此最简单自洽做法)。
+        if (mirrorScheme != null) {
+            com.create.productionline.item.LineSchemeMirrorItem.write(mirror, mirrorScheme);
+        }
+        // If slot 0 is now empty the mirror goes back into it; otherwise (a stack remained)
+        // pop it so the mirror never silently overwrites leftover items.
         if (inventory.getItem(SLOT_ITEM).isEmpty()) {
             inventory.setItem(SLOT_ITEM, mirror);
         } else {
@@ -171,6 +188,66 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
         }
         setChanged();
         return true;
+    }
+
+    /**
+     * Turns a material token into an item, best effort: {@code "#tag"} resolves to the tag's
+     * first registered member (it cannot be materialized otherwise), plain ids go through the
+     * item registry. Returns {@code null} for anything unmaterializable.
+     */
+    private static net.minecraft.world.item.Item materialize(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        ResourceLocation key = ResourceLocation.tryParse(
+                token.startsWith("#") ? token.substring(1) : token);
+        if (key == null) {
+            return null;
+        }
+        if (token.startsWith("#")) {
+            var holders = BuiltInRegistries.ITEM.getTag(net.minecraft.tags.TagKey.create(
+                    net.minecraft.core.registries.Registries.ITEM, key));
+            if (holders.isPresent()) {
+                for (var holder : holders.get()) {
+                    if (holder.value() != null && holder.value() != net.minecraft.world.item.Items.AIR) {
+                        return holder.value();
+                    }
+                }
+            }
+            return null;
+        }
+        net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(key);
+        return item == null || item == net.minecraft.world.item.Items.AIR ? null : item;
+    }
+
+    /** Mirror snapshot for a dismantled intermediate, built from the parsed recipe. */
+    private static LineScheme synthesizeSequenceMirror(
+            com.create.productionline.util.RecipeJsonReader.SequenceParts parts) {
+        LineScheme out = new LineScheme();
+        out.setOutputItem(parts.resultItem() == null ? "" : parts.resultItem());
+        out.setBaseMaterial(parts.base() == null ? "" : parts.base());
+        for (String material : parts.stepMaterials()) {
+            LineScheme.Step step = out.addStep("create:deploying", 1);
+            step.addInput(material);
+        }
+        return out;
+    }
+
+    /** Mirror snapshot for a dismantled finished product, built from its descriptor. */
+    private static LineScheme synthesizeDescriptorMirror(
+            com.create.productionline.line.mapper.RecipeDescriptor desc) {
+        LineScheme out = new LineScheme();
+        String output = desc.outputs().isEmpty() ? "" : desc.outputs().get(0);
+        out.setOutputItem(output);
+        String base = desc.uniqueInputs().isEmpty() ? "" : desc.uniqueInputs().get(0);
+        out.setBaseMaterial(base);
+        for (String input : desc.uniqueInputs()) {
+            if (!input.equals(base)) {
+                LineScheme.Step step = out.addStep("create:deploying", 1);
+                step.addInput(input);
+            }
+        }
+        return out;
     }
 
     public ModContainer getInventory() {

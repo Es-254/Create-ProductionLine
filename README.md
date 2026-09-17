@@ -13,8 +13,9 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 | Mod ID / 包名 | `create_productionline` / `com.create.productionline` |
 | Platform / 平台 | NeoForge (FML 1.x) / MC `[1.21.1]` / JDK 21 |
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
-| Artifact / 产物 | `build/libs/create_productionline-1.0.3.jar` (**179,133 B ≈ 175 KiB**, built 2026-09-16) — also downloadable from [Modrinth](https://modrinth.com/project/createproductionline) / the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page (Modrinth 项目仍在审核中，公开页面待通过后生效 / the Modrinth page goes live once the project passes review) |
-| Source size / 工程规模 | `src/main/java` **45 Java files** / **~6,300 lines** (line count is a snapshot — it moves with every commit; the file count is the stable part) |
+| Version / 版本 | **`1.0.1` (release)** — the first official release; supersedes every dev snapshot. Dev builds are **`0.0.0-dev.N`** (**beta**, `gradlew build -PdevBuild`, N auto-incremented in `dev-build.txt`) — 首个正式发布；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
+| Artifact / 产物 | `build/libs/create_productionline-1.0.1.jar` — also downloadable from [Modrinth](https://modrinth.com/project/createproductionline) / the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page (Modrinth 项目仍在审核中，公开页面待通过后生效 / the Modrinth page goes live once the project passes review). 早期 1.0.0–1.0.3 构建包均为开发快照，已被 1.0.1 取代 (earlier 1.0.0–1.0.3 jars were dev snapshots and are superseded). |
+| Source size / 工程规模 | `src/main/java` **46 Java files** / **~6,500 lines** (line count is a snapshot — it moves with every commit; the file count is the stable part) |
 | Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程); `CONTRIBUTORS.md` (**contributors & funding** 贡献与资助名单); `THIRD_PARTY_NOTICES.md` (**third-party inventory** 第三方清单). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
 
 ---
@@ -26,7 +27,7 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 | Production Computer / 产线计算机 | **3 slots side by side** (`SLOT_TARGET=0` target, `SLOT_SCHEME=1` carrier, `SLOT_CLIPBOARD=2` clipboard). On **Compute** the client scans resource packs and sends parsed recipe JSON; the server re-derives from the live `RecipeManager`, writes a **single-layer direct plan + embedded native Create recipe JSON** onto the carrier, and injects the `custom_data.LineBuildGuide` build guide. | **3 格并排**（`SLOT_TARGET=0` 目标物品 / `SLOT_SCHEME=1` 载体 / `SLOT_CLIPBOARD=2` 剪贴板）。点【计算】时客户端先扫资源包解析配方 JSON 送服务端，服务端以实时 `RecipeManager` 重新推导 → 生成**单层直连方案 + 内嵌 Create 原生配方 JSON** → 写入载体物品并注入 `custom_data.LineBuildGuide` 施工指引。 |
 | Line Scheme / 产线方案 | Carries `LineScheme` NBT (`Version/RecipeId/OutputItem/BaseMaterial/Steps[]` + embedded `CreateRecipes`); activatable by the loader, readable by the dismantler. | 携带 `LineScheme` NBT（`Version/RecipeId/OutputItem/BaseMaterial/Steps[]` + 内嵌 `CreateRecipes`），可被加载柜激活、被破拆机读取。 |
 | Scheme Loader / 方案加载柜 | **16 slots (2×8)**, **accepts only genuine `LineSchemeItem`** (paper/clipboard/mirror/forged NBT rejected). On insert it re-derives this cabinet's contribution server-side from each scheme's `recipeId`, writes the `cpl_converted` union and runs `/reload`; **union across cabinets/slots**, never overwrites; emits redstone while recipes are active. | **16 格（2×8）**，**只收真 `LineSchemeItem`**（纸/剪贴板/镜像/伪造 NBT 一律拒收）。放入即按方案 `recipeId` 服务端**重推导**本柜贡献 → 写入 `cpl_converted` 并集并 `/reload`；**多柜/多格并集**，互不覆盖；有生效配方时输出红石信号。 |
-| Dismantler / 破拆机 | 2 slots (product / scheme). Resolves the scheme's `recipeId` to the **real inputs** server-side, refunds materials and creates a read-only mirror; unresolvable id, output mismatch or any `#tag` input → **reject the whole operation, consume nothing, produce nothing**. | 2 格（产物 / 方案）。按方案 `recipeId` 在服务端解析**真实输入**后退还原料，并生成只读镜像；解析不到、产物不符、含 `#tag` 输入一律**整单拒绝，不消费不产出**。 |
+| Dismantler / 破拆机 | 2 slots (item / optional scheme). An **unfinished intermediate** (Generic Intermediate + Create's `SEQUENCED_ASSEMBLY` component) is refunded by re-reading the sequence recipe it names: base + exactly the materials the finished steps consumed, plus a read-only mirror. A **finished product** refunds one full inverse batch (consume `count`, refund inputs), resolved server-side. Tags refund their first registered member; nothing is consumed when nothing can be refunded. | 2 格（物品 / 方案可选）。**未完成的中间产物**（通用中间产物 + Create `SEQUENCED_ASSEMBLY` 组件）会按它记录的序列配方**退还基底 + 已完成步骤真正吃掉的原料**，并给一份只读镜像；**成品**按"一次完整产出的逆运算"退款（消耗 count 个、退还输入），配方由服务端解析。tag 退回首个成员；退不出任何东西时不消耗物品。 |
 | Generic Intermediate / 通用中间产物 | Sequenced-assembly transitional item (`extends SequencedAssemblyItem`, carries progress component). | 序列装配过渡物（`extends SequencedAssemblyItem`，带进度组件）。 |
 | Line Scheme Mirror / 产线方案镜像 | Read-only display snapshot (`LineSchemeMirror` key); structurally contains no executable scheme — **cannot be activated or fed back to the dismantler**. | 只读展示快照（`LineSchemeMirror` 键），结构上不含可执行方案，**不可激活、不可复喂破拆机**。 |
 
@@ -58,6 +59,9 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 - **Tag fidelity** — source tags are written verbatim as `{"tag":…}` so any tag member matches; tooltips show the first member's localized name (display only).
 - **Single ordering source** — plan and embedded recipe share ONE "JSON-ordered, tag-preserving" material list, eliminating base/step mismatches (root cause of the diesel-engine bug).
 - **The plan is the mirror of the derived recipe** — step layout is generated FROM the derived Create recipe JSON's `type` (`MachineSelector.appendChainSteps`): sequenced assembly → one Deployer per extra material; flat/mechanical → one station for the machine that really executes the recipe. A step's machine is always the machine that really processes that material — no index-based guessing.
+- Multi-candidate selection: copy/repair/dye recipes (only ingredient == product) are skipped, our own
+  `cpl:…` conversions are never re-converted, and the first candidate that actually derives an
+  installable entry wins.
 - Single-layer direct plans only, no upstream recursion; self-referencing materials (input == output) appear as ordinary stations (the recipe still consumes them).
 - Assembly mode: `config/create_productionline-mappings.json` → `"assemblyMode": "sequenced"|"mechanical"` (default `sequenced`).
 - **24 built-in mappings**: vanilla 6 (crafting/smelting/smoking/blasting/campfire_cooking/stonecutting) + Create 18 (cutting/pressing/milling/crushing/mixing/compacting/deploying/item_application/sandpaper_polishing/mechanical_crafting/haunting/splashing/washing/fan_washing/fan_splashing/fan_haunting/fan_smoking/fan_blasting); overridable/extendable via the same JSON's `categories`, with tail-key fallback in `lookup()`.
@@ -73,6 +77,7 @@ world datapack and reloads it, so the target item can be produced by a real Crea
 - **标签保真**：源配方 tag 原样写成 `{"tag":…}`，任何同标签成员都能匹配；tooltip 里按标签首个成员显示中文名（仅展示层）。
 - **单一顺序来源**：方案与内嵌配方共用同一份"JSON 保序、保标签"材料列表，杜绝基底/步骤错位（柴油引擎问题根因）。
 - **计划 = 推导配方的镜像**：站点布局由推导出的 Create 配方 JSON 的 `type` 生成（`MachineSelector.appendChainSteps`）——序列装配=每种追加原料一台机械手；扁平/机械合成=执行该配方的机器一个工位。每一步的机器就是真实处理该材料的机器，不再有按下标猜测的配对。
+- 多配方候选选择：只含"产物自身"的复制/修复/染色类配方被跳过；本模组自己装出的 `cpl:…` 转换配方不会被再次转换；优先选"能真正推导出可安装条目"的候选。
 - 单层直连、无上游递归；自引用材料（原料==目标）作为普通工位保留（配方确实会消耗它）。
 - 装配模式：`config/create_productionline-mappings.json` → `"assemblyMode": "sequenced"|"mechanical"`（默认 sequenced）。
 - **内建映射 24 条**（原版 6 + Create 18，同上），可用同一 JSON 的 `categories` 覆盖或扩展，`lookup()` 另有"尾键回退"匹配。
@@ -114,7 +119,11 @@ gradlew build -x neoFormJoined1.21.1-20240808.144430DownloadAssets   # skip asse
 
 **EN** — Requires **JDK 21**. `gradlew compileJava --offline` is enough to confirm the sources compile; `gradlew build` produces `build/libs/create_productionline-<version>.jar`. Install by dropping that jar into your instance's `mods/` folder. If your network cannot reach a repository, set a proxy in your **user-level** `~/.gradle/gradle.properties` rather than in this repo (see the commented example there).
 
+**Version policy / 版本规范** — `gradlew build` cuts the **release** (`mod_version`, `1.0.x`); `gradlew build -PdevBuild` cuts a **dev beta** (`0.0.0-dev.N`, N from `dev-build.txt`, auto-incremented after the jar is written). Only a release version is published as `release` — a dev version is refused by the publish tasks unless you pass `-PreleaseType=beta`. `./gradlew build -PdevBuildNumber=5` reproduces a numbered dev artifact without touching the counter (this is what CI does for a `v0.0.0-dev.N` tag).
+
 **中文** — 需要 **JDK 21**。只想确认能编译，`gradlew compileJava --offline` 即可；`gradlew build` 产出 `build/libs/create_productionline-<版本>.jar`。安装就是把 jar 放进实例的 `mods/` 目录。若你的网络访问不了仓库，请把代理写在**用户级** `~/.gradle/gradle.properties` 里，不要写进本仓库（本仓库 `gradle.properties` 有注释示例）。
+
+**版本规范** — `gradlew build` 出**正式版**（取 `mod_version`，形如 `1.0.x`）；`gradlew build -PdevBuild` 出**开发版 beta**（`0.0.0-dev.N`，N 取自 `dev-build.txt`，出包后自动 +1）。只有正式版能以 `release` 类型发布，开发版不加 `-PreleaseType=beta` 会被发布任务拒绝；`gradlew build -PdevBuildNumber=5` 可复现指定编号的开发包（CI 对 `v0.0.0-dev.N` tag 就是这么构建的）。
 
 ## Source layout (highlights) / 源码布局（要点）
 
@@ -135,7 +144,7 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (10 headless checks) / events / payloads
+└── qa/ event/ network/            SelfTest (13 headless checks) / events / payloads
 ```
 
 ## Security (multiplayer anti-injection, landed 2026-09-07) / 安全（多人服防注入，2026-09-07 落地）
@@ -169,7 +178,8 @@ com/create/productionline/
 - Results carry item id + count only: recipes with NBT/enchantments/state yield the "plain" variant.
 - Multi-level intermediates are not recursed into a single scheme by default: compute each stage, activate them together as a union in the 16-slot loader for an end-to-end line.
 - Single-material recipes are converted through a semantic single-machine choice (wood → saw, ore → crushing wheel, organic → millstone, metal/gem → press); the machine is a heuristic, not a faithful simulation of the original recipe. Only targets already produced by a native Create process, or recipes with no usable materials, are refused with "cannot convert".
-- The dismantler refuses items with `#tag` inputs or recipes it cannot resolve server-side (refuse rather than swallow).
+- The dismantler refunds what it can materialize (`#tag` → first member) and refuses without consuming when nothing can be refunded.
+- Recipe types that cannot specify a duration (pressing / splashing / haunting / mixing) get no `processing_time` — Create rejects such files outright, so only milling/crushing/cutting carry it.
 - Create `assets/` is All Rights Reserved: this mod only "runtime-references" its GUI/textures and never bundles copies.
 - Every texture and icon in this project is original artwork drawn by the author; the mod bundles no third-party assets.
 
@@ -178,7 +188,8 @@ com/create/productionline/
 - 序列产线每种材料每步耗 1 个（源网格多量词时"省料"），仍可产出。
 - 结果仅 item id+count：带 NBT/附魔/状态产物为"素体"。
 - 多级中间物默认不递归进单份方案：分多方案经 16 格柜并集激活组成端到端线。
-- 破拆机不支持含 `#tag` 输入/无法服务端解析的产物（宁拒不吞）。
+- 破拆机对能还原的材料尽力退还（`#tag` → 首个成员），完全退不出时不消耗物品。
+- 不能指定时长的配方类型（pressing / splashing / haunting / mixing）不写 `processing_time`——Create 会直接拒绝这类文件；只有 milling/crushing/cutting 携带该字段。
 - Create `assets/` 为 All Rights Reserved：本 mod 只"运行时引用"其 GUI/贴图，不打包复制。
 - 本项目的全部贴图与图标均为作者原创手绘；模组不打包任何第三方素材。
 
@@ -218,8 +229,8 @@ are welcome; every entry can be corrected or removed on request.
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM (a bare `-D` on the Gradle command line does not reach it). The property is read by `qa/SelfTest.isEnabled()`; after server start the 10 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**（在 Gradle 命令行上直接写 `-D` 传不到游戏进程）。该属性由 `qa/SelfTest.isEnabled()` 读取；服务器启动后跑完 **10 项**检查。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM (a bare `-D` on the Gradle command line does not reach it). The property is read by `qa/SelfTest.isEnabled()`; after server start the 13 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**（在 Gradle 命令行上直接写 `-D` 传不到游戏进程）。该属性由 `qa/SelfTest.isEnabled()` 读取；服务器启动后跑完 **13 项**检查。
 > The server halts itself afterwards, but the game process may not exit cleanly — if `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
 > 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出：若 `:runServer` 卡住，手动结束游戏进程即可；此时任务会显示 `FAILED`，但检查本身已通过，看下面的输出为准。
 
@@ -230,11 +241,14 @@ gradlew runServer -PselfTest
 [PASS] TC-01 recipe derivation (negative, not convertible)
 [PASS] Create recipe JSON schema + datapack install
 [PASS] Tag ingredients kept in flat recipes
+[PASS] Duration only on duration-capable types
+[PASS] Loader accepts written schemes only
+[PASS] Self-referential recipes are skipped
 [PASS] Deriver refuses native/unmappable recipes
 [PASS] Single-material recipes map to a semantic machine
 [PASS] Scheme embeds generated recipes (round trip)
 [PASS] Plan topology (chain: base -> machine+material -> product)
-CPL SELF-TEST RESULT: 10 passed, 0 failed
+CPL SELF-TEST RESULT: 13 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
@@ -246,22 +260,26 @@ CPL SELF-TEST RESULT: 10 passed, 0 failed
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字只是便于阅读的快照，其值等于
 > `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
-> **EN** — Current snapshot: **10** checks. The 7th, `Plan topology (chain: base -> machine+material -> product)`,
-> was added in 1.0.2; `Tag ingredients kept in flat recipes`, `Deriver refuses native/unmappable recipes` and
-> `Single-material recipes map to a semantic machine` land in 1.0.3. Adding or removing a `check(…)`
+> **EN** — Current snapshot: **13** checks. `Plan topology (chain: base -> machine+material -> product)`
+> arrived with dev snapshot `0.0.0-dev.3`; `Tag ingredients kept in flat recipes`, `Duration only on
+> duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
+> `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
+> landed by release 1.0.1. Adding or removing a `check(…)`
 > changes this number, and nothing else needs editing except the snapshot mentions in this README,
 > in `CHANGELOG.md` and in `RELEASING.md`.
-> **中文** — 当前快照：**10 项**。第 7 项 `Plan topology (chain: base -> machine+material -> product)` 为 1.0.2 新增；
-> `Tag ingredients kept in flat recipes`、`Deriver refuses native/unmappable recipes`、
-> `Single-material recipes map to a semantic machine` 三项随 1.0.3 发布。
+> **中文** — 当前快照：**13 项**。`Plan topology (chain: base -> machine+material -> product)` 随开发快照
+> `0.0.0-dev.3` 引入；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
+> `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
+> `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
+> 六项随正式版 1.0.1 落地。
 > 增删一个 `check(…)` 只会改变这个数字；除本 README、`CHANGELOG.md`、`RELEASING.md` 中标注为"快照"的处所外，
 > 其他地方无需改动。
 >
-> **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" / "9 passed" refer to earlier rounds (the
-> `DataPacket action whitelist` case was removed with the old architecture); current code has **10** checks
+> **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" refer to earlier
+> rounds (the `DataPacket action whitelist` case was removed with the old architecture); current code has **13** checks
 > and no DataPacket whitelist case.
-> **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" 对应更早的轮次（`DataPacket action whitelist`
-> 一项随旧架构删除）；当前代码为 **10 项**，且不再有 DataPacket 白名单用例。
+> **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" 对应更早的轮次（`DataPacket
+> action whitelist` 一项随旧架构删除）；当前代码为 **13 项**，且不再有 DataPacket 白名单用例。
 
 ## Doc↔code consistency baseline (2026-09-13) / 文档—代码一致性核对基线（2026-09-13）
 

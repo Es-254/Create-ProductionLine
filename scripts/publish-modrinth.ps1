@@ -8,9 +8,13 @@
 #
 # Usage:
 #   $env:MODRINTH_TOKEN = "mrp_..."
-#   .\scripts\publish-modrinth.ps1                       # mod_version from gradle.properties
+#   .\scripts\publish-modrinth.ps1                       # release: mod_version from gradle.properties
+#   .\scripts\publish-modrinth.ps1 -Dev                  # dev build: newest 0.0.0-dev.N jar, channel beta
+#   .\scripts\publish-modrinth.ps1 -Version 0.0.0-dev.5  # explicit version (jar must exist)
 #   .\scripts\publish-modrinth.ps1 -ReleaseType beta
 #   .\scripts\publish-modrinth.ps1 -Attempts 10
+#
+# See RELEASING.md → "Version policy": 1.0.x = release, 0.0.0-dev.N = beta.
 #
 # Optional proxy (a real tunnel is the only cure when even curl fails):
 #   $env:MODRINTH_PROXY = "http://127.0.0.1:<port>"
@@ -18,7 +22,9 @@
 [CmdletBinding()]
 param(
     [string] $ProjectRoot = (Split-Path -Parent $PSScriptRoot),
-    [string] $ReleaseType = 'release',   # release | beta | alpha
+    [string] $ReleaseType = '',          # release | beta | alpha; default follows the version line
+    [string] $Version = '',              # explicit override, e.g. 0.0.0-dev.5
+    [switch] $Dev,                       # use the newest dev jar and default to the beta channel
     [string] $Name,
     [int]    $Attempts = 6,
     [int]    $TimeoutSeconds = 600
@@ -72,10 +78,24 @@ if (-not $curl) { $curl = 'curl.exe' }
 
 $propsFile = Join-Path $ProjectRoot 'gradle.properties'
 $projectId = Read-Property $propsFile 'modrinth_project_id'
-$version   = Read-Property $propsFile 'mod_version'
 if (-not $projectId) { throw "modrinth_project_id is empty in $propsFile" }
-if (-not $version)   { throw "mod_version is empty in $propsFile" }
-if (-not $Name)      { $Name = "v$version" }
+
+# Version: explicit -Version wins; -Dev takes the newest dev jar; otherwise mod_version.
+$jarVersion = $Version
+if (-not $jarVersion -and $Dev) {
+    $devJar = Get-ChildItem (Join-Path $ProjectRoot 'build/libs/create_productionline-0.0.0-dev.*.jar') -ErrorAction SilentlyContinue |
+              Sort-Object { [int]($_.BaseName -replace '^.*-dev\.', '') } | Select-Object -Last 1
+    if (-not $devJar) { throw "No dev jar in build/libs - run 'gradlew build -PdevBuild' first." }
+    $jarVersion = $devJar.BaseName -replace '^create_productionline-', ''
+}
+if (-not $jarVersion) { $jarVersion = Read-Property $propsFile 'mod_version' }
+if (-not $jarVersion) { throw "mod_version is empty in $propsFile" }
+$version = $jarVersion
+if (-not $ReleaseType) { $ReleaseType = if ($version -like '*-dev.*') { 'beta' } else { 'release' } }
+if ($version -like '*-dev.*' -and $ReleaseType -eq 'release') {
+    throw "Dev version $version cannot be published as 'release' - use the beta channel."
+}
+if (-not $Name) { $Name = "v$version" }
 
 $jar = Join-Path $ProjectRoot "build/libs/create_productionline-$version.jar"
 if (-not (Test-Path $jar)) { throw "Jar not found: $jar - run 'gradlew build' first." }
@@ -97,10 +117,11 @@ $changelog = "Release $version"
 $clFile = Join-Path $ProjectRoot 'CHANGELOG.md'
 if (Test-Path $clFile) {
     $lines = Get-Content $clFile -Encoding UTF8
-    $start = ($lines | Select-String -Pattern "^## \[$([regex]::Escape($version))\]" | Select-Object -First 1).LineNumber
+    # Release headings are `## [1.0.1] — date`, dev headings `## 0.0.0-dev.5 — date (beta)`.
+    $start = ($lines | Select-String -Pattern "^## \[?$([regex]::Escape($version))\]?" | Select-Object -First 1).LineNumber
     if ($start) {
         $rest = $lines[$start..($lines.Count - 1)]
-        $endRel = ($rest | Select-String -Pattern '^## \[|^\[[0-9]+\.[0-9]+\.[0-9]+\]:' | Select-Object -Skip 1 -First 1).LineNumber
+        $endRel = ($rest | Select-String -Pattern '^## |^\[[0-9]+\.[0-9]+\.[0-9]+\]:' | Select-Object -Skip 1 -First 1).LineNumber
         $changelog = if ($endRel) { ($rest[0..($endRel - 2)] -join "`n").Trim() } else { ($rest -join "`n").Trim() }
     }
 }

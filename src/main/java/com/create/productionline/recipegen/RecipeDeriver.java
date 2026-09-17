@@ -94,9 +94,9 @@ public final class RecipeDeriver {
      *       Create machine ({@link RecipeAnalyzer#machineForMaterial}) and its flat
      *       processing type (B3: planks -> stick, log -> planks, buttons, … are
      *       convertible);</li>
-     *   <li><b>multi-material fallback</b> -> a flat {@code create:mixing} payload,
-     *       the only Create process that consumes an arbitrary ingredient set;</li>
-     *   <li>anything else -> nothing.</li>
+     *   <li><b>no rule matched</b> -> nothing: unknown machine categories (e.g.
+     *       {@code superbwarfare:vehicle_assembling}) and entity-result recipes are
+     *       refused instead of being forced into a {@code create:mixing} line;</li>
      * </ol>
      */
     public static List<LineScheme.CreateRecipeEntry> entriesFor(ServerLevel level,
@@ -114,6 +114,15 @@ public final class RecipeDeriver {
                 ? source.uniqueInputs()
                 : orderedInputs;
         if (materials.isEmpty()) {
+            return out;
+        }
+
+        // 1b) Result-level guard: a recipe whose result is an ENTITY (vehicles,
+        // turrets, superbwarfare:vehicle_assembling …) is assembled by a machine of
+        // its own mod — converting it into a Create processing line would be wrong.
+        ResourceLocation jsonId = ResourceLocation.tryParse(source.recipeId());
+        if (jsonId != null && RecipeJsonReader.resultIsEntity(
+                level.getServer().getResourceManager(), jsonId)) {
             return out;
         }
 
@@ -179,17 +188,8 @@ public final class RecipeDeriver {
             return out;
         }
 
-        // 6) Multi-material fallback: mixing is the only process that takes a set.
-        if (materials.size() >= 2) {
-            String method = "create:mixing";
-            entry = new LineScheme.CreateRecipeEntry(
-                    CreateRecipePack.fileBase(output, method),
-                    CreateRecipePack.toJsonString(CreateRecipePack.flat(method, materials, output, count)));
-            out.add(entry);
-            return out;
-        }
-
-        // 7) No rule matched.
+        // 6) No rule matched — refuse instead of forcing an unknown machine
+        // category into a mixing line (D: semantic honesty over false success).
         return out;
     }
 }

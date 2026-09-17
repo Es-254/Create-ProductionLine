@@ -67,4 +67,25 @@ public record RecipeDescriptor(String recipeId, String categoryId, List<String> 
         }
         return Collections.unmodifiableList(out);
     }
+
+    /**
+     * True when the recipe consumes at least one material that is NOT the product itself.
+     *
+     * <p>Mods ship "copy / repair / dye / reset" recipes whose only ingredient is the target
+     * item (1:1 self recipes). Such a recipe can never become a production line — converting it
+     * yields the nonsense plan {@code [target] -> press -> target} — so recipe selection must
+     * skip it and prefer one that really has materials.
+     */
+    public boolean hasUsableMaterials() {
+        if (outputs.isEmpty() || outputs.get(0) == null) {
+            return false;
+        }
+        String product = outputs.get(0);
+        for (String input : uniqueInputs()) {
+            if (input != null && !input.isBlank() && !input.equals(product)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

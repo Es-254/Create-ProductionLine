@@ -76,13 +76,16 @@ public final class ClipboardCompat {
     }
 
     /**
-     * The ONLY item the Scheme Loader accepts for activation: a genuine Line
-     * Scheme. Paper / clipboard / any forged-NBT carrier is rejected — the
-     * loader re-derives everything from the scheme's recipe id server-side.
+     * The ONLY item the Scheme Loader accepts: a genuine, ALREADY WRITTEN Line Scheme
+     * ({@code recipeId} present). Blank schemes, paper, clipboard, mirrors and any forged-NBT
+     * carrier are rejected — the loader re-derives everything from the scheme's recipe id.
      */
     public static boolean isLoaderCarrier(ItemStack stack) {
-        return stack != null && !stack.isEmpty()
-                && stack.getItem() instanceof com.create.productionline.item.LineSchemeItem;
+        if (stack == null || stack.isEmpty()
+                || !(stack.getItem() instanceof com.create.productionline.item.LineSchemeItem)) {
+            return false;
+        }
+        return !com.create.productionline.line.scheme.LineSchemeSerializer.fromStack(stack).isEmpty();
     }
 
     private static CompoundTag customData(ItemStack stack) {
