@@ -5,7 +5,6 @@ plugins {
     // Publication to the mod platforms. Declared but NOT applied by default, so a plain
     // `gradlew build` (and CI) never depends on them. Enable with: gradlew -PpublishMods …
     id 'com.modrinth.minotaur' version '2.9.0' apply false
-    id 'net.darkhax.curseforgegradle' version '1.1.25' apply false
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -269,8 +268,8 @@ idea {
 // Nothing below is evaluated unless you pass -PpublishMods, so ordinary builds and
 // CI are unaffected. See RELEASING.md for the full walkthrough.
 //
-//   gradlew -PpublishMods publishModrinth
-//   gradlew -PpublishMods publishCurseForge
+//   gradlew -PpublishMods publishModrinth       # Minotaur, cross-platform
+//   gradlew -PpublishMods publishCurseForge     # runs scripts/publish-curseforge.ps1
 //
 // Credentials are read from the environment first (preferred, keeps them out of
 // your shell history and out of the repository), then from ~/.gradle/gradle.properties:
@@ -280,7 +279,6 @@ idea {
 // =============================================================================
 if (project.hasProperty('publishMods')) {
     apply plugin: 'com.modrinth.minotaur'
-    apply plugin: 'net.darkhax.curseforgegradle'
 
     def changelogFile = file('CHANGELOG.md')
     def releaseNotes = changelogFile.exists() ? changelogFile.getText('UTF-8') : "Release ${project.version}"
@@ -292,7 +290,6 @@ if (project.hasProperty('publishMods')) {
     def supportedMc = ['1.21.1']
     def supportedLoaders = ['neoforge']
     def modrinthToken = System.getenv('MODRINTH_TOKEN') ?: project.findProperty('modrinth_token')
-    def curseforgeToken = System.getenv('CURSEFORGE_TOKEN') ?: project.findProperty('curseforge_token')
 
     // --- Modrinth -------------------------------------------------------------
     // Validation happens at task-execution time so that merely configuring the build
@@ -331,33 +328,31 @@ if (project.hasProperty('publishMods')) {
     }
 
     // --- CurseForge -----------------------------------------------------------
-    tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+    // NOT CurseForgeGradle any more. That plugin POSTs to `/api/projects/{id}/upload`, an
+    // endpoint CurseForge replaced with `/upload-file`; the old path answers 302 -> /error,
+    // which the plugin reports as `403 Forbidden`. scripts/publish-curseforge.ps1 speaks the
+    // current API (plain `metadata` form field, Client/Server environment versions, browser
+    // User-Agent for Cloudflare) and is what this task now runs.
+    tasks.register('publishCurseForge', Exec) {
         group = 'publishing'
-        description = 'Uploads the built jar to CurseForge (requires -PpublishMods and CURSEFORGE_TOKEN).'
-        apiToken = curseforgeToken ?: ''
+        description = 'Uploads the built jar to CurseForge via scripts/publish-curseforge.ps1 (requires -PpublishMods).'
         dependsOn tasks.named('jar')
-
-        // CurseForgeGradle parses the project id as a number, so an unset id would make
-        // task *configuration* fail. Only wire the upload when an id is actually present;
-        // otherwise the task still exists and reports a clear error when executed.
-        def cfProjectId = project.curseforge_project_id?.trim()
-        if (cfProjectId) {
-            def mainFile = upload(cfProjectId, tasks.named('jar').get().archiveFile.get().asFile)
-            mainFile.releaseType = releaseType // release | beta | alpha
-            mainFile.changelog = releaseNotes
-            mainFile.changelogType = 'markdown'
-            // CurseForge wants MC version, loader and Java version as game versions.
-            mainFile.gameVersions.addAll('1.21.1', 'NeoForge', 'Java 21')
-            mainFile.addRequirement('create')
-            mainFile.displayName = "${project.mod_name} ${project.version}"
-        }
-
+        def script = layout.projectDirectory.file('scripts/publish-curseforge.ps1').asFile
+        // `pwsh` (PowerShell 7) is not installed everywhere - notably not in this repo's own
+        // build environment - so fall back to Windows PowerShell, which ships with Windows and
+        // runs the script unchanged.
+        def pathEntries = (System.getenv('PATH') ?: '').split(File.pathSeparator)
+        def shell = pathEntries.any { new File(it, 'pwsh.exe').isFile() } ? 'pwsh' : 'powershell'
+        def args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath]
+        // -PcurseforgeFileId=<id> edits an existing file instead of uploading a new one
+        // (CurseForge rejects a second file with the same display name).
+        def fileId = project.findProperty('curseforgeFileId')
+        if (fileId) { args += ['-FileId', fileId.toString()] }
+        if (project.hasProperty('devBuild')) { args += ['-Dev'] }
+        commandLine([shell] + args)
         doFirst {
-            if (!cfProjectId) {
+            if (!project.curseforge_project_id?.trim()) {
                 throw new GradleException("curseforge_project_id is empty — set it in gradle.properties (see RELEASING.md).")
-            }
-            if (!curseforgeToken) {
-                throw new GradleException("No CurseForge token found — set the CURSEFORGE_TOKEN environment variable.")
             }
         }
     }

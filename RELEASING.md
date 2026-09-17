@@ -22,8 +22,11 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   text (it described the old computer slots, i.e. paper / clipboard in the middle and right slots,
 >   where slot 2 now takes a blank Line Scheme and slot 3 optional paper).
 >   Everything else about the Modrinth path (token, ids, scripts) is ready.
-> - **CurseForge — not set up** (`curseforge_project_id` is empty). Treat **§0.3** and the CurseForge
->   halves of §4 / §5 as *later*.
+> - **CurseForge — live.** Project **`1699977`** (MIT, distribution allowed to 3rd parties), first file
+>   **`8905098`** = `create_productionline-1.0.1.jar` (the same bytes as the GitHub Release and the
+>   Modrinth version), uploaded 2026-09-17 via `scripts/publish-curseforge.ps1`. The public page stays
+>   hidden until CurseForge approves the project; the description, icon and gallery are still to be
+>   filled in on the dashboard. §0.3 carries the API details.
 >
 > Because the repository is public and pushed, §0.4 (bootstrap) is **history rather than a to-do**, and
 > §3 (tag + GitHub Release) is a normal step of every release. §M remains the day-to-day path.
@@ -248,16 +251,38 @@ see the page yet (§M.1.2).
 
 ### 0.3 CurseForge
 
-Create an account / project when you can reach <https://authors.curseforge.com/>.
+### 0.3 CurseForge — done
 
-1. Create the project at <https://authors.curseforge.com/>.
-2. Game **Minecraft**, category **Mods**, and note the **numeric project id** (shown in the
-   project's "About" panel / URL) → `curseforge_project_id`.
-3. Generate an API token at <https://authors.curseforge.com/#/account> → **API Tokens**.
-   Export it as `CURSEFORGE_TOKEN`.
+Project: **`curseforge_project_id=1699977`** (`Create: Production Line`, MIT, distribution allowed
+to 3rd parties), public page slug still private until CurseForge approves the project. The first
+file, **id 8905098** (`create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…` — the same
+jar as the GitHub Release and Modrinth), was uploaded through `scripts/publish-curseforge.ps1` on
+2026-09-17.
+
+1. The project was created at <https://authors.curseforge.com/> → **Create Project** (game
+   **Minecraft** → **Mods**, licence **MIT**, distribution **Allow distribution to 3rd party**).
+2. The numeric id is the number in the authors-dashboard URL → `curseforge_project_id`.
+3. Upload token: <https://authors-old.curseforge.com/account/api-tokens> → export as
+   `CURSEFORGE_TOKEN` (or `curseforge_token` in `~/.gradle/gradle.properties`, which is where the
+   local one lives).
 
 > Keep both tokens **out of the repository**. Use environment variables (preferred) or
 > `~/.gradle/gradle.properties` (`modrinth_token=…` / `curseforge_token=…`). Never commit them.
+
+#### What the CurseForge upload path actually requires (measured 2026-09-17)
+
+The Gradle plugin (`net.darkhax.curseforgegradle`) **cannot** upload any more, and this repo no
+longer declares it:
+
+| Reality | Consequence |
+| --- | --- |
+| The endpoint is `/api/projects/{id}/upload-file`; the plugin still posts to `/upload` | the old path answers `302 → /error`, which the plugin reports as `403 Forbidden` |
+| `metadata` must be a **plain form field** | `curl -F "metadata=<file"` (field value read from disk); sending it as a *file part* is rejected with `1001 Missing field 'metadata'` |
+| At least one **environment** version is mandatory | `1002/1021 You must select at least one version from the environment group` — `Client` / `Server` must be in `gameVersionNames` |
+| `minecraft.curseforge.com` sits behind Cloudflare's managed challenge | the default `curl/x.y` User-Agent gets a `403` HTML challenge page; a browser UA gets through (the API still authenticates with `X-Api-Token`) |
+| GET endpoints are challenged, POSTs work | the script never reads anything back; the upload response carries the file id |
+| `update-file` answers `500 An unhandled exception` for `changelog`, `relations` and `gameVersionNames` | only `displayName` / `releaseType` can be edited through it; edit the rest in the dashboard |
+| CurseForge refuses a second file with the same display name | re-releasing the same version means editing the existing file, not uploading again |
 
 ### 0.4 GitHub — done (kept for reference only)
 
@@ -385,29 +410,28 @@ generated notes after it. To do it by hand instead, create a Release for the tag
 
 ## 4. Publishing commands
 
-**GitHub (works today)** — tag + Release, see **§3**. **Modrinth (publishing works, project waiting for
-review:** the anonymous API returns 404 while `status = processing` — **§M.1.2)** — see **§M.2**:
+**GitHub — works today** — tag + Release, see **§3**.
+**Modrinth — publishing works, project waiting for review** (the anonymous API returns 404 while
+`status = processing`, **§M.1.2**) — see **§M.2**.
+**CurseForge — live** (project `1699977`, **§0.3**) — see below.
 
 ```powershell
-$env:MODRINTH_TOKEN = "<token>"
+$env:MODRINTH_TOKEN   = "<token>"
+$env:CURSEFORGE_TOKEN = "<token>"     # optional: ~/.gradle/gradle.properties works too
+
+# Modrinth (Minotaur)
 .\gradlew.bat -PpublishMods modrinth
 .\gradlew.bat -PpublishMods modrinthSyncBody
-```
 
-**Both platforms (once CurseForge is set up)** — tokens must be in the environment of the shell
-that runs Gradle:
-
-```powershell
-$env:MODRINTH_TOKEN     = "<token>"
-$env:CURSEFORGE_TOKEN   = "<token>"
-
-# Both platforms, using CHANGELOG.md as the changelog
-.\gradlew.bat -PpublishMods modrinth publishCurseForge
-
-# Or one at a time
-.\gradlew.bat -PpublishMods modrinth
+# CurseForge: runs scripts/publish-curseforge.ps1 (the old CurseForgeGradle plugin is broken, §0.3)
 .\gradlew.bat -PpublishMods publishCurseForge
+.\gradlew.bat -PpublishMods publishCurseForge -PcurseforgeFileId=8905098   # edit that file instead of adding one
+.\gradlew.bat -PpublishMods publishCurseForge -PdevBuild                   # publish the newest dev jar as beta
 ```
+
+`scripts/publish-curseforge.ps1` can also be run on its own (same flags: `-Version`, `-Dev`, `-FileId`,
+`-Attempts`), which is useful when a Gradle daemon is in the way. It resolves the version, the jar and
+the matching `CHANGELOG.md` section exactly like the Modrinth script does.
 
 Options:
 
@@ -424,8 +448,10 @@ If you would rather not hand tokens to Gradle, upload by hand:
 1. **Modrinth** — project → *Versions* → *Create version*: upload the jar, pick MC `1.21.1`,
    loader `NeoForge`, paste the new `CHANGELOG.md` section as the changelog, and add **Create** as a
    required dependency.
-2. **CurseForge** — project → *Files* → *Upload file*: same jar, game version
-   `1.21.1 / NeoForge / Java 21`, release type, mark **Create** as a required dependency.
+2. **CurseForge** — project → *Files* → *Upload file*: same jar, game versions
+   `1.21.1 / NeoForge / Java 21 / Client / Server` (**environment versions are mandatory**), release
+   type, and **Create** as a required dependency. Note that CurseForge refuses a second file with the
+   same display name, so a re-cut of the same version has to *replace* the existing file.
 3. Paste `docs/platform-listing.md` **in full** (it has no HTML comment to strip) as the project
    description the first time, and keep Modrinth/CurseForge bodies in sync with that file.
 
@@ -447,8 +473,8 @@ If you would rather not hand tokens to Gradle, upload by hand:
 - [ ] Git tag pushed (`v1.0.x` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
       (CI does this from the tag — pre-release for `-dev.`)
 - [ ] Modrinth version published (MC 1.21.1, NeoForge, Create = required dependency)
-- [ ] CurseForge file published (1.21.1 / NeoForge / Java 21, Create = required dependency) — *blocked:
-      CurseForge is not set up yet*
+- [ ] CurseForge file published — `gradlew -PpublishMods publishCurseForge`
+      (1.21.1 / NeoForge / Java 21 / Client / Server, Create = required dependency)
 - [ ] Project icons uploaded (`icon_512x512.png`)
 - [ ] Tokens were **not** committed (`git status` clean of secrets)
 

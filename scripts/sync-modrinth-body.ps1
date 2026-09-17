@@ -10,12 +10,19 @@
 
 [CmdletBinding()]
 param(
-    [string] $ProjectRoot = (Split-Path -Parent $PSScriptRoot),
+    [string] $ProjectRoot = '',      # resolved below: $PSScriptRoot is empty inside param()
     [int]    $Attempts = 6,
     [int]    $TimeoutSeconds = 120
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Windows PowerShell 5.1 evaluates param() defaults before $PSScriptRoot exists, so the default
+# has to be resolved here. See publish-modrinth.ps1 / publish-curseforge.ps1.
+if (-not $ProjectRoot) {
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+    $ProjectRoot = Split-Path -Parent $scriptDir
+}
 
 # Token resolution + curl auth config (secret never on a command line).
 # See publish-modrinth.ps1 for the rationale.

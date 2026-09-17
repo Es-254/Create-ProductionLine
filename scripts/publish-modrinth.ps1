@@ -21,7 +21,7 @@
 
 [CmdletBinding()]
 param(
-    [string] $ProjectRoot = (Split-Path -Parent $PSScriptRoot),
+    [string] $ProjectRoot = '',          # resolved below: $PSScriptRoot is empty inside param()
     [string] $ReleaseType = '',          # release | beta | alpha; default follows the version line
     [string] $Version = '',              # explicit override, e.g. 0.0.0-dev.5
     [switch] $Dev,                       # use the newest dev jar and default to the beta channel
@@ -31,6 +31,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Windows PowerShell 5.1 evaluates param() defaults before $PSScriptRoot exists, so the default
+# has to be resolved here - otherwise every invocation dies on "Split-Path ... empty string".
+if (-not $ProjectRoot) {
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+    $ProjectRoot = Split-Path -Parent $scriptDir
+}
 
 function Read-Property([string] $file, [string] $key) {
     $line = Select-String -Path $file -Pattern "^$([regex]::Escape($key))=(.*)$" | Select-Object -First 1
