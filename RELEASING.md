@@ -11,12 +11,14 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   *Version policy*); the first official tag is `v1.0.1`.
 > - **Modrinth — submitted, in review; not yet publicly visible.** Anonymous calls still return **404**
 >   for both the slug `createproductionline` and the base62 id `7dcs0ruf` (re-checked 2026-09-17), while
->   the **author view** (token) returned `200` with `status = "processing"` — the project was submitted
->   on 2026-09-13 and is going through Modrinth's review/scan pipeline. Publishing itself works
->   (the draft holds an older `1.0.2` version); what is missing is the public approval. **To do once it
->   is approved:** delete that old `1.0.2` version and publish `1.0.1` with channel **Release**, so the
->   public version list starts at the first official release. Everything else about the Modrinth path
->   (token, ids, scripts) is ready.
+>   the **author view** returns `200` with `status = "processing"` — the project is going through
+>   Modrinth's review/scan pipeline. **`1.0.1` is published** (channel *Release*, version id `u4SwiPGj`,
+>   jar `create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…`), so the release itself is done;
+>   what is missing is the public approval that makes the page and its versions visible. The old `1.0.2`
+>   version is still listed: Modrinth **refuses to delete a version while the project is under review**
+>   (`400 project must have no required validation nags before or while under review`), so remove it
+>   right after approval — the public version list should start at the first official release.
+>   Everything else about the Modrinth path (token, ids, scripts) is ready.
 > - **CurseForge — not set up** (`curseforge_project_id` is empty). Treat **§0.3** and the CurseForge
 >   halves of §4 / §5 as *later*.
 >
@@ -87,10 +89,10 @@ approved and listed (§M.1.2).
    - `status: "draft"` → not submitted yet: submit it for review on the project page first.
    - `404` even with the token → the id is wrong (re-check `modrinth_project_id` in `gradle.properties`).
 
-   At the time of writing the id is `7dcs0ruf`, the project `status` is `processing` and a draft version
-   `1.0.2` (old numbering) is `listed` — the only thing gating the Modrinth half of a release is
-   Modrinth's own approval. Once approved, delete that old version and publish `1.0.1` (channel
-   *Release*).
+   At the time of writing the id is `7dcs0ruf` and the project `status` is `processing`; `1.0.1` is
+   published as a *Release* and the old `1.0.2` still sits in the version list because Modrinth blocks
+   version deletion while a project is under review. Delete `1.0.2` once the project is approved — the
+   only thing gating the Modrinth half of a release is Modrinth's own approval.
 
 3. `gradle.properties` already has `modrinth_project_id=7dcs0ruf` — the **base62 project id**, *not*
    the slug (`createproductionline`). The id is used on purpose: it is stable even if the slug is
