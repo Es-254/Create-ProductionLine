@@ -134,7 +134,9 @@ jobs:
           PRERELEASE=""
           case "$GITHUB_REF_NAME" in *-dev.*) PRERELEASE="--prerelease" ;; esac
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release edit "$GITHUB_REF_NAME" --title "$TITLE" --notes-file release-body.md $PRERELEASE
+            # --draft=false on purpose: a release can end up as a draft (e.g. left behind
+            # when its tag was re-cut) and a draft is invisible to everyone but the owner.
+            gh release edit "$GITHUB_REF_NAME" --title "$TITLE" --notes-file release-body.md --draft=false $PRERELEASE
             gh release upload "$GITHUB_REF_NAME" dist/*.jar --clobber
           else
             # shellcheck disable=SC2086
