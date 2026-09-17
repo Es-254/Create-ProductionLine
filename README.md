@@ -119,11 +119,11 @@ gradlew build -x neoFormJoined1.21.1-20240808.144430DownloadAssets   # skip asse
 
 **EN** — Requires **JDK 21**. `gradlew compileJava --offline` is enough to confirm the sources compile; `gradlew build` produces `build/libs/create_productionline-<version>.jar`. Install by dropping that jar into your instance's `mods/` folder. If your network cannot reach a repository, set a proxy in your **user-level** `~/.gradle/gradle.properties` rather than in this repo (see the commented example there).
 
-**Version policy / 版本规范** — `gradlew build` cuts the **release** (`mod_version`, `1.0.x`); `gradlew build -PdevBuild` cuts a **dev beta** (`0.0.0-dev.N`, N from `dev-build.txt`, auto-incremented after the jar is written). Only a release version is published as `release` — a dev version is refused by the publish tasks unless you pass `-PreleaseType=beta`. `./gradlew build -PdevBuildNumber=5` reproduces a numbered dev artifact without touching the counter (this is what CI does for a `v0.0.0-dev.N` tag).
+**Version policy / 版本规范** — `gradlew build` cuts the **release** (`mod_version`, `1.0.x`); `gradlew build -PdevBuild` cuts a **dev beta** (`0.0.0-dev.N`, N from `dev-build.txt`, auto-incremented after the jar is written). Only a release version is published as `release`: a dev version defaults to `beta` and is rejected only if you force `-PreleaseType=release`. `./gradlew build -PdevBuildNumber=5` reproduces a numbered dev artifact without touching the counter (this is what CI does for a `v0.0.0-dev.N` tag).
 
 **中文** — 需要 **JDK 21**。只想确认能编译，`gradlew compileJava --offline` 即可；`gradlew build` 产出 `build/libs/create_productionline-<版本>.jar`。安装就是把 jar 放进实例的 `mods/` 目录。若你的网络访问不了仓库，请把代理写在**用户级** `~/.gradle/gradle.properties` 里，不要写进本仓库（本仓库 `gradle.properties` 有注释示例）。
 
-**版本规范** — `gradlew build` 出**正式版**（取 `mod_version`，形如 `1.0.x`）；`gradlew build -PdevBuild` 出**开发版 beta**（`0.0.0-dev.N`，N 取自 `dev-build.txt`，出包后自动 +1）。只有正式版能以 `release` 类型发布，开发版不加 `-PreleaseType=beta` 会被发布任务拒绝；`gradlew build -PdevBuildNumber=5` 可复现指定编号的开发包（CI 对 `v0.0.0-dev.N` tag 就是这么构建的）。
+**版本规范** — `gradlew build` 出**正式版**（取 `mod_version`，形如 `1.0.x`）；`gradlew build -PdevBuild` 出**开发版 beta**（`0.0.0-dev.N`，N 取自 `dev-build.txt`，出包后自动 +1）。只有正式版能以 `release` 类型发布；开发版默认即 `beta`，只有强行 `-PreleaseType=release` 才会被发布任务拒绝。`gradlew build -PdevBuildNumber=5` 可复现指定编号的开发包（CI 对 `v0.0.0-dev.N` tag 就是这么构建的）。
 
 ## Source layout (highlights) / 源码布局（要点）
 
@@ -252,11 +252,11 @@ CPL SELF-TEST RESULT: 13 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:94`), so the pass criterion is
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:103`), so the pass criterion is
 > *the last line matches `\d+ passed, 0 failed`* — never a literal number. The number below is only a
 > convenience snapshot and is the count of `check("…")` calls in `qa/SelfTest.java`.
 > **中文** — **验收时不要把项数写死。** `qa/SelfTest.java` 打印的是
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:94`），所以判据是
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:103`），所以判据是
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字只是便于阅读的快照，其值等于
 > `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >

@@ -137,7 +137,9 @@ even though `api.modrinth.com` is reachable a second later. Two hardened fallbac
 ```powershell
 $env:MODRINTH_TOKEN = "mrp_…"
 
-.\scripts\publish-modrinth.ps1            # uploads mod_version from gradle.properties
+.\scripts\publish-modrinth.ps1            # uploads mod_version from gradle.properties (release)
+.\scripts\publish-modrinth.ps1 -Dev       # uploads the newest 0.0.0-dev.N jar, channel beta
+.\scripts\publish-modrinth.ps1 -Version 0.0.0-dev.5   # explicit version (jar must exist)
 .\scripts\publish-modrinth.ps1 -ReleaseType beta
 .\scripts\publish-modrinth.ps1 -Attempts 10
 
@@ -229,8 +231,8 @@ Select-String -Path .\LICENSE,.\gradle.properties,.\docs\platform-listing.md -Pa
 | `LICENSE` | `<YOUR NAME OR HANDLE>` | **done** — `Copyright (c) 2026 Es254` | — |
 | `gradle.properties` | `mod_authors` | **done** — `Es254` | — |
 | `gradle.properties` | `curseforge_project_id` | **still empty** — CurseForge is not set up (§0.3) | CurseForge |
-| `neoforge.mods.toml` | `issueTrackerURL` | **done** — literal `…/Create-ProductionLine/issues` | GitHub |
-| `gradle.properties` | `mod_issue_tracker_url` | still empty; **intentionally unused** — the TOML carries a literal URL, because `${mod_issue_tracker_url}` would expand to a dead link | GitHub |
+| `neoforge.mods.toml` | `issueTrackerURL` | **done** — written as `${mod_issue_tracker_url}`, expanded by `ProcessResources` | GitHub |
+| `gradle.properties` | `mod_issue_tracker_url` | **done** — `https://github.com/Es-254/Create-ProductionLine/issues` | GitHub |
 | `mod_display_url` | — | left as the Modrinth page on purpose (that is the public home players see); the GitHub URL lives in `issueTrackerURL` | GitHub |
 
 ### 0.2 Modrinth
@@ -297,7 +299,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (10 checks, then the server halts)
+# Headless QA self-test on a real server (13 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -308,7 +310,7 @@ Check the self-test log ends with a line matching:
 ```
 
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
-`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:94`), so the acceptance
+`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:103`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
 misjudge the very next release that adds a case. The current snapshot is **13 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
@@ -356,7 +358,8 @@ git push origin main --tags        # origin already exists — do NOT re-add it
 Pushing the tag is normally the whole GitHub step: `build.yml` builds **that** version
 (`-PdevBuildNumber=N` for a `v0.0.0-dev.N` tag), verifies the jar name matches the tag, and
 creates/updates the Release with the jar attached — a pre-release when the tag contains `-dev.`.
-To do it by hand instead, create a Release for the tag and attach
+The Release body is the matching `CHANGELOG.md` section (release or dev heading), with GitHub's
+generated notes after it. To do it by hand instead, create a Release for the tag and attach
 `build/libs/create_productionline-<version>.jar`.
 
 > Tagging rules: `v1.0.x` = release (not a pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).

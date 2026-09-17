@@ -83,8 +83,10 @@ if (-not $projectId) { throw "modrinth_project_id is empty in $propsFile" }
 # Version: explicit -Version wins; -Dev takes the newest dev jar; otherwise mod_version.
 $jarVersion = $Version
 if (-not $jarVersion -and $Dev) {
+    # Sort by write time: dev-build.txt holds the NEXT number, so the number cannot be
+    # derived from the counter file - the freshest 0.0.0-dev.* jar is the one just built.
     $devJar = Get-ChildItem (Join-Path $ProjectRoot 'build/libs/create_productionline-0.0.0-dev.*.jar') -ErrorAction SilentlyContinue |
-              Sort-Object { [int]($_.BaseName -replace '^.*-dev\.', '') } | Select-Object -Last 1
+              Sort-Object LastWriteTime | Select-Object -Last 1
     if (-not $devJar) { throw "No dev jar in build/libs - run 'gradlew build -PdevBuild' first." }
     $jarVersion = $devJar.BaseName -replace '^create_productionline-', ''
 }
@@ -92,6 +94,9 @@ if (-not $jarVersion) { $jarVersion = Read-Property $propsFile 'mod_version' }
 if (-not $jarVersion) { throw "mod_version is empty in $propsFile" }
 $version = $jarVersion
 if (-not $ReleaseType) { $ReleaseType = if ($version -like '*-dev.*') { 'beta' } else { 'release' } }
+if ($ReleaseType -notin @('release', 'beta', 'alpha')) {
+    throw "-ReleaseType must be release, beta or alpha (got '$ReleaseType')."
+}
 if ($version -like '*-dev.*' -and $ReleaseType -eq 'release') {
     throw "Dev version $version cannot be published as 'release' - use the beta channel."
 }
@@ -118,11 +123,16 @@ $clFile = Join-Path $ProjectRoot 'CHANGELOG.md'
 if (Test-Path $clFile) {
     $lines = Get-Content $clFile -Encoding UTF8
     # Release headings are `## [1.0.1] — date`, dev headings `## 0.0.0-dev.5 — date (beta)`.
-    $start = ($lines | Select-String -Pattern "^## \[?$([regex]::Escape($version))\]?" | Select-Object -First 1).LineNumber
+    # The (?![\d.]) guard keeps `1.0.1` from matching a `## [1.0.10]` heading.
+    $start = ($lines | Select-String -Pattern "^## \[?$([regex]::Escape($version))\]?(?![\d.])" | Select-Object -First 1).LineNumber
     if ($start) {
+        # $start is 1-based, so $lines[$start] is already the line AFTER the heading.
         $rest = $lines[$start..($lines.Count - 1)]
-        $endRel = ($rest | Select-String -Pattern '^## |^\[[0-9]+\.[0-9]+\.[0-9]+\]:' | Select-Object -Skip 1 -First 1).LineNumber
+        $endRel = ($rest | Select-String -Pattern '^## |^\[[0-9]+\.[0-9]+\.[0-9]+\]:' | Select-Object -First 1).LineNumber
         $changelog = if ($endRel) { ($rest[0..($endRel - 2)] -join "`n").Trim() } else { ($rest -join "`n").Trim() }
+    }
+    if (-not $changelog -or $changelog -eq "Release $version") {
+        Write-Warning "No CHANGELOG.md section found for $version - the version will be published with a placeholder changelog."
     }
 }
 
@@ -141,7 +151,7 @@ $payload = @{
     game_versions  = @('1.21.1')
     version_type   = $ReleaseType
     loaders        = @('neoforge')
-    featured       = $true
+    featured       = ($ReleaseType -eq 'release')   # betas are not featured on the project page
     status         = 'listed'
     project_id     = $projectId
     file_parts     = @('file')

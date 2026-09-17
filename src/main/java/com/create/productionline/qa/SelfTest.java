@@ -30,7 +30,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 10 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 13 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -48,6 +48,13 @@ import net.minecraft.world.level.storage.LevelResource;
  *       two installed recipes really parsed;</li>
  *   <li>Tag ingredients kept in flat recipes (A1 — writing {@code "item": "#tag"}
  *       used to report success and then never load);</li>
+ *   <li>Duration only on duration-capable types: {@code processing_time} is emitted
+ *       exclusively for the types whose recipe class allows it, because Create
+ *       refuses to load any other recipe that carries a duration;</li>
+ *   <li>Loader accepts written schemes only (a blank scheme, paper or a mirror is
+ *       not a carrier);</li>
+ *   <li>Self-referential recipes are skipped: a recipe whose only material is the
+ *       product itself (copy / repair / dye) must not become the source of a plan;</li>
  *   <li>Deriver refuses recipes the mod must not convert: a native Create process
  *       (the target is already produced by Create itself) and an unmappable
  *       category;</li>

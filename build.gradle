@@ -29,27 +29,52 @@ tasks.named('wrapper', Wrapper).configure {
 // CI reproduces a tagged dev build with -PdevBuildNumber=<N> (the file is left
 // untouched in that mode).
 // -----------------------------------------------------------------------------
-def devNumberOverride = project.findProperty('devBuildNumber')
+def devNumberOverride = project.findProperty('devBuildNumber')?.toString()?.trim()
+if (devNumberOverride != null && devNumberOverride.isEmpty()) {
+    throw new GradleException('-PdevBuildNumber needs a number, e.g. -PdevBuildNumber=5.')
+}
+if (devNumberOverride != null && !(devNumberOverride ==~ /\d+/)) {
+    throw new GradleException("-PdevBuildNumber must be a number, found '${devNumberOverride}'.")
+}
 def devBuild = project.hasProperty('devBuild') || devNumberOverride != null
 def devCounterFile = file('dev-build.txt')
-def devCounter = devNumberOverride ?: (devCounterFile.exists() ? devCounterFile.text.trim() : '0')
-if (devBuild && !(devCounter ==~ /\d+/)) {
-    throw new GradleException("dev-build.txt must hold a single number, found '${devCounter}'.")
+def devCounter = devNumberOverride
+if (devBuild && devCounter == null) {
+    // Only a dev build reads the counter, so a release build never depends on the file.
+    if (!devCounterFile.exists()) {
+        throw new GradleException('dev-build.txt is missing - it holds the next dev number (RELEASING.md -> Version policy).')
+    }
+    devCounter = devCounterFile.text.trim()
+    if (!(devCounter ==~ /\d+/)) {
+        throw new GradleException("dev-build.txt must hold a single number, found '${devCounter}'.")
+    }
 }
 version = devBuild ? "0.0.0-dev.${devCounter}" : mod_version
-if (!(version ==~ /\d+\.\d+\.\d+(-dev\.\d+)?/)) {
-    throw new GradleException("Unsupported version '${version}': releases are 1.0.x, dev builds 0.0.0-dev.N.")
+// A release is any x.y.z; a dev build is always 0.0.0-dev.N (never a dev suffix on a release).
+if (!(version ==~ /\d+\.\d+\.\d+/) && !(version ==~ /0\.0\.0-dev\.\d+/)) {
+    throw new GradleException("Unsupported version '${version}': releases are x.y.z, dev builds 0.0.0-dev.N.")
 }
 group = mod_group_id
 
-tasks.named('jar').configure {
-    if (devBuild && devNumberOverride == null) {
+if (devBuild && devNumberOverride == null) {
+    // Finalizer instead of jar.doLast: the counter must advance even when the jar task is
+    // UP-TO-DATE or restored FROM-CACHE, otherwise two dev builds could share one number.
+    // It only fires when this build actually produced the artifact.
+    tasks.register('bumpDevCounter') {
+        group = 'build'
+        description = 'Advances dev-build.txt so the next dev build gets a fresh number.'
+        outputs.upToDateWhen { false }
         doLast {
+            def jarFile = tasks.named('jar').get().archiveFile.get().asFile
+            if (!jarFile.exists()) {
+                throw new GradleException("No artifact at ${jarFile} - not advancing dev-build.txt.")
+            }
             def next = (devCounter as int) + 1
-            devCounterFile.text = next.toString() + System.lineSeparator()
+            devCounterFile.text = next.toString() + '\n'   // LF, like the committed file
             logger.lifecycle("Dev build ${project.version} written — next dev build is 0.0.0-dev.${next}.")
         }
     }
+    tasks.named('jar').configure { finalizedBy 'bumpDevCounter' }
 }
 
 sourceSets.main.resources {
