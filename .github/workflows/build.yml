@@ -119,17 +119,28 @@ jobs:
               body = (rest[: nxt.start()] if nxt else rest).strip()
           if not body:
               body = f"Release {version} — see CHANGELOG.md."
-          pathlib.Path("release-body.md").write_text(body + "\n", encoding="utf-8")
+          body += f"\n\n**Full Changelog**: https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/{tag}\n"
+          pathlib.Path("release-body.md").write_text(body, encoding="utf-8")
           print(f"release body for {version}: {len(body)} chars")
           PY
 
-      - name: Create / update GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "Create: Production Line ${{ github.ref_name }}"
-          files: dist/*.jar
-          body_path: release-body.md     # the action pre-pends this to the generated notes
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          # Dev builds are betas: they go out as pre-releases, releases do not.
-          prerelease: ${{ contains(github.ref_name, '-dev.') }}
+      # `gh` instead of a third-party action: the title, the notes and the pre-release
+      # flag are applied explicitly, and the step prints the result it produced.
+      - name: Create / update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Create: Production Line $GITHUB_REF_NAME"
+          PRERELEASE=""
+          case "$GITHUB_REF_NAME" in *-dev.*) PRERELEASE="--prerelease" ;; esac
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$TITLE" --notes-file release-body.md $PRERELEASE
+            gh release upload "$GITHUB_REF_NAME" dist/*.jar --clobber
+          else
+            # shellcheck disable=SC2086
+            gh release create "$GITHUB_REF_NAME" dist/*.jar --title "$TITLE" \
+              --notes-file release-body.md --verify-tag $PRERELEASE
+          fi
+          gh release view "$GITHUB_REF_NAME" \
+            --json tagName,name,isPrerelease,isDraft,url,assets \
+            --jq '{tag:.tagName,title:.name,prerelease:.isPrerelease,draft:.isDraft,url:.url,assets:[.assets[]|{name,size}]}'
