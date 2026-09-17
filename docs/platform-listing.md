@@ -6,8 +6,8 @@
 
 ## Use / 用法
 
-1. **Computer / 计算机** — item to produce in the **left** slot, paper / clipboard / blank Line Scheme in the middle and right. Press **Compute**; an ordered plan, a generated native Create recipe and a build guide are written onto the carrier.
-   左格放目标物品，中/右格放载体，点【计算】即生成方案 + 原生配方 + 施工指引。
+1. **Computer / 计算机** — item to produce in the **left** slot, a **blank Line Scheme** in the middle slot; the right slot is optional and takes **paper** (same plan, but only a Line Scheme can be activated). Press **Compute**; an ordered plan, a generated native Create recipe and a build guide are written onto the carrier.
+   左格放目标物品，中格放**空白产线方案**；右格可选放**纸**（写入同一份方案，但只有真方案能激活加载柜），点【计算】即生成方案 + 原生配方 + 施工指引。
 2. **Loader / 加载柜** — insert the written **Line Scheme** into a **Scheme Loader**: recipes install into the world datapack and reload automatically, and several schemes combine (union).
    放入方案即写入数据包并 reload；多方案并集生效，生效时输出红石信号。
 3. **Build / 搭建** — follow the plan. Assembly recipes use **Sequenced Assembly**: base first on a belt, then **one Deployer per extra material** above it.

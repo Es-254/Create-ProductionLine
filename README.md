@@ -16,7 +16,7 @@ production line.
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
 | Version / 版本 | **`1.0.1` (release)**, the first official release, supersedes every dev snapshot. Dev builds are **`0.0.0-dev.N`** (**beta**, built by `gradlew build -PdevBuild`, with N auto-incremented in `dev-build.txt`)。中文：首个正式发布；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
 | Artifact / 产物 | `build/libs/create_productionline-1.0.1.jar`, also downloadable from [Modrinth](https://modrinth.com/project/createproductionline) or the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page. Modrinth 项目仍在审核中，公开页面待通过后生效 / the Modrinth page goes live once the project passes review. 早期 1.0.0–1.0.3 构建包均为开发快照，已被 1.0.1 取代 (earlier 1.0.0–1.0.3 jars were dev snapshots and are superseded). |
-| Source size / 工程规模 | `src/main/java` **46 Java files** / **~6,500 lines** (the line count is a snapshot, it moves with every commit; the file count is the stable part) |
+| Source size / 工程规模 | `src/main/java` **47 Java files** / **~6,900 lines** (the line count is a snapshot, it moves with every commit; the file count is the stable part) |
 | Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程); `CONTRIBUTORS.md` (**contributors & funding** 贡献与资助名单); `THIRD_PARTY_NOTICES.md` (**third-party inventory** 第三方清单). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
 
 ---
@@ -25,7 +25,7 @@ production line.
 
 | Module / 模块 | Description (EN) | 说明（中文） |
 | --- | --- | --- |
-| Production Computer / 产线计算机 | **3 slots side by side** (`SLOT_TARGET=0` target, `SLOT_SCHEME=1` carrier, `SLOT_CLIPBOARD=2` clipboard). On **Compute** the client scans resource packs and sends parsed recipe JSON; the server re-derives from the live `RecipeManager`, writes a **single-layer direct plan + embedded native Create recipe JSON** onto the carrier, and injects the `custom_data.LineBuildGuide` build guide. | **3 格并排**（`SLOT_TARGET=0` 目标物品 / `SLOT_SCHEME=1` 载体 / `SLOT_CLIPBOARD=2` 剪贴板）。点【计算】时，客户端先扫资源包、把解析出的配方 JSON 交给服务端；服务端拿实时 `RecipeManager` 重新推导，然后把**单层直连方案 + 内嵌 Create 原生配方 JSON**写入载体，同时注入 `custom_data.LineBuildGuide` 施工指引。 |
+| Production Computer / 产线计算机 | **3 slots side by side** (`SLOT_TARGET=0` target, `SLOT_SCHEME=1` blank Line Scheme carrier, `SLOT_CLIPBOARD=2` optional paper — that constant name is legacy, clipboards are not accepted). On **Compute** the client scans resource packs and sends parsed recipe JSON; the server re-derives from the live `RecipeManager`, writes a **single-layer direct plan + embedded native Create recipe JSON** onto the carrier, and injects the `custom_data.LineBuildGuide` build guide. | **3 格并排**（`SLOT_TARGET=0` 目标物品 / `SLOT_SCHEME=1` 空白产线方案载体 / `SLOT_CLIPBOARD=2` 可选纸——这个常量名是历史遗留，剪贴板放不进去）。点【计算】时，客户端先扫资源包、把解析出的配方 JSON 交给服务端；服务端拿实时 `RecipeManager` 重新推导，然后把**单层直连方案 + 内嵌 Create 原生配方 JSON**写入载体，同时注入 `custom_data.LineBuildGuide` 施工指引。 |
 | Line Scheme / 产线方案 | Carries `LineScheme` NBT (`Version/RecipeId/OutputItem/BaseMaterial/Steps[]` + embedded `CreateRecipes`); activatable by the loader, readable by the dismantler. | 携带 `LineScheme` NBT（`Version/RecipeId/OutputItem/BaseMaterial/Steps[]` + 内嵌 `CreateRecipes`），可被加载柜激活、被破拆机读取。 |
 | Scheme Loader / 方案加载柜 | **16 slots (2×8)**, **accepts only genuine `LineSchemeItem`** (paper/clipboard/mirror/forged NBT rejected). On insert it re-derives this cabinet's contribution server-side from each scheme's `recipeId`, writes the `cpl_converted` union and runs `/reload`; contributions from other cabinets and slots are **unioned, never overwritten**. The cabinet emits redstone while recipes are active. | **16 格（2×8）**，**只收真 `LineSchemeItem`**（纸/剪贴板/镜像/伪造 NBT 一律拒收）。放入即按方案 `recipeId` 在服务端**重推导**本柜贡献，写进 `cpl_converted` 并集并 `/reload`；多柜、多格之间是**并集，互不覆盖**。有生效配方时输出红石信号。 |
 | Dismantler / 破拆机 | 2 slots (item / optional scheme). An **unfinished intermediate** (Generic Intermediate + Create's `SEQUENCED_ASSEMBLY` component) is refunded by re-reading the sequence recipe it names: base + exactly the materials the finished steps consumed, plus a read-only mirror. A **finished product** refunds one full inverse batch (consume `count`, refund inputs), resolved server-side. Tags refund their first registered member; nothing is consumed when nothing can be refunded. | 2 格（物品 / 方案可选）。**未完成的中间产物**（通用中间产物 + Create `SEQUENCED_ASSEMBLY` 组件）会按它记录的序列配方**退还基底，外加已完成步骤真正吃掉的原料**，并给一份只读镜像；**成品**按"一次完整产出的逆运算"退款（消耗 count 个、退还输入），配方由服务端解析。tag 退回首个成员；退不出任何东西时不消耗物品。 |
@@ -36,14 +36,14 @@ production line.
 
 **EN**
 
-1. **Compute** — the computer GUI has **3 slots side by side**: `target item / carrier / clipboard` (left→right). Put the target in slot 1; put paper, a clipboard or a blank Line Scheme in slots 2–3 (if both are filled, both receive the plan). Press **Compute**. The item tooltip then shows `Output: …`, `Recipe: …`, `Base: … (goes on the line first)`, `1. [material] -> Feed`, `2. [material] -> Deployer`… plus `Embedded Create recipes: N`.
+1. **Compute** — the computer GUI has **3 slots side by side**: `target item / Line Scheme / paper` (left→right). Put the target in slot 1 and a **blank Line Scheme** in slot 2 — that is the carrier the plan is written to, and only a genuine Line Scheme can activate a loader later. Slot 3 is optional and takes **paper**: fill it as well and both carriers receive the same plan. Press **Compute**. The item tooltip then shows `Output: …`, `Recipe: …`, `Base: … (goes on the line first)`, `1. [material] -> Feed`, `2. [material] -> Deployer`… plus `Embedded Create recipes: N`.
 2. **Activate** — put the written **Line Scheme** into any slot of a **Scheme Loader** (multi-slot/multi-cabinet). The server re-derives the recipes from `recipeId`, writes the datapack and reloads automatically. Only genuine Line Scheme items activate: paper/clipboard/mirror/forged NBT never do.
 3. **Build** (assembly = sequenced assembly) — feed the base first (arm/funnel/chute/drop-in all fine); **one Deployer per extra material** (USE mode, facing DOWN above the belt, holding that material); the product rolls out at the end. A "Generic Intermediate" at the end means the sequence is unfinished / a material is missing.
 4. **Dismantle / mirror** — the dismantler refunds materials and produces a read-only mirror.
 
 **中文**
 
-1. **计算**：计算机 GUI 的 3 个槽位**并排**，自左至右是`目标物品 / 载体 / 剪贴板`。目标物品放第 1 格；第 2、3 格放纸、剪贴板或空白产线方案（两者都放则都写入）。全部放好后点【计算】。完成后物品 tooltip 显示 `目标产物：…`、`来源配方：…`、`基底：…（最先上线…）`、`1. [原料] -> 投料`、`2. [原料] -> 机械手`… 以及 `内嵌 Create 配方：N 条`。
+1. **计算**：计算机 GUI 的 3 个槽位**并排**，自左至右是`目标物品 / 产线方案 / 纸`。目标物品放第 1 格，第 2 格放**空白产线方案**——方案就写在这上面，之后也只有真方案能激活加载柜。第 3 格可选放**纸**：也放上则两份载体写入同一份方案。全部放好后点【计算】。完成后物品 tooltip 显示 `目标产物：…`、`来源配方：…`、`基底：…（最先上线…）`、`1. [原料] -> 投料`、`2. [原料] -> 机械手`… 以及 `内嵌 Create 配方：N 条`。
 2. **激活**：把写好的**产线方案**放入**方案加载柜**任意格（可多格/多柜）→ 服务端按 `recipeId` 重推导配方写入数据包并自动 `/reload`。加载柜只认真正的产线方案物品：纸/剪贴板/镜像/伪造 NBT 都不会激活。
 3. **搭建**（装配类=序列装配）：基底先上带（动力臂/漏斗/溜槽/直接放均可）；**每种追加原料一台机械手**（USE 模式、朝下置于传送带上方、手持对应原料）；跑完 roll 出成品；末端出现"通用中间产物"=序列未完/缺料。
 4. **拆解/镜像**：破拆机还原原料并生成只读镜像。
@@ -152,19 +152,19 @@ com/create/productionline/
 
 **EN** — NBT-carrying items (schemes, mirrors) can be forged by modified clients on survival servers. So we rebuilt the mod around one rule: the server is the only authority. All findings below reference current sources, with `file:line` in parentheses.
 
-- **Carrier whitelist.** `ClipboardCompat.isLoaderCarrier` (`compat/ClipboardCompat.java:83`) accepts only genuine `LineSchemeItem`, and both the loader slot (`menu/SchemeLoaderMenu.java:52`) and the BE collector (`block/entity/SchemeLoaderBlockEntity.java:100`) go through it. Paper, clipboards, mirrors and forged NBT are all rejected.
-- **Server-side re-derivation in the loader.** Activation never trusts the scheme's embedded JSON/Steps. `SchemeLoaderBlockEntity.currentEntriesMap` (:93) resolves `RecipeId` via `ServerRecipeLookup.findById` (`line/mapper/ServerRecipeLookup.java:53`) to the **live recipe**, then `RecipeDeriver.derive` (`recipegen/RecipeDeriver.java:48`) re-derives the entries to install. A forged scheme can at most activate "a recipe that really exists on the server"; a missing or stale `recipeId` is skipped.
-- **Authoritative dismantler refund.** `DismantlerBlockEntity.revert()` (`block/entity/DismantlerBlockEntity.java:58`) validates in order: slot 1 must be a genuine `LineSchemeItem` (:64-68) → slot 0 item id must equal the scheme's `OutputItem` (:79-82) → the `recipeId` must resolve server-side with a matching output (:86-98) → any `#tag` in the refund set rejects the whole operation (:100-108). It consumes one first, then refunds, then places the mirror (:112-138). Unresolvable, mismatched or tagged → **consume nothing, produce nothing**, which kills the "forge a scheme to print valuable materials" trick.
-- **Network entry validation.** `ModPayloads.handleDismantle` (`network/ModPayloads.java:87`) calls `menu.stillValid(player)` before touching any slot.
+- **Carrier whitelist.** `ClipboardCompat.isLoaderCarrier` (`compat/ClipboardCompat.java:83`) accepts only genuine `LineSchemeItem`, and both the loader slot (`menu/SchemeLoaderMenu.java:54`) and the BE collector (`block/entity/SchemeLoaderBlockEntity.java:190`) go through it. Paper, clipboards, mirrors and forged NBT are all rejected.
+- **Server-side re-derivation in the loader.** Activation never trusts the scheme's embedded JSON/Steps. `SchemeLoaderBlockEntity.currentEntriesMap` (:183) resolves `RecipeId` via `ServerRecipeLookup.findById` (`line/mapper/ServerRecipeLookup.java:43`) to the **live recipe**, then `RecipeDeriver.derive` (`recipegen/RecipeDeriver.java:49`) re-derives the entries to install. A forged scheme can at most activate "a recipe that really exists on the server"; a missing or stale `recipeId` is skipped.
+- **Authoritative dismantler refund.** `DismantlerBlockEntity.revert()` (`block/entity/DismantlerBlockEntity.java:66`) validates in order: slot 1 must be a genuine `LineSchemeItem` (:77-79) → slot 0 item id must equal the scheme's `OutputItem` (:124-128) → the `recipeId` must resolve server-side with a matching output (:118-123). A `#tag` in the refund set is materialized as the tag's first registered member, best effort (`materialize`, :194-221); if *nothing* in the set can be materialized, nothing is consumed at all (:162-164). It consumes first — one unit for an unfinished intermediate (:88), a full inverse batch of `count` for a finished product (:144-147) — then refunds, then places the mirror (:169-188). Unresolvable or mismatched → **consume nothing, produce nothing**, which kills the "forge a scheme to print valuable materials" trick.
+- **Network entry validation.** `ModPayloads.handleDismantle` (`network/ModPayloads.java:90`) calls `menu.stillValid(player)` before touching any slot.
 - **Mirror is text-only.** `LineSchemeMirrorItem` (`item/LineSchemeMirrorItem.java:29,42`) writes only a `LineSchemeMirror` display snapshot (OutputItem/BaseMaterial/Steps text) with no executable `LineScheme`/embedded recipes, and `ClipboardCompat.isCarrier` returns `false` for it (:64), so it can neither be activated nor re-fed.
 - The computer generates server-side too, so validation is inherent, and it shares the same algorithm/entry point as the loader.
 
 **中文** — 方案、镜像这类"存 NBT 的物品"，在多人服上会被改包客户端伪造。为此我们按"服务端为唯一权威"重构了一遍（下面每条结论都对应现在的源码，括号里是文件:行）：
 
-- **容器白名单**：`ClipboardCompat.isLoaderCarrier`（`compat/ClipboardCompat.java:83`）只认真 `LineSchemeItem`，加载柜槽位（`menu/SchemeLoaderMenu.java:52`）和 BE 收集（`block/entity/SchemeLoaderBlockEntity.java:100`）都走它。纸、剪贴板、镜像、随便伪造的 NBT 载体，一律拒收。
-- **加载柜服务端推导**：激活时不信任方案内嵌的 JSON/Steps。`SchemeLoaderBlockEntity.currentEntriesMap`（:93）按 `RecipeId` 调 `ServerRecipeLookup.findById`（`line/mapper/ServerRecipeLookup.java:53`）取到**实时配方**，再交给 `RecipeDeriver.derive`（`recipegen/RecipeDeriver.java:48`）重新推导该装哪些条目。伪造方案最多只能激活"服务器上真实存在的配方"；方案里没有的、失效的 `recipeId` 直接跳过。
-- **破拆机权威退款**：`DismantlerBlockEntity.revert()`（`block/entity/DismantlerBlockEntity.java:58`）按顺序校验：槽 1 必须是真 `LineSchemeItem`（:64-68）→ 槽 0 物品 id 必须等于方案 `OutputItem`（:79-82）→ 方案 `recipeId` 能在服务端解析且产物一致（:86-98）→ 退还集合里出现 `#tag` 就整单拒绝（:100-108）。先消费 1 份，再退还，最后放镜像（:112-138）。解析不到、产物不符、含 tag，这三种情况全都**不消费不产出**，"伪方案刷贵重原料"这条路就被堵死了。
-- **网络入口校验**：`ModPayloads.handleDismantle`（`network/ModPayloads.java:87`）先做 `menu.stillValid(player)`，再触碰任何槽位，所以失效的 GUI 不会被执行。
+- **容器白名单**：`ClipboardCompat.isLoaderCarrier`（`compat/ClipboardCompat.java:83`）只认真 `LineSchemeItem`，加载柜槽位（`menu/SchemeLoaderMenu.java:54`）和 BE 收集（`block/entity/SchemeLoaderBlockEntity.java:190`）都走它。纸、剪贴板、镜像、随便伪造的 NBT 载体，一律拒收。
+- **加载柜服务端推导**：激活时不信任方案内嵌的 JSON/Steps。`SchemeLoaderBlockEntity.currentEntriesMap`（:183）按 `RecipeId` 调 `ServerRecipeLookup.findById`（`line/mapper/ServerRecipeLookup.java:43`）取到**实时配方**，再交给 `RecipeDeriver.derive`（`recipegen/RecipeDeriver.java:49`）重新推导该装哪些条目。伪造方案最多只能激活"服务器上真实存在的配方"；方案里没有的、失效的 `recipeId` 直接跳过。
+- **破拆机权威退款**：`DismantlerBlockEntity.revert()`（`block/entity/DismantlerBlockEntity.java:66`）按顺序校验：槽 1 必须是真 `LineSchemeItem`（:77-79）→ 槽 0 物品 id 必须等于方案 `OutputItem`（:124-128）→ 方案 `recipeId` 能在服务端解析且产物一致（:118-123）。退还集合里的 `#tag` 会尽力折算成该标签的首个成员（`materialize`，:194-221）；只有当整个集合**一个都折算不出来**时才什么都不消耗（:162-164）。顺序是先消耗——未完成的中间产物消耗 1 个（:88），成品按 `count` 整批消耗（:144-147）——再退还，最后放镜像（:169-188）。解析不到或产物不符 → **不消费不产出**，"伪方案刷贵重原料"这条路就被堵死了。
+- **网络入口校验**：`ModPayloads.handleDismantle`（`network/ModPayloads.java:90`）先做 `menu.stillValid(player)`，再触碰任何槽位，所以失效的 GUI 不会被执行。
 - **镜像纯文本化**：`LineSchemeMirrorItem`（`item/LineSchemeMirrorItem.java:29,42`）只写 `LineSchemeMirror` 展示快照（OutputItem/BaseMaterial/Steps 文本），结构上不携带可执行 `LineScheme` 和内嵌配方，`ClipboardCompat.isCarrier` 对它直接返回 `false`（:64），因此既不能被激活，也不能复喂。
 - 产线计算机本身也是服务端生成，校验天然存在，和加载柜同源同算法。
 
@@ -255,11 +255,11 @@ CPL SELF-TEST RESULT: 13 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:103`), so the pass criterion is
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:110`), so the pass criterion is
 > *the last line matches `\d+ passed, 0 failed`*, never a literal number. The number below is only a
 > convenience snapshot, and its value is the count of `check("…")` calls in `qa/SelfTest.java`.
 > **中文** — **判一个构建过没过，别把项数写死。** `qa/SelfTest.java` 打印的是
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:103`），判据因此是
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:110`），判据因此是
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
@@ -286,11 +286,11 @@ CPL SELF-TEST RESULT: 13 passed, 0 failed
 
 **EN** — Records the "code is the source of truth" line-by-line review, for later reference.
 
-**Corrected in this README**: computer slots changed from "top/bottom" to **3 side by side** (`ProductionComputerMenu.java:38-50`: target 44,20 / carrier 80,20 / clipboard 116,20); loader slot changed to **genuine-scheme-only**; built-in mappings corrected 17 → **24**; added `recipegen/RecipeDeriver`, `compat/ClipboardCompat`, `util/RecipeJsonReader` entries; jar size and source size now measured values. Also corrected later: the old "leftover `debug/` directory" and "`src/generated/` unused" notes (neither directory exists) and every "jar still ships `.bak` / `*_particle.png`" claim (the current jar was inspected and is clean).
+**Corrected in this README**: computer slots changed from "top/bottom" to **3 side by side** (`ProductionComputerMenu.java:44-51`: target 44,20 / carrier 80,20 / clipboard 116,20); loader slot changed to **genuine-scheme-only**; built-in mappings corrected 17 → **24**; added `recipegen/RecipeDeriver`, `compat/ClipboardCompat`, `util/RecipeJsonReader` entries; jar size and source size now measured values. Also corrected later: the old "leftover `debug/` directory" and "`src/generated/` unused" notes (neither directory exists) and every "jar still ships `.bak` / `*_particle.png`" claim (the current jar was inspected and is clean).
 
 **中文** — 这一节记录"以现有代码为准"逐条核对后的结论，方便后续改动拿来对照。
 
-**已按代码改正的本 README 条目**：计算机槽位由"上/下格"改为**3 格并排**（`ProductionComputerMenu.java:38-50`：目标 44,20 / 载体 80,20 / 剪贴板 116,20）；加载柜槽位由"载体槽"改为**只收真方案**；内建映射由 17 条更正为 **24 条**；补上 `recipegen/RecipeDeriver`、`compat/ClipboardCompat`、`util/RecipeJsonReader` 等模块条目；jar 体积和工程规模换成了实测值。后来又改正了两处：删掉"残留空目录 `debug/`"和"`src/generated/` 未启用"（这两个目录都不存在），以及所有"jar 里仍有 `.bak` / `*_particle.png`"的断言（实测过当前 jar，内容干净）。
+**已按代码改正的本 README 条目**：计算机槽位由"上/下格"改为**3 格并排**（`ProductionComputerMenu.java:44-51`：目标 44,20 / 载体 80,20 / 剪贴板 116,20）；加载柜槽位由"载体槽"改为**只收真方案**；内建映射由 17 条更正为 **24 条**；补上 `recipegen/RecipeDeriver`、`compat/ClipboardCompat`、`util/RecipeJsonReader` 等模块条目；jar 体积和工程规模换成了实测值。后来又改正了两处：删掉"残留空目录 `debug/`"和"`src/generated/` 未启用"（这两个目录都不存在），以及所有"jar 里仍有 `.bak` / `*_particle.png`"的断言（实测过当前 jar，内容干净）。
 
 **Code vs text mismatches still open (to fix; not README errors) / 代码与文案仍不一致的未修项（非本 README 描述错误）**
 

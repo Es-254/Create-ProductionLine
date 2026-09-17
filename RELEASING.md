@@ -312,7 +312,7 @@ Check the self-test log ends with a line matching:
 ```
 
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
-`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:103`), so the acceptance
+`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:110`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
 misjudge the very next release that adds a case. The current snapshot is **13 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`

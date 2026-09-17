@@ -20,8 +20,8 @@ import net.neoforged.neoforge.common.NeoForge;
  *
  * <p>An addon for the Create mod on Minecraft 1.21.1 / NeoForge. Core modules:
  * <ul>
- *   <li>Production Computer (产线计算机): put a target item and a carrier
- *       (paper / clipboard / Line Scheme) into the computer; it computes an ordered
+ *   <li>Production Computer (产线计算机): put a target item and a blank Line Scheme
+ *       (optionally paper as a second copy) into the computer; it computes an ordered
  *       production-line plan and writes the plan plus the generated native Create
  *       recipe JSON onto the carrier item.</li>
  *   <li>Scheme Loader (方案加载柜): a 16-slot cabinet that writes the Create recipes

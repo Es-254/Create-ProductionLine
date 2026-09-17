@@ -31,8 +31,9 @@ Prerequisites: NeoForge for Minecraft 1.21.1 and Create 6.0.10+ are REQUIRED
 recipe viewer — this mod does not call JEI APIs.
 
 HOW IT WORKS
-1. Put the item you want to produce in the Production Computer's left slot, and
-   paper / a clipboard / a blank Line Scheme in the middle and right slots.
+1. Put the item you want to produce in the Production Computer's left slot and
+   a blank Line Scheme in the middle slot; the right slot is optional and takes
+   paper (it receives the same plan, but only a Line Scheme can be activated).
    Press [Compute]. The computer resolves the recipe, writes an ordered
    production-line plan plus a generated native Create recipe JSON onto the
    carrier, and fails loudly ("cannot map") instead of inventing a plan.
