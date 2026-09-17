@@ -93,11 +93,36 @@ jobs:
           fi
           echo "Tag and jar agree: $EXPECTED"
 
+      # The release page should carry what actually changed, not only the compare link:
+      # take the CHANGELOG section whose heading is this tag's version. Release headings
+      # are `## [1.0.1] — date`, dev headings `## 0.0.0-dev.5 — date (beta)`.
+      - name: Extract the changelog section for this tag
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          version = tag[1:] if tag.startswith("v") else tag
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(rf"^##\s*\[?{re.escape(version)}\]?[^\n]*\n", text, re.M)
+          body = ""
+          if match:
+              rest = text[match.end():]
+              nxt = re.search(r"^##\s", rest, re.M)
+              body = (rest[: nxt.start()] if nxt else rest).strip()
+          if not body:
+              body = f"Release {version} — see CHANGELOG.md."
+          pathlib.Path("release-body.md").write_text(body + "\n", encoding="utf-8")
+          print(f"release body for {version}: {len(body)} chars")
+          PY
+
       - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "Create: Production Line ${{ github.ref_name }}"
           files: dist/*.jar
-          generate_release_notes: true
+          body_path: release-body.md
+          generate_release_notes: true     # appended after the body above
           fail_on_unmatched_files: true
           # Dev builds are betas: they go out as pre-releases, releases do not.
           prerelease: ${{ contains(github.ref_name, '-dev.') }}
