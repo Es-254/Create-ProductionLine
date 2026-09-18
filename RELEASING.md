@@ -22,11 +22,12 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   text (it described the old computer slots, i.e. paper / clipboard in the middle and right slots,
 >   where slot 2 now takes a blank Line Scheme and slot 3 optional paper).
 >   Everything else about the Modrinth path (token, ids, scripts) is ready.
-> - **CurseForge — live.** Project **`1699977`** (MIT, distribution allowed to 3rd parties), first file
->   **`8905098`** = `create_productionline-1.0.1.jar` (the same bytes as the GitHub Release and the
->   Modrinth version), uploaded 2026-09-17 via `scripts/publish-curseforge.ps1`. The public page stays
->   hidden until CurseForge approves the project; the description, icon and gallery are still to be
->   filled in on the dashboard. §0.3 carries the API details.
+> - **CurseForge — live.** Project **`1699977`**, public page
+>   <https://www.curseforge.com/minecraft/mc-mods/create-production-line> (slug
+>   `create-production-line`), MIT licence, environment **Client & Server**, description already in
+>   sync with `docs/platform-listing.md`. First file **`8905098`** =
+>   `create_productionline-1.0.1.jar` (the same bytes as the GitHub Release and the Modrinth
+>   version), uploaded 2026-09-17 via `scripts/publish-curseforge.ps1`. §0.3 carries the API details.
 >
 > Because the repository is public and pushed, §0.4 (bootstrap) is **history rather than a to-do**, and
 > §3 (tag + GitHub Release) is a normal step of every release. §M remains the day-to-day path.
@@ -249,15 +250,14 @@ Setup done — see **§M**. Publishing works today; the only outstanding item is
 the project `status` is `processing` (author view), so the anonymous API returns 404 and no player can
 see the page yet (§M.1.2).
 
-### 0.3 CurseForge
+### 0.3 CurseForge — done (live)
 
-### 0.3 CurseForge — done
-
-Project: **`curseforge_project_id=1699977`** (`Create: Production Line`, MIT, distribution allowed
-to 3rd parties), public page slug still private until CurseForge approves the project. The first
-file, **id 8905098** (`create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…` — the same
-jar as the GitHub Release and Modrinth), was uploaded through `scripts/publish-curseforge.ps1` on
-2026-09-17.
+Project: **`curseforge_project_id=1699977`**, public page
+<https://www.curseforge.com/minecraft/mc-mods/create-production-line> (slug `create-production-line`),
+licence **MIT**, distribution **Allow distribution to 3rd party**, environment **Client & Server**.
+The first file, **id 8905098** (`create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…` — the
+same jar as the GitHub Release and Modrinth), was uploaded through `scripts/publish-curseforge.ps1` on
+2026-09-17 and is downloadable from the public page.
 
 1. The project was created at <https://authors.curseforge.com/> → **Create Project** (game
    **Minecraft** → **Mods**, licence **MIT**, distribution **Allow distribution to 3rd party**).
@@ -265,6 +265,11 @@ jar as the GitHub Release and Modrinth), was uploaded through `scripts/publish-c
 3. Upload token: <https://authors-old.curseforge.com/account/api-tokens> → export as
    `CURSEFORGE_TOKEN` (or `curseforge_token` in `~/.gradle/gradle.properties`, which is where the
    local one lives).
+
+> Two cosmetic items are still open on the dashboards: the project title reads
+> `Create:Productionline` on CurseForge (and `Create:ProductionLine` on Modrinth) while the mod's own
+> display name is `Create: Production Line` — worth aligning — and the CurseForge gallery has no
+> images yet (`docs/platform-listing.md` is already pasted as the description).
 
 > Keep both tokens **out of the repository**. Use environment variables (preferred) or
 > `~/.gradle/gradle.properties` (`modrinth_token=…` / `curseforge_token=…`). Never commit them.
