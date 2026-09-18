@@ -239,7 +239,7 @@ Select-String -Path .\LICENSE,.\gradle.properties,.\docs\platform-listing.md -Pa
 | --- | --- | --- | --- |
 | `LICENSE` | `<YOUR NAME OR HANDLE>` | **done** — `Copyright (c) 2026 Es254` | — |
 | `gradle.properties` | `mod_authors` | **done** — `Es254` | — |
-| `gradle.properties` | `curseforge_project_id` | **still empty** — CurseForge is not set up (§0.3) | CurseForge |
+| `gradle.properties` | `curseforge_project_id` | **done** — `1699977` (§0.3) | CurseForge |
 | `neoforge.mods.toml` | `issueTrackerURL` | **done** — written as `${mod_issue_tracker_url}`, expanded by `ProcessResources` | GitHub |
 | `gradle.properties` | `mod_issue_tracker_url` | **done** — `https://github.com/Es-254/Create-ProductionLine/issues` | GitHub |
 | `mod_display_url` | — | left as the Modrinth page on purpose (that is the public home players see); the GitHub URL lives in `issueTrackerURL` | GitHub |
