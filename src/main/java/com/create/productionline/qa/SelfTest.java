@@ -446,7 +446,7 @@ public final class SelfTest {
         }
         String topology = String.join(" | ", com.create.productionline.util.SchemeTopology.lines(computed));
         // The instruction is wrapped, so assert on fragments that cannot be split.
-        if (!topology.contains("loop 3x -> 4") || !topology.contains("belt head")) {
+        if (!topology.contains("loop 3x -> 4")) {
             System.out.println("   the topology does not explain how to repeat: " + topology);
             return false;
         }

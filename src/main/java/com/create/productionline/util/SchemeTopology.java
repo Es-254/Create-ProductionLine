@@ -46,10 +46,10 @@ public final class SchemeTopology {
             // Every wrapped fragment has to be kept: the instruction is long enough to be
             // split, and keeping only the first fragment silently truncates the part that
             // explains HOW to repeat.
+            // `loop` vs `repeat` is the whole message; the how-to lives in the tooltip line,
+            // so no parenthetical here (in-game hints stay terse).
             out.addAll(TextWrap.wrapIndented((loop ? "loop " : "repeat ") + scheme.getRepeatCount() + "x -> "
-                    + scheme.getTargetOutputCount() + " " + Names.nameOfItem(scheme.getOutputItem())
-                    + (loop ? " (feed the product back to the belt head)"
-                            : " (re-feed the base each pass)"), "  "));
+                    + scheme.getTargetOutputCount() + " " + Names.nameOfItem(scheme.getOutputItem()), "  "));
         }
         return out;
     }
