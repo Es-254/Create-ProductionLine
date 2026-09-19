@@ -251,13 +251,27 @@ public final class SelfTest {
         LineScheme.Step step = written.addStep("create:mechanical_saw", 1);
         step.addInput("minecraft:oak_planks");
         LineSchemeSerializer.saveToStack(writtenStack, written);
+        // A locked hand-built scheme is a carrier too, even with no Steps at all (a
+        // single-material custom line is one machine); a blank scheme stays refused.
+        net.minecraft.world.item.ItemStack customStack =
+                new net.minecraft.world.item.ItemStack(
+                        com.create.productionline.registry.ModItems.LINE_SCHEME.get());
+        com.create.productionline.line.scheme.CustomAssembly lockedCustom =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of("minecraft:iron_ingot"), true, true, "minecraft:iron_nugget", 1, 1);
+        LineSchemeSerializer.saveToStack(customStack,
+                com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(lockedCustom));
+        customStack.set(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get(), lockedCustom);
         boolean ok = !com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(blankStack)
-                && com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(writtenStack);
+                && com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(writtenStack)
+                && com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(customStack);
         if (!ok) {
             System.out.println("   blank accepted="
                     + com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(blankStack)
                     + " written accepted="
-                    + com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(writtenStack));
+                    + com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(writtenStack)
+                    + " locked custom accepted="
+                    + com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(customStack));
         }
         return ok;
     }

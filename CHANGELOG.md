@@ -68,6 +68,11 @@ wants.
   it repeats `ceil((target - 1) / (p - c))` times, with a net gain of `p - c` per pass. A recipe that cannot
   grow the stock (`p <= c`) is reported as **unreachable**: the repeat count stays 1 and the player is told
   to bring the product themselves. There is deliberately **no** "loop until it works" path anywhere.
+- **A hand-built scheme is not "empty" while it is being authored.** "No Steps" used to mean "empty scheme": the
+  cleared state (and a single-material line, which really is one machine) therefore showed up as an empty scheme
+  and, worse, was refused by the Scheme Loader's carrier whitelist. A genuine Line Scheme item now counts as a
+  carrier when it carries a **locked** custom component even with no Steps, its tooltip keeps showing the target
+  product plus the custom state, and a truly blank scheme is still refused.
 - **Where the numbers live.** `LineScheme` gained `TargetOutputCount` and `RepeatCount` (scheme format
   **V2**; a V1 item loads with 1/1 instead of failing), the plan's topology closes with an explicit
   instruction line such as `repeat 3x -> 4 Iron Ingot` when the line has to run more than once, and both the

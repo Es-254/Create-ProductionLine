@@ -28,7 +28,12 @@ public class LineSchemeItem extends Item {
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip,
             TooltipFlag flag) {
         LineScheme scheme = LineSchemeSerializer.fromStack(stack);
-        if (scheme.isEmpty()) {
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
+        // A hand-built scheme has no Steps while it is being authored (cleared state, or
+        // a single-material line), so "no steps" alone must not read as "empty scheme" —
+        // that would hide the target the custom recipe is being built for.
+        if (scheme.isEmpty() && custom == null) {
             tooltip.add(Component.translatable("item.create_productionline.line_scheme.empty")
                     .withStyle(ChatFormatting.GRAY));
             return;
@@ -36,8 +41,13 @@ public class LineSchemeItem extends Item {
         tooltip.add(Component.translatable("item.create_productionline.line_scheme.output",
                 com.create.productionline.util.Names.nameOfItem(scheme.getOutputItem()))
                 .withStyle(ChatFormatting.GREEN));
-        tooltip.add(Component.translatable("item.create_productionline.line_scheme.recipe",
-                scheme.getRecipeId()).withStyle(ChatFormatting.DARK_GRAY));
+        if (custom != null) {
+            tooltip.add(Component.translatable("item.create_productionline.line_scheme.custom.anvil")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+        } else {
+            tooltip.add(Component.translatable("item.create_productionline.line_scheme.recipe",
+                    scheme.getRecipeId()).withStyle(ChatFormatting.DARK_GRAY));
+        }
         if (!scheme.getBaseMaterial().isBlank()) {
             tooltip.add(Component.translatable("item.create_productionline.guide.base",
                     com.create.productionline.util.Names.cap(
@@ -50,8 +60,6 @@ public class LineSchemeItem extends Item {
         }
         // Hand-built (anvil) state: how many materials, locked or not, and the
         // single-material caveat, which is the one case an assembly line cannot express.
-        com.create.productionline.line.scheme.CustomAssembly custom =
-                stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
         if (custom != null) {
             if (custom.locked()) {
                 tooltip.add(Component.translatable("item.create_productionline.line_scheme.custom.locked",

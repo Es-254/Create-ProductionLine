@@ -52,5 +52,6 @@
   "item.create_productionline.line_scheme.repeat": "重复执行 %s 次（目标产量 %s）",
   "loader.create_productionline.repeat_warning": "该产线包含 %s 次循环组装，请准备充足的基础材料",
   "screen.create_productionline.computer.repeat": "目标产量：%s（需重复 %s 次）",
-  "screen.create_productionline.computer.target_output": "目标产量：%s"
+  "screen.create_productionline.computer.target_output": "目标产量：%s",
+  "item.create_productionline.line_scheme.custom.anvil": "自定义方案（铁砧手写，目标产物已保留）"
 }

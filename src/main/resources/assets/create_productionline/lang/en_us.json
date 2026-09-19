@@ -52,5 +52,6 @@
   "item.create_productionline.line_scheme.repeat": "Repeat %s times (target output %s)",
   "loader.create_productionline.repeat_warning": "This line runs %s times - prepare enough base materials",
   "screen.create_productionline.computer.repeat": "Target output: %s (repeat %s times)",
-  "screen.create_productionline.computer.target_output": "Target output: %s"
+  "screen.create_productionline.computer.target_output": "Target output: %s",
+  "item.create_productionline.line_scheme.custom.anvil": "Custom scheme (hand-built in an anvil, target kept)"
 }

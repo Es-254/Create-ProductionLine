@@ -85,6 +85,16 @@ public final class ClipboardCompat {
                 || !(stack.getItem() instanceof com.create.productionline.item.LineSchemeItem)) {
             return false;
         }
+        // A hand-built scheme may legitimately carry no Steps: a single-material custom
+        // line is one machine, and the cleared state is mid-authoring. A LOCKED custom
+        // component therefore counts as written as well. Everything else still has to
+        // look like a finished plan (the blank-scheme rejection is unchanged), and the
+        // loader re-derives from the component server-side either way.
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
+        if (custom != null && custom.locked()) {
+            return true;
+        }
         return !com.create.productionline.line.scheme.LineSchemeSerializer.fromStack(stack).isEmpty();
     }
 
