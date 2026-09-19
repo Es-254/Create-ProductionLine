@@ -14,8 +14,8 @@ production line.
 | Mod ID / 包名 | `create_productionline` / `com.create.productionline` |
 | Platform / 平台 | NeoForge (FML 1.x) / MC `[1.21.1]` / JDK 21 |
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
-| Version / 版本 | **`1.0.2` (beta, in development)** / **`1.0.1` (release, current stable)**. `1.0.2` adds the OP anvil flow and ships as a **beta pre-release** (Modrinth channel *Beta*, CurseForge release type `beta`, GitHub pre-release); **`1.0.1` stays the current release**, the first official release, which supersedes every dev snapshot. Dev builds are **`0.0.0-dev.N`** (**beta**, built by `gradlew build -PdevBuild`, with N auto-incremented in `dev-build.txt`)。中文：`1.0.2` 是开发中的 **beta**（新增 OP 铁砧自定义流程），按 **beta 预发布**（Modrinth *Beta* 通道、CurseForge `beta`、GitHub pre-release）；**`1.0.1` 仍是当前正式版**，也是首个正式发布，已取代全部开发快照；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
-| Artifact / 产物 | `build/libs/create_productionline-1.0.2.jar` (**the 1.0.2 beta**), also downloadable from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/create-production-line), [Modrinth](https://modrinth.com/project/createproductionline) or the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page. CurseForge 页面已上线；Modrinth 项目仍在审核中，公开页面待通过后生效 / the CurseForge page is live, the Modrinth one goes live once the project passes review. 早期 1.0.0–1.0.3 构建包均为开发快照，已被 1.0.1 取代（旧编号里的 1.0.2 就是其中之一，和这次重新编号的 1.0.2 beta 不是同一个包）(earlier 1.0.0–1.0.3 jars, including the old-numbering 1.0.2, were dev snapshots superseded by 1.0.1; the 1.0.2 beta named here is a new artifact under the new numbering). |
+| Version / 版本 | **`1.0.2` (release, current stable)** / **`1.0.1` (release, previous)**. `1.0.2` adds the OP anvil flow plus the target-output / repeat budget, and was **promoted from beta to a release on 2026-09-17** (GitHub Release, CurseForge release type `release`, Modrinth channel *Release*); it supersedes `1.0.1`, the first official release, and every dev snapshot. Dev builds are **`0.0.0-dev.N`** (**beta**, built by `gradlew build -PdevBuild`, with N auto-incremented in `dev-build.txt`)。中文：`1.0.2` 已是**正式版**（2026-09-17 由 beta 晋升），新增 OP 铁砧自定义流程与目标产量/循环次数，三平台一致（GitHub Release、CurseForge `release`、Modrinth *Release*）；`1.0.1` 为上一正式版，也是首个正式发布，开发快照均已被取代；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
+| Artifact / 产物 | `build/libs/create_productionline-1.0.2.jar` (**the 1.0.2 release**, 215,411 B, `sha256:27e0a3c6…` — the same bytes on all three platforms), also downloadable from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/create-production-line), [Modrinth](https://modrinth.com/project/createproductionline) or the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page. CurseForge 页面已上线；Modrinth 项目仍在审核中，公开页面待通过后生效 / the CurseForge page is live, the Modrinth one goes live once the project passes review. 早期 1.0.0–1.0.3 构建包均为开发快照，已被正式版取代（旧编号里的 1.0.2 就是其中之一，与这次的 1.0.2 不是同一个包）(earlier 1.0.0–1.0.3 jars, including the old-numbering 1.0.2, were dev snapshots superseded by 1.0.1; the 1.0.2 named here is a new artifact under the new numbering). |
 | Source size / 工程规模 | `src/main/java` **51 Java files** / **~6,700 lines** (the line count is a snapshot, it moves with every commit; the file count is the stable part) |
 | Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程); `CONTRIBUTORS.md` (**contributors & funding** 贡献与资助名单); `THIRD_PARTY_NOTICES.md` (**third-party inventory** 第三方清单). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
 
@@ -299,8 +299,8 @@ CPL SELF-TEST RESULT: 18 passed, 0 failed
 > duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
 > `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
 > landed by release 1.0.1; `Custom assembly builds a deployer sequence` and `Single-material custom
-> scheme falls back to one machine` came with the 1.0.2 beta anvil flow, and `Doubling recipe repeats to
-> reach the target output` came with the same 1.0.2 beta, for the target-output / repeat budget. Adding or
+> scheme falls back to one machine` came with the 1.0.2 anvil flow, and `Doubling recipe repeats to
+> reach the target output` came with the same 1.0.2 release, for the target-output / repeat budget. Adding or
 > removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
 > README, in `CHANGELOG.md` and in `RELEASING.md`.
 > **中文** — 当前快照 **18 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
@@ -308,8 +308,8 @@ CPL SELF-TEST RESULT: 18 passed, 0 failed
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
 > 这六项随正式版 1.0.1 落地；`Custom assembly builds a deployer sequence` 与
-> `Single-material custom scheme falls back to one machine` 随 1.0.2 beta 的铁砧流程加入，
-> `Doubling recipe repeats to reach the target output` 同样随 1.0.2 beta 加入，对应目标产量/循环次数这部分功能。
+> `Single-material custom scheme falls back to one machine` 随 1.0.2 的铁砧流程加入，
+> `Doubling recipe repeats to reach the target output` 同样随 1.0.2 加入，对应目标产量/循环次数这部分功能。
 > 增删一个 `check(…)` 只会改变这个数字，别的地方不用动，
 > 只需要改本 README、`CHANGELOG.md`、`RELEASING.md` 里标注为"快照"的那几处。
 >

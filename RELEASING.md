@@ -5,17 +5,20 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-17):**
 >
-> - **`1.0.2` is a RELEASE** (promoted from beta on 2026-09-17): GitHub Release `v1.0.2` is no longer a
->   pre-release and carries `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`), Modrinth
->   holds that same jar as version `1.0.2` channel *Release* (id `NhXpGHHA`), and CurseForge file
->   **8923748** is marked release type `release` — but its *content* is still the earlier beta jar
->   (208,860 B), because CurseForge's API cannot replace a file's bytes: replace it in the dashboard
->   (Files → the file → replace) if the difference matters.
-> - **`main` is past the published `1.0.2` asset.**
+> - **`1.0.2` is a RELEASE** (promoted from beta on 2026-09-17) **and all three platforms carry the same
+>   bytes**: GitHub Release `v1.0.2` is not a pre-release and holds
+>   `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`), Modrinth holds that same jar as
+>   version `1.0.2` channel *Release* (id `NhXpGHHA`), and CurseForge file **8924265** is that same jar
+>   with release type `release` (uploaded 2026-09-20).
+> - **The CurseForge file was re-uploaded to get there.** Promotion first flipped the existing CF file
+>   **8923748** to release type `release`, which left the *earlier beta bytes* (208,860 B) in place — the
+>   upload API cannot replace a file's content. The author archived that file (2026-09-20) and the jar
+>   was uploaded again as **8924265**; the caveat is therefore closed. Content can only ever be changed
+>   by uploading a new file, and archiving the old one is what keeps the list clean.
 > - **`main` is past the published `1.0.2`** (state machine extraction, material-budget line, 18 checks):
 >   it builds a jar that reports `1.0.2` but is not the released asset until the next cut. See the
 >   *Unreleased* section of `CHANGELOG.md`.
-> - **`1.0.2` (beta) is published on all three platforms** (2026-09-17): GitHub Release `v1.0.2`
+> - **History, superseded by the release above — `1.0.2` as a beta** (2026-09-17): GitHub Release `v1.0.2`
 >   marked **pre-release** with `create_productionline-1.0.2.jar` (208,860 B, `sha256:542cc877…`),
 >   CurseForge file id **8923748** (release type *beta*), Modrinth version **1.0.2** channel *beta*
 >   (id `IJy568s8`). All three carry the same bytes. `1.0.1` stays the current stable release.
@@ -23,29 +26,40 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   cannot be deleted while the project is in review; remove the old one after approval.
 > - **GitHub — live and public.** `origin` is <https://github.com/Es-254/Create-ProductionLine>, the
 >   repository is **public** (`private: false`, indexed by GitHub search), and `main` is pushed. The
->   only tag is `v1.0.1` (the `v1.0.2` of the old numbering was deleted, and the number is now reused
->   for the anvil-flow beta, see *Version policy*). `1.0.2` is prepared but not yet tagged.
-> - **Modrinth — submitted, in review; not yet publicly visible.** Anonymous calls still return **404**
->   for both the slug `createproductionline` and the base62 id `7dcs0ruf` (re-checked 2026-09-17), while
->   the **author view** returns `200` with `status = "processing"` — the project is going through
->   Modrinth's review/scan pipeline. **`1.0.1` is published** (channel *Release*, version id `u4SwiPGj`,
->   jar `create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…`), so the release itself is done;
->   what is missing is the public approval that makes the page and its versions visible. The old `1.0.2`
->   version (old numbering, 176,195 B) is still listed: Modrinth **refuses to delete a version while the
->   project is under review** (`400 project must have no required validation nags before or while under
->   review`), so remove it right after approval. **That entry also blocks publishing the new `1.0.2`
->   beta under the same number** — either delete it first (post-approval) or publish the beta with a
->   distinct version number such as `1.0.2-beta`.
->   Sync the project body in the same pass: `docs/platform-listing.md` no longer matches the live
->   text (it described the old computer slots, i.e. paper / clipboard in the middle and right slots,
->   where slot 2 now takes a blank Line Scheme and slot 3 optional paper).
->   Everything else about the Modrinth path (token, ids, scripts) is ready.
+>   tags are `v1.0.1` and `v1.0.2` — the number `1.0.2` was reused for the anvil-flow cut after the
+>   old-numbering tag of the same name was deleted (see *Version policy*), and that cut is now the
+>   current release.
+> - **Modrinth — submitted, still in review; not publicly visible.** Anonymous calls return **404** for
+>   both the slug `createproductionline` and the base62 id `7dcs0ruf` (re-checked 2026-09-20) and the
+>   project does not show up in search, while the **author view** returns `200` with
+>   `status = "processing"`. Its **versions** are already `status: listed`, which is why all four are
+>   visible through the author API:
+>   `NhXpGHHA` = `1.0.2` channel *Release* (215,411 B, `sha256:27e0a3c6…`, the released jar),
+>   `IJy568s8` = the same `1.0.2` as a *Beta* (208,860 B, superseded),
+>   `iuR73mao` = the old-numbering `1.0.2` (176,195 B, a dev snapshot) and
+>   `u4SwiPGj` = `1.0.1` channel *Release* (190,504 B, `sha256:2c644ed6…`).
+>   So the releases themselves are done; what is missing is the public approval that makes the page
+>   visible. Two cleanups wait for it, because Modrinth **refuses to delete a version while the project
+>   is under review** (`400 project must have no required validation nags before or while under
+>   review`): delete the superseded beta `IJy568s8` and the old-numbering `iuR73mao`, both of which
+>   duplicate the version number `1.0.2`. Sync the project body in the same pass:
+>   `docs/platform-listing.md` no longer matches the live text (it described the old computer slots,
+>   i.e. paper / clipboard in the middle and right slots, where slot 2 now takes a blank Line Scheme and
+>   slot 3 optional paper). A version's *changelog*, by contrast, **can** be edited while under review:
+>   `NhXpGHHA`'s was re-synced to the corrected `CHANGELOG.md` section on 2026-09-20
+>   (`PATCH /v2/version/{id}` → `204`). Everything else about the Modrinth path (token, ids, scripts) is
+>   ready.
 > - **CurseForge — live.** Project **`1699977`**, public page
 >   <https://www.curseforge.com/minecraft/mc-mods/create-production-line> (slug
 >   `create-production-line`), MIT licence, environment **Client & Server**, description already in
->   sync with `docs/platform-listing.md`. First file **`8905098`** =
->   `create_productionline-1.0.1.jar` (the same bytes as the GitHub Release and the Modrinth
->   version), uploaded 2026-09-17 via `scripts/publish-curseforge.ps1`. §0.3 carries the API details.
+>   sync with `docs/platform-listing.md`. The current file is **`8924265`** =
+>   `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`, release type `release`, uploaded
+>   2026-09-20), i.e. the same bytes as the GitHub Release and the Modrinth version; the first file was
+>   `8905098` (`1.0.1`, 190,504 B) and `8923748` (the `1.0.2` beta jar) is archived.
+>   **One cosmetic item is open:** the *file-page changelog* of `8924265` is the text captured before
+>   the promotion notes were corrected (it still calls the jar a beta) — `update-file` answers
+>   `500 An unhandled exception` for `changelog` (re-measured 2026-09-20), so it can only be fixed in
+>   the dashboard, or by uploading once more and archiving this file. §0.3 carries the API details.
 >
 > Because the repository is public and pushed, §0.4 (bootstrap) is **history rather than a to-do**, and
 > §3 (tag + GitHub Release) is a normal step of every release. §M remains the day-to-day path.
@@ -57,7 +71,7 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 | Line / 版本线 | Version | Build command | Published as |
 | --- | --- | --- | --- |
 | **release** | `1.0.x` — the value of `mod_version` in `gradle.properties`, with `mod_version_type=release` | `.\gradlew.bat build` | `release` (Modrinth/CurseForge channel *Release*, GitHub Release, **not** a pre-release) |
-| **beta** | the same `mod_version`, with `mod_version_type=beta` | `.\gradlew.bat build` | `beta` (channel *Beta*, GitHub **pre-release**) — how `1.0.2` ships |
+| **beta** | the same `mod_version`, with `mod_version_type=beta` | `.\gradlew.bat build` | `beta` (channel *Beta*, GitHub **pre-release**) — how `1.0.2` shipped before it was promoted; use this line for the next beta cut |
 | **dev (beta)** | `0.0.0-dev.N` — N comes from `dev-build.txt` | `.\gradlew.bat build -PdevBuild` | `beta` (channel *Beta*, GitHub **pre-release**) |
 
 > **OP trust model.** An anvil-authored scheme is as powerful as a datapack: the operator picks the
@@ -82,9 +96,10 @@ Rules / 规则:
    do on the GitHub side.
 5. History: the `1.0.0` / `1.0.1` / `1.0.2` / `1.0.3` jars of the old numbering were development
    snapshots and are recorded in `CHANGELOG.md` as `0.0.0-dev.1` … `0.0.0-dev.4`. `1.0.1` was the
-   first official release and is still the current stable one. The number `1.0.2` was **reused** for
-   the anvil-flow beta: the old `v1.0.2` tag and its Release were deleted before that, so the new
-   `v1.0.2` tag is a fresh object that points at the beta commit. Modrinth still carries a version
+   first official release. The number `1.0.2` was **reused** for the anvil-flow cut: the old `v1.0.2` tag
+   and its Release were deleted before that, so the new `v1.0.2` tag is a fresh object. That cut shipped
+   as a beta on 2026-09-17 and was **promoted to a release** the same day, so `1.0.2` is now the current
+   stable release and `1.0.1` the one before it. Modrinth still carries a version
    entry named `1.0.2` from the old numbering — see the Modrinth note in the current-state block
    above before publishing this beta there.
 
@@ -285,9 +300,12 @@ see the page yet (§M.1.2).
 Project: **`curseforge_project_id=1699977`**, public page
 <https://www.curseforge.com/minecraft/mc-mods/create-production-line> (slug `create-production-line`),
 licence **MIT**, distribution **Allow distribution to 3rd party**, environment **Client & Server**.
-The first file, **id 8905098** (`create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…` — the
-same jar as the GitHub Release and Modrinth), was uploaded through `scripts/publish-curseforge.ps1` on
-2026-09-17 and is downloadable from the public page.
+The file line so far: **id 8905098** (`create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…`)
+→ **id 8923748** (the `1.0.2` beta jar, 208,860 B; later flipped to release type `release` and then
+**archived** by the author on 2026-09-20) → **id 8924265** (`create_productionline-1.0.2.jar`,
+215,411 B, `sha256:27e0a3c6…`, release type `release`, uploaded 2026-09-20) — the last one is the same
+jar as the GitHub Release and the Modrinth version, all uploaded through
+`scripts/publish-curseforge.ps1`.
 
 1. The project was created at <https://authors.curseforge.com/> → **Create Project** (game
    **Minecraft** → **Mods**, licence **MIT**, distribution **Allow distribution to 3rd party**).
@@ -304,7 +322,7 @@ same jar as the GitHub Release and Modrinth), was uploaded through `scripts/publ
 > Keep both tokens **out of the repository**. Use environment variables (preferred) or
 > `~/.gradle/gradle.properties` (`modrinth_token=…` / `curseforge_token=…`). Never commit them.
 
-#### What the CurseForge upload path actually requires (measured 2026-09-17)
+#### What the CurseForge upload path actually requires (measured 2026-09-17, re-checked 2026-09-20)
 
 The Gradle plugin (`net.darkhax.curseforgegradle`) **cannot** upload any more, and this repo no
 longer declares it:
@@ -314,16 +332,18 @@ longer declares it:
 | The endpoint is `/api/projects/{id}/upload-file`; the plugin still posts to `/upload` | the old path answers `302 → /error`, which the plugin reports as `403 Forbidden` |
 | `metadata` must be a **plain form field** | `curl -F "metadata=<file"` (field value read from disk); sending it as a *file part* is rejected with `1001 Missing field 'metadata'` |
 | At least one **environment** version is mandatory | `1002/1021 You must select at least one version from the environment group` — `Client` / `Server` must be in `gameVersionNames` |
-| `minecraft.curseforge.com` sits behind Cloudflare's managed challenge | the default `curl/x.y` User-Agent gets a `403` HTML challenge page; a browser UA gets through (the API still authenticates with `X-Api-Token`) |
-| GET endpoints are challenged, POSTs work | the script never reads anything back; the upload response carries the file id |
+| `minecraft.curseforge.com` sits behind Cloudflare's managed challenge | the default `curl/x.y` User-Agent gets a `403` HTML challenge page; a browser UA normally gets through (the API still authenticates with `X-Api-Token`) |
+| The challenge can also hit a POST **intermittently** | observed 2026-09-20 on a real upload (`403` + a 63 KB `__cf_chl_rt_tk` page); an immediate retry of the identical request returned `200`. The script therefore treats a challenge `403` as transient and retries it with backoff, while other `4xx` stay fatal |
+| Read methods are not available to an upload token | `GET /api/projects/{id}/files` answers `403 {"errorCode":5100,"errorMessage":"You do not have permission to access this method."}`, so nothing can be read back: the `200` of the POST plus the file id it returns is the evidence, and the file list is checked in the dashboard |
 | `update-file` answers `500 An unhandled exception` for `changelog`, `relations` and `gameVersionNames` | only `displayName` / `releaseType` can be edited through it; edit the rest in the dashboard |
-| CurseForge refuses a second file with the same display name | re-releasing the same version means editing the existing file, not uploading again |
+| File **content** can never be replaced through the API | a wrong jar means uploading a new file (same display name is accepted once the old one is archived), then archiving the old one — not editing it |
 
 ### 0.4 GitHub — done (kept for reference only)
 
 The repository is **public and pushed**: `origin` is
-<https://github.com/Es-254/Create-ProductionLine> and `main` holds the full history. The only tag ever
-pushed was `v1.0.2`, from the old numbering; it is retired in favour of `v1.0.1` (see *Version policy*).
+<https://github.com/Es-254/Create-ProductionLine> and `main` holds the full history. The tags are
+`v1.0.1` and `v1.0.2` — the old-numbering `v1.0.2` was deleted and the number re-cut for the anvil-flow
+release (see *Version policy*), so a fresh clone sees exactly those two.
 The bootstrap below is recorded so the original setup stays
 reproducible — **do not re-run it on a clone that already has `origin`.**
 

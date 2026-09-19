@@ -6,9 +6,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 **Version policy / 版本规范** (see `RELEASING.md`):
 
-- **release**: `1.0.x`, the value of `mod_version`; `1.0.1` is the current stable release.
+- **release**: `1.0.x`, the value of `mod_version`; `1.0.2` is the current stable release (`1.0.1` is the
+  one before it).
 - **beta**: also a `1.0.x` value, published as a pre-release when `mod_version_type=beta`
-  (Modrinth/CurseForge channel *Beta*, GitHub pre-release). `1.0.2` is the first such cut.
+  (Modrinth/CurseForge channel *Beta*, GitHub pre-release). `1.0.2` spent 2026-09-17 as the first such
+  cut before it was promoted to a release.
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
   always published as `beta`.
 
@@ -35,18 +37,24 @@ Release, and the earlier beta asset of the same number is superseded.
   pass times the repeat count) drive a new computer-panel line, and the loop hint says that its repeat count
   is measured from one base unit.
 - **Self test grew to 18 checks** (was 16): the anvil state table and the material budget.
+
 ## [1.0.2] — 2026-09-17 (release)
 
 **Promoted from beta** on 2026-09-17: the same version number, now published as a **release** on all
 three platforms (GitHub Release, CurseForge release type `release`, Modrinth channel *Release*). The jar
-is the one built after the promotion pass recorded under *Unreleased* — state machine extraction, material
-budget line, 18 checks, documented trust model — so it supersedes the earlier 1.0.2 beta asset.
+is the one built after the promotion pass recorded above — state machine extraction, material budget
+line, 18 checks, documented trust model — so it supersedes the earlier 1.0.2 beta asset.
 
-**Beta pre-release.** This jar is a beta: Modrinth channel *Beta*, CurseForge release type `beta`, and a
-GitHub Release marked as a pre-release. **`1.0.1` stays the current stable release.** Existing schemes
-keep working unchanged — a V1 scheme item loads with a target output and repeat count of 1 — and the only
-change on the way in is that the computer now reads the target slot's stack size as the output the player
-wants.
+**CurseForge content replaced** on 2026-09-20: promotion first flipped the existing CurseForge file
+(208,860 B beta jar) to release type `release`, which left the wrong bytes under a release label — the
+upload API cannot swap a file's content. The author archived that file and the jar was uploaded again as
+file `8924265`, so all three platforms now carry the same 215,411 B / `sha256:27e0a3c6…`.
+
+*How this version first went out, kept for the record:* it shipped as a beta — Modrinth channel *Beta*,
+CurseForge release type `beta`, GitHub Release marked as a pre-release, with **`1.0.1` the current stable
+release** — and was promoted the same day. Existing schemes keep working unchanged — a V1 scheme item
+loads with a target output and repeat count of 1 — and the only change on the way in is that the computer
+now reads the target slot's stack size as the output the player wants.
 
 ### Added
 
