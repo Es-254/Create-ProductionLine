@@ -5,6 +5,12 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-17):**
 >
+> - **`1.0.2` (beta) is published on all three platforms** (2026-09-17): GitHub Release `v1.0.2`
+>   marked **pre-release** with `create_productionline-1.0.2.jar` (208,860 B, `sha256:542cc877…`),
+>   CurseForge file id **8923748** (release type *beta*), Modrinth version **1.0.2** channel *beta*
+>   (id `IJy568s8`). All three carry the same bytes. `1.0.1` stays the current stable release.
+>   Modrinth now lists two versions numbered `1.0.2` — this beta and the old-numbering entry that
+>   cannot be deleted while the project is in review; remove the old one after approval.
 > - **GitHub — live and public.** `origin` is <https://github.com/Es-254/Create-ProductionLine>, the
 >   repository is **public** (`private: false`, indexed by GitHub search), and `main` is pushed. The
 >   only tag is `v1.0.1` (the `v1.0.2` of the old numbering was deleted, and the number is now reused
