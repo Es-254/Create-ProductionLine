@@ -20,9 +20,9 @@
 #   .\scripts\publish-curseforge.ps1 -FileId 8905098     # re-send metadata (changelog/name/versions) for an existing file
 #
 # Tokens live at https://authors-old.curseforge.com/account/api-tokens and are sent in the
-# `X-Api-Token` header. GET endpoints on minecraft.curseforge.com sit behind Cloudflare's
-# JS challenge (a browser gets in, curl gets "Just a moment..."), which is why this script
-# never tries to read anything back - the upload response carries the file id.
+# `X-Api-Token` header. The upload token has no rights on the read methods: `GET
+# /api/projects/{id}/files` answers `403 {"errorCode":5100}` ("You do not have permission to access this
+# method"), so this script never reads anything back - the upload response carries the file id.
 
 [CmdletBinding()]
 param(
@@ -32,7 +32,7 @@ param(
     [string] $ReleaseType = '',      # release | beta | alpha; default follows the version line
     [int]    $FileId = 0,            # >0: update that file instead of uploading a new one
     [string] $Name = '',
-    [int]    $Attempts = 3,
+    [int]    $Attempts = 4,
     [int]    $TimeoutSeconds = 420
 )
 
@@ -190,16 +190,22 @@ try {
             $result = $text | ConvertFrom-Json
             Write-Host "`nDone:" -ForegroundColor Green
             Write-Host "  file id   $($result.id)"
-            Write-Host "  project   https://www.curseforge.com/minecraft/mc-mods (id $projectId)"
+            Write-Host "  project   id $projectId (check the file list in the authors dashboard)"
             Write-Host "  note      a new project/file stays invisible until CurseForge approves it" -ForegroundColor Yellow
             exit 0
         }
-        if ($code -match '^4\d\d$') {
+        # Cloudflare's managed challenge also lands on POSTs once in a while: seen on 2026-09-20, where the
+        # identical request answered 200 on the very next try. So a challenge 403 is transient and retried,
+        # while every other 4xx is a real API rejection.
+        $challenged = $code -eq '403' -and $text -match '__cf_chl|Just a moment|cf-chl'
+        if ($challenged) {
+            Write-Host "  Cloudflare challenge on the POST (transient) - retrying" -ForegroundColor Yellow
+        } elseif ($code -match '^4\d\d$') {
             Write-Host "  API rejected the request (retrying will not help):" -ForegroundColor Red
             Write-Host "  $text"
             exit 1
         }
-        if ($attempt -lt $Attempts) { Start-Sleep -Seconds 6 }
+        if ($attempt -lt $Attempts) { Start-Sleep -Seconds (6 * $attempt) }
     }
     Write-Host "Gave up after $Attempts attempts. Connectivity to minecraft.curseforge.com looks down - retry later." -ForegroundColor Red
     exit 1
