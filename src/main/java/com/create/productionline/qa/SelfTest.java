@@ -30,7 +30,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 15 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 16 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -109,6 +109,7 @@ public final class SelfTest {
             check("Custom assembly builds a deployer sequence", () -> customAssemblySequence(level));
             check("Single-material custom scheme falls back to one machine",
                     () -> customSingleMaterialFallback(level));
+            check("Doubling recipe repeats to reach the target output", () -> doublingRepeatBudget(level));
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -317,7 +318,7 @@ public final class SelfTest {
         com.create.productionline.line.scheme.CustomAssembly custom =
                 new com.create.productionline.line.scheme.CustomAssembly(
                         List.of("minecraft:iron_block", "minecraft:gold_ingot", "minecraft:diamond"),
-                        true, false, "minecraft:iron_ingot", 1);
+                        true, false, "minecraft:iron_ingot", 1, 1);
         var derived = com.create.productionline.line.scheme.CustomAssemblyPlanner.derive(level, custom);
         if (!derived.hasEntries() || derived.entries().size() != 1) {
             System.out.println("   custom assembly derived " + derived.entries().size() + " entries, expected 1");
@@ -365,7 +366,7 @@ public final class SelfTest {
     private static boolean customSingleMaterialFallback(ServerLevel level) {
         com.create.productionline.line.scheme.CustomAssembly custom =
                 new com.create.productionline.line.scheme.CustomAssembly(
-                        List.of("minecraft:iron_ingot"), true, true, "minecraft:iron_nugget", 1);
+                        List.of("minecraft:iron_ingot"), true, true, "minecraft:iron_nugget", 1, 1);
         if (!custom.singleMaterialFallback()) {
             System.out.println("   the fallback flag was not recorded on the component");
             return false;
@@ -386,6 +387,56 @@ public final class SelfTest {
         }
         System.out.println("   single material -> " + derived.entries().get(0).getFileName()
                 + " (semantic machine, no sequence)");
+        return true;
+    }
+
+    /**
+     * A doubling recipe ("A + B = 2A") with target output 4: one pass turns 1 A + 1 B
+     * into 2 A, so reaching 4 bootstraps from the unit on the belt and takes three
+     * passes. The line must never be told to loop forever, and a recipe that cannot
+     * grow the stock must be reported as unreachable instead.
+     */
+    private static boolean doublingRepeatBudget(ServerLevel level) {
+        com.create.productionline.line.scheme.RepeatPlan doubling =
+                com.create.productionline.line.scheme.RepeatPlan.of(4, 2, 1);
+        if (doubling.repeatCount() != 3 || !doubling.reachable() || !doubling.selfFeeding()) {
+            System.out.println("   doubling target 4 expected 3 passes, got " + doubling.repeatCount()
+                    + " (reachable=" + doubling.reachable() + ")");
+            return false;
+        }
+        if (doubling.scaledMaterialCount(2) != 6) {
+            System.out.println("   material budget for 3 passes x 2 materials should be 6, got "
+                    + doubling.scaledMaterialCount(2));
+            return false;
+        }
+        com.create.productionline.line.scheme.RepeatPlan stuck =
+                com.create.productionline.line.scheme.RepeatPlan.of(4, 1, 1);
+        if (stuck.reachable() || stuck.repeatCount() != 1) {
+            System.out.println("   a recipe that eats as much as it makes must be unreachable, not looped");
+            return false;
+        }
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of("minecraft:iron_ingot", "minecraft:coal"), true, false,
+                        "minecraft:iron_ingot", 4, doubling.repeatCount());
+        LineScheme plan = com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(custom);
+        if (plan.getTargetOutputCount() != 4 || plan.getRepeatCount() != 3 || !plan.repeats()) {
+            System.out.println("   the plan lost the target/repeat numbers: target="
+                    + plan.getTargetOutputCount() + " repeats=" + plan.getRepeatCount());
+            return false;
+        }
+        String topology = String.join(" | ", com.create.productionline.util.SchemeTopology.lines(plan));
+        if (!topology.contains("repeat 3x")) {
+            System.out.println("   the topology does not instruct the player to repeat: " + topology);
+            return false;
+        }
+        var derived = com.create.productionline.line.scheme.CustomAssemblyPlanner.derive(level, custom);
+        if (!derived.hasEntries() || !derived.entries().get(0).getJson().contains("create:sequenced_assembly")) {
+            System.out.println("   doubling custom scheme did not derive a sequenced assembly");
+            return false;
+        }
+        System.out.println("   doubling 1A+1B=2A, target 4 -> 3 passes, budget 6 materials, plan says '"
+                + topology.substring(Math.max(0, topology.length() - 18)) + "'");
         return true;
     }
 

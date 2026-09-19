@@ -76,6 +76,13 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
         lines.add(Component.translatable("loader.create_productionline.slots_filled", filled).getString());
         lines.add(Component.translatable("loader.create_productionline.active_recipes",
                 this.menu.getActiveCount()).getString());
+        // Repeat budget (server-derived through the menu's data slot): when a scheme in
+        // this cabinet has to run several times, say so and that the raw materials have
+        // to be prepared for every pass.
+        int repeats = this.menu.getRepeatNotice();
+        if (repeats > 1) {
+            lines.add(Component.translatable("loader.create_productionline.repeat_warning", repeats).getString());
+        }
         int y = 56;
         int maxY = 100;
         for (String line : lines) {

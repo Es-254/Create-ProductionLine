@@ -69,6 +69,13 @@ public class LineSchemeItem extends Item {
             tooltip.add(Component.translatable("item.create_productionline.line_scheme.recipes",
                     scheme.getCreateRecipes().size()).withStyle(ChatFormatting.DARK_AQUA));
         }
+        // The player asked for more than one pass: the line has to run again (and the
+        // materials have to be prepared for every pass).
+        if (scheme.repeats()) {
+            tooltip.add(Component.translatable("item.create_productionline.line_scheme.repeat",
+                    scheme.getRepeatCount(), scheme.getTargetOutputCount())
+                    .withStyle(ChatFormatting.AQUA));
+        }
     }
 
     /** Produces a demo scheme stack used in the creative tab. */

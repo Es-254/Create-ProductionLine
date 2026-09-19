@@ -321,6 +321,22 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         // pairing was fake semantics: a plausible-looking plan that matched
         // nothing). See MachineSelector.appendChainSteps.
         scheme.setBaseMaterial(orderedInputs.get(0));
+        // Target output: the number of items the player stacked into the target slot is
+        // the number they want out. The installed recipe stays a ONE-CRAFT payload (see
+        // RepeatPlan), and the plan records how often the line has to run for it — a
+        // doubling recipe such as "A + B = 2A" bootstraps from the unit on the belt, so
+        // its repeat count comes from the net gain per pass, never from an endless loop.
+        ItemStack targetStack = inventory.getItem(SLOT_TARGET);
+        int targetCount = Math.max(1, Math.min(targetStack.getCount(), targetStack.getMaxStackSize()));
+        int consumedPerCraft = 0;
+        for (String material : orderedInputs) {
+            if (output.equals(material)) {
+                consumedPerCraft++;
+            }
+        }
+        com.create.productionline.line.scheme.RepeatPlan repeat =
+                com.create.productionline.line.scheme.RepeatPlan.of(targetCount, count, consumedPerCraft);
+        scheme.setRepeatPlan(repeat);
         com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry entry = derived.get(0);
         com.create.productionline.line.analyzer.MachineSelector.appendChainSteps(
                 scheme, orderedInputs, entry, output);

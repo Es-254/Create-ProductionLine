@@ -8,13 +8,11 @@ import com.create.productionline.line.scheme.CustomAssemblyPlanner;
 import com.create.productionline.line.scheme.LineScheme;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.registry.ModDataComponents;
-import com.create.productionline.util.RecipeJsonReader;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -84,7 +82,7 @@ public final class AnvilSchemeCustomizer {
 
         if (paper) {
             if (custom == null) {
-                clear(event, player, left);
+                clear(event, left);
             } else {
                 lock(event, player, left, custom);
             }
@@ -104,16 +102,19 @@ public final class AnvilSchemeCustomizer {
     }
 
     /** Step 1: keep the target, drop every material step and every cached payload. */
-    private static void clear(AnvilUpdateEvent event, Player player, ItemStack left) {
+    private static void clear(AnvilUpdateEvent event, ItemStack left) {
         LineScheme source = LineSchemeSerializer.fromStack(left);
         String target = source.getOutputItem();
         if (target == null || target.isBlank()) {
             reject(event); // an empty scheme has no target to keep
             return;
         }
+        // The compute-time numbers are inherited, never recomputed here: the player
+        // asked for `targetOutputCount` items when they ran the computer, and hammering
+        // materials in must not quietly reset that to a single craft.
         CustomAssembly custom = new CustomAssembly(List.of(), false, false, target,
-                outputCountOf(player, source.getRecipeId()));
-        emit(event, left, CustomAssemblyPlanner.cleared(target), custom);
+                source.getTargetOutputCount(), source.getRepeatCount());
+        emit(event, left, CustomAssemblyPlanner.cleared(target).repeatedLike(source), custom);
     }
 
     /** Step 2: append exactly one material, preserving the order. */
@@ -182,30 +183,6 @@ public final class AnvilSchemeCustomizer {
     /** Illegal input: cancel, which skips vanilla logic and empties the output. */
     private static void reject(AnvilUpdateEvent event) {
         event.setCanceled(true);
-    }
-
-    /**
-     * The per-craft count of the scheme being cleared. A {@link LineScheme} does not
-     * carry one, so it is read back from the source recipe's datapack JSON; anything
-     * unresolvable stays at one craft.
-     */
-    private static int outputCountOf(Player player, String recipeId) {
-        if (recipeId == null || recipeId.isBlank()) {
-            return 1;
-        }
-        ResourceLocation id = ResourceLocation.tryParse(recipeId);
-        if (id == null) {
-            return 1;
-        }
-        MinecraftServer server = player.getServer();
-        if (server == null) {
-            return 1;
-        }
-        try {
-            return Math.max(1, RecipeJsonReader.resultCount(server.getResourceManager(), id));
-        } catch (RuntimeException e) {
-            return 1;
-        }
     }
 
     private static String itemIdOf(ItemStack stack) {

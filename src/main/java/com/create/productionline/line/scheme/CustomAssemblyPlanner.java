@@ -59,6 +59,10 @@ public final class CustomAssemblyPlanner {
      */
     public static LineScheme rebuild(CustomAssembly custom) {
         LineScheme out = cleared(custom.targetItem());
+        // The player's numbers survive the whole clear/hammer/lock cycle: `outputCount`
+        // is what the compute step asked for, `repeatCount` how often the line must run.
+        out.setTargetOutputCount(custom.outputCount());
+        out.setRepeatCount(custom.repeatCount());
         List<String> materials = custom.materials();
         if (materials.isEmpty()) {
             return out;

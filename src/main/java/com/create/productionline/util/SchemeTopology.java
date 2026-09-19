@@ -38,7 +38,15 @@ public final class SchemeTopology {
             }
             stations.add(new Station(step.getFacilityType(), new ArrayList<>(step.getInputs())));
         }
-        return lines(scheme.getBaseMaterial(), stations, scheme.getOutputItem());
+        List<String> out = new ArrayList<>(lines(scheme.getBaseMaterial(), stations, scheme.getOutputItem()));
+        // The repeat instruction closes the chain: one pass through the stations above
+        // yields one craft, so a bigger target means running the line again.
+        if (scheme.repeats()) {
+            out.add(TextWrap.wrapIndented("repeat " + scheme.getRepeatCount() + "x -> "
+                    + scheme.getTargetOutputCount() + " "
+                    + Names.nameOfItem(scheme.getOutputItem()), "  ").get(0));
+        }
+        return out;
     }
 
     /** Wrapped topology lines; empty when there is nothing to show. */

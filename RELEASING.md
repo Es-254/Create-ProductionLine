@@ -343,7 +343,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (15 checks, then the server halts)
+# Headless QA self-test on a real server (16 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -356,7 +356,7 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:110`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **15 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **16 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
@@ -481,7 +481,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      15 passed; never hard-code the number)
+      16 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x` or `v0.0.0-dev.N`); GitHub Release created with the jar attached

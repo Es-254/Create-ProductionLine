@@ -30,9 +30,9 @@ import net.minecraft.network.codec.StreamCodec;
  * meaning even if that rule ever changes.
  */
 public record CustomAssembly(List<String> materials, boolean locked, boolean singleMaterialFallback,
-        String targetItem, int outputCount) {
+        String targetItem, int outputCount, int repeatCount) {
 
-    public static final CustomAssembly EMPTY = new CustomAssembly(List.of(), false, false, "", 1);
+    public static final CustomAssembly EMPTY = new CustomAssembly(List.of(), false, false, "", 1, 1);
 
     public static final Codec<CustomAssembly> CODEC = RecordCodecBuilder.create(inst -> inst.group(
             Codec.STRING.listOf().fieldOf("materials").forGetter(CustomAssembly::materials),
@@ -40,7 +40,8 @@ public record CustomAssembly(List<String> materials, boolean locked, boolean sin
             Codec.BOOL.optionalFieldOf("single_material_fallback", false)
                     .forGetter(CustomAssembly::singleMaterialFallback),
             Codec.STRING.optionalFieldOf("target", "").forGetter(CustomAssembly::targetItem),
-            Codec.INT.optionalFieldOf("count", 1).forGetter(CustomAssembly::outputCount))
+            Codec.INT.optionalFieldOf("count", 1).forGetter(CustomAssembly::outputCount),
+            Codec.INT.optionalFieldOf("repeats", 1).forGetter(CustomAssembly::repeatCount))
             .apply(inst, CustomAssembly::new));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, CustomAssembly> STREAM_CODEC = StreamCodec.composite(
@@ -49,12 +50,14 @@ public record CustomAssembly(List<String> materials, boolean locked, boolean sin
             ByteBufCodecs.BOOL, CustomAssembly::singleMaterialFallback,
             ByteBufCodecs.STRING_UTF8, CustomAssembly::targetItem,
             ByteBufCodecs.VAR_INT, CustomAssembly::outputCount,
+            ByteBufCodecs.VAR_INT, CustomAssembly::repeatCount,
             CustomAssembly::new);
 
     public CustomAssembly {
         materials = materials == null ? List.of() : List.copyOf(materials);
         targetItem = targetItem == null ? "" : targetItem;
-        outputCount = Math.max(1, outputCount);
+        outputCount = Math.max(1, Math.min(RepeatPlan.MAX_TARGET, outputCount));
+        repeatCount = Math.max(1, repeatCount);
     }
 
     /** Step 1 done, nothing hammered yet. */
@@ -79,15 +82,21 @@ public record CustomAssembly(List<String> materials, boolean locked, boolean sin
     public CustomAssembly withMaterial(String itemId) {
         List<String> next = new ArrayList<>(materials);
         next.add(itemId);
-        return new CustomAssembly(next, false, false, targetItem, outputCount);
+        return new CustomAssembly(next, false, false, targetItem, outputCount, repeatCount);
     }
 
     /** Locking is what decides the fallback flag: one material cannot be a sequence. */
     public CustomAssembly withLocked(boolean value) {
-        return new CustomAssembly(materials, value, value && isSingleMaterial(), targetItem, outputCount);
+        return new CustomAssembly(materials, value, value && isSingleMaterial(), targetItem, outputCount,
+                repeatCount);
     }
 
     public CustomAssembly withTarget(String itemId, int count) {
-        return new CustomAssembly(materials, locked, singleMaterialFallback, itemId, count);
+        return new CustomAssembly(materials, locked, singleMaterialFallback, itemId, count, repeatCount);
+    }
+
+    /** Keeps the compute-time repeat budget while the player hammers materials in. */
+    public CustomAssembly withRepeat(int count, int repeats) {
+        return new CustomAssembly(materials, locked, singleMaterialFallback, targetItem, count, repeats);
     }
 }

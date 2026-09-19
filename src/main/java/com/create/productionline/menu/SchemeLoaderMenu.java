@@ -23,7 +23,8 @@ import net.minecraft.world.item.ItemStack;
 public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     public static final int DATA_ACTIVE = 0;
-    public static final int DATA_COUNT = 2;
+    public static final int DATA_REPEAT = 2;
+    public static final int DATA_COUNT = 3;
     /** Index of the first loader slot; loader slots occupy [0, 16). */
     public static final int LOADER_SLOT_COUNT = SchemeLoaderBlockEntity.SLOT_COUNT;
 
@@ -63,7 +64,7 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     public static SchemeLoaderMenu createClient(int id, Inventory playerInventory) {
         return new SchemeLoaderMenu(id, playerInventory, new SimpleContainer(LOADER_SLOT_COUNT),
-                new SimpleContainerData(2));
+                new SimpleContainerData(DATA_COUNT));
     }
 
     private static final class Data implements ContainerData {
@@ -80,6 +81,12 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
             }
             if (index == 1) {
                 return be.getActiveCount();
+            }
+            if (index == DATA_REPEAT) {
+                // Server-derived repeat budget: the largest repeat count among the
+                // schemes in this cabinet, so the screen can warn about the material
+                // demand without trusting the client's copy of an item.
+                return be.getRepeatNotice();
             }
             return 0;
         }
@@ -101,6 +108,11 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     public int getActiveCount() {
         return data.get(1);
+    }
+
+    /** Largest repeat count among the schemes in this cabinet; 1 when none repeats. */
+    public int getRepeatNotice() {
+        return data.get(DATA_REPEAT);
     }
 
     public Container getLoaderContainer() {

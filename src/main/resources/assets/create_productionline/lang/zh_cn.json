@@ -48,5 +48,9 @@
   "item.create_productionline.line_scheme.custom.building": "自定义方案：已砸入 %s 种原料（未锁定）",
   "item.create_productionline.line_scheme.custom.locked": "自定义方案：已锁定，共 %s 种原料",
   "item.create_productionline.line_scheme.custom.single_pending": "单原料自定义方案需等待后续版本支持（当前按材料语义走单机台）",
-  "screen.create_productionline.anvil.single_pending": "单原料自定义方案需等待后续版本支持"
+  "screen.create_productionline.anvil.single_pending": "单原料自定义方案需等待后续版本支持",
+  "item.create_productionline.line_scheme.repeat": "重复执行 %s 次（目标产量 %s）",
+  "loader.create_productionline.repeat_warning": "该产线包含 %s 次循环组装，请准备充足的基础材料",
+  "screen.create_productionline.computer.repeat": "目标产量：%s（需重复 %s 次）",
+  "screen.create_productionline.computer.target_output": "目标产量：%s"
 }

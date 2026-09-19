@@ -37,6 +37,8 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     private final ModContainer inventory = new ModContainer(this, SLOT_COUNT, this::onSlotChanged);
     private boolean active = false;
     private int activeCount = 0;
+    /** Largest repeat count among this cabinet's schemes; drives the screen warning. */
+    private int repeatNotice = 1;
     private boolean pendingReconcile = true;
     /**
      * Key (dimension + position) this cabinet's contribution is currently
@@ -112,9 +114,32 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
         int cnt = CreateRecipePack.reconcileContributions(serverLevel.getServer(), key,
                 own.isEmpty() ? null : own);
         this.activeCount = cnt;
+        this.repeatNotice = maxRepeatAmongSlots();
         registeredKey = key;
         active = !own.isEmpty() && cnt > 0;
         syncState();
+    }
+
+    /**
+     * The largest {@code repeatCount} among the schemes in this cabinet. Reported to
+     * the screen (data slot {@code DATA_REPEAT}) so the player is told that the line has
+     * to run several times and that the raw materials have to be prepared accordingly.
+     */
+    private int maxRepeatAmongSlots() {
+        int max = 1;
+        for (int i = 0; i < SLOT_COUNT; i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (stack.isEmpty() || !com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(stack)) {
+                continue;
+            }
+            max = Math.max(max, LineSchemeSerializer.fromStack(stack).getRepeatCount());
+        }
+        return max;
+    }
+
+    /** Largest repeat count currently contributed by this cabinet (1 = single pass). */
+    public int getRepeatNotice() {
+        return Math.max(1, repeatNotice);
     }
 
     /** Stable identity of this loader for additive contribution tracking. */

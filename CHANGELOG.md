@@ -20,9 +20,10 @@ exists anywhere, and no entry below refers to it.
 ## [1.0.2] — 2026-09-17 (beta)
 
 **Beta pre-release.** This jar is a beta: Modrinth channel *Beta*, CurseForge release type `beta`, and a
-GitHub Release marked as a pre-release. **`1.0.1` stays the current stable release.** Nothing here
-changes how an existing scheme behaves; the new flow only runs when an operator puts a Line Scheme into
-an anvil.
+GitHub Release marked as a pre-release. **`1.0.1` stays the current stable release.** Existing schemes
+keep working unchanged — a V1 scheme item loads with a target output and repeat count of 1 — and the only
+change on the way in is that the computer now reads the target slot's stack size as the output the player
+wants.
 
 ### Added
 
@@ -54,11 +55,39 @@ an anvil.
   JSON, exactly like the existing `recipeId` path. `RecipeDeriver` itself is unchanged: a new adapter
   hands it a synthetic descriptor whose category decides between the assembly rule and the
   single-material rule.
+- **The target slot's stack size is the target output, and the line gets a repeat budget.** The number of
+  items stacked into the target slot is the number the player wants out: the computer reads that stack size
+  server-side (clamped to the item's max stack size) and records it as the target output. The installed
+  Create recipe stays a **single-craft** payload, because Create's sequenced assembly cannot loop on its own
+  and writing N crafts' worth of materials into one payload would consume N times the input for one craft's
+  output. What the scheme records instead is how often the line has to run to reach the target, which the
+  player realises physically by feeding the product back (their own belt loop).
+- **A new `RepeatPlan` does the arithmetic.** An ordinary recipe (it does not consume its own product)
+  repeats `ceil(target / per-craft output)` times. A doubling / recursive recipe (`A + B = 2A`, consuming
+  `c` copies of the product and yielding `p > c`) bootstraps from the single unit that goes on the belt, so
+  it repeats `ceil((target - 1) / (p - c))` times, with a net gain of `p - c` per pass. A recipe that cannot
+  grow the stock (`p <= c`) is reported as **unreachable**: the repeat count stays 1 and the player is told
+  to bring the product themselves. There is deliberately **no** "loop until it works" path anywhere.
+- **Where the numbers live.** `LineScheme` gained `TargetOutputCount` and `RepeatCount` (scheme format
+  **V2**; a V1 item loads with 1/1 instead of failing), the plan's topology closes with an explicit
+  instruction line such as `repeat 3x -> 4 Iron Ingot` when the line has to run more than once, and both the
+  Line Scheme tooltip (`重复执行 N 次（目标产量 M）` / "Repeat N times (target output M)") and the
+  computer's panel show the same numbers.
+- **The Scheme Loader says how many passes its cabinet asks for.** It reports the largest repeat count among
+  the schemes in the cabinet through a **server-derived menu data slot** (not the client's copy of the item),
+  and its panel warns `该产线包含 N 次循环组装，请准备充足的基础材料` / "This line runs N times - prepare
+  enough base materials".
+- **The anvil flow inherits those numbers.** Clearing a scheme copies the compute-time target output and
+  repeat count into the custom-scheme component, and hammering materials in never resets them;
+  `CustomAssemblyPlanner` puts the target output into the descriptor it hands to `RecipeDeriver`, so the
+  custom line's stated output matches what the player computed.
 
 ### Changed
 
-- **Headless self test grew to 15 checks** (was 13). The two new assertions cover the assembly payload
-  shape and the single-material fallback.
+- **Headless self test grew to 16 checks** (was 13; 15 after the anvil flow above). The new assertions cover
+  the assembly payload shape, the single-material fallback, and the repeat budget: a doubling recipe with
+  target output 4 must yield 3 passes, a material budget of 6 for two materials, a plan whose topology says
+  `repeat 3x`, and an unreachable recipe (`p <= c`) that must not be looped.
 
 ## [1.0.1] — 2026-09-17 (release)
 

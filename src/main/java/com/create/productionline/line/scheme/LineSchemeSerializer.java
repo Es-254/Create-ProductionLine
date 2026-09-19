@@ -31,6 +31,8 @@ public final class LineSchemeSerializer {
     private static final String KEY_CREATE_RECIPES = "CreateRecipes";
     private static final String CR_NAME = "Name";
     private static final String CR_JSON = "Json";
+    private static final String KEY_TARGET_OUTPUT_COUNT = "TargetOutputCount";
+    private static final String KEY_REPEAT_COUNT = "RepeatCount";
 
     private LineSchemeSerializer() {
     }
@@ -44,6 +46,9 @@ public final class LineSchemeSerializer {
         tag.putString(KEY_RECIPE_ID, scheme.getRecipeId());
         tag.putString(KEY_OUTPUT_ITEM, scheme.getOutputItem());
         tag.putString(KEY_BASE_MATERIAL, scheme.getBaseMaterial());
+        // V2 fields: the player's target output and how often the line must run for it.
+        tag.putInt(KEY_TARGET_OUTPUT_COUNT, scheme.getTargetOutputCount());
+        tag.putInt(KEY_REPEAT_COUNT, scheme.getRepeatCount());
 
         ListTag stepsTag = new ListTag();
         for (LineScheme.Step step : scheme.getSteps()) {
@@ -92,6 +97,9 @@ public final class LineSchemeSerializer {
         scheme.setRecipeId(tag.getString(KEY_RECIPE_ID));
         scheme.setOutputItem(tag.getString(KEY_OUTPUT_ITEM));
         scheme.setBaseMaterial(tag.getString(KEY_BASE_MATERIAL));
+        // V1 items simply have neither key: one pass, one output — the defaults.
+        scheme.setTargetOutputCount(tag.contains(KEY_TARGET_OUTPUT_COUNT) ? tag.getInt(KEY_TARGET_OUTPUT_COUNT) : 1);
+        scheme.setRepeatCount(tag.contains(KEY_REPEAT_COUNT) ? tag.getInt(KEY_REPEAT_COUNT) : 1);
 
         if (tag.contains(KEY_STEPS, Tag.TAG_LIST)) {
             ListTag stepsTag = tag.getList(KEY_STEPS, Tag.TAG_COMPOUND);
@@ -172,6 +180,11 @@ public final class LineSchemeSerializer {
         if (scheme.getVersion() == 0) {
             // Legacy schemes written before Version was tracked are structurally V1.
             scheme.setVersion(1);
+        }
+        if (scheme.getVersion() < 2) {
+            // V1 has no target/repeat fields; the constructor defaults (1 / 1) are
+            // already in place, so the upgrade only records the new version.
+            scheme.setVersion(2);
         }
         if (scheme.getVersion() > LineScheme.CURRENT_VERSION) {
             ProductionLineMod.LOGGER.warn("Line scheme version {} is newer than supported {}; loading best-effort.",

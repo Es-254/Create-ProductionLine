@@ -94,6 +94,16 @@ production line.
 
 **中文** — 输入不合法时（方案叠放、没清空就放原料、右槽为空、原料就是产物本身、对已锁定的方案动手）一律直接拒绝：不消耗任何物品，物品原样保留。经验上净消耗为 0：原版取件门槛要求成本必须大于 0，所以这里收 1 级、取件时再退回，也就是说当时至少要有 1 级才能取走。每次操作只消耗右槽里的一个物品。
 
+## Target output & repeat budget / 目标产量与循环次数
+
+**EN** — The number of items stacked into the computer's **target slot** is the number you want out: the server reads that stack size (clamped to the item's max stack size) and records it as the scheme's target output. One pass through the line still yields **one craft**, because the installed Create recipe stays a single-craft payload — sequenced assembly cannot loop by itself, and baking N crafts' worth of materials into one payload would consume N times the input for one craft's output — so what the scheme records is how often the line has to run, and the loop itself is a belt you build by feeding the product back.
+
+**EN** — The arithmetic (`RepeatPlan`) has two shapes. An ordinary recipe (it does not consume its own product) repeats `ceil(target / per-craft output)` times. A doubling / recursive recipe (`A + B = 2A`, consuming `c` copies of the product and yielding `p > c`) bootstraps from the single unit that goes on the belt, so it repeats `ceil((target - 1) / (p - c))` times, with a net gain of `p - c` per pass. A recipe that cannot grow the stock (`p <= c`) is **unreachable**: the repeat count stays 1 and the game tells you to bring the product yourself, and there is no "loop until it works" mode anywhere. When the line has to run more than once, the plan's topology closes with an explicit instruction line such as `repeat 3x -> 4 Iron Ingot`, and the Scheme Loader reports the largest repeat count in its cabinet from a **server-derived data slot** (not the client's copy of the item), warning `该产线包含 N 次循环组装，请准备充足的基础材料` / "This line runs N times - prepare enough base materials". The OP anvil flow inherits these numbers: clearing a scheme copies the compute-time target output and repeat count into the custom scheme, and hammering materials in never resets them.
+
+**中文** — 计算机**目标槽**里叠了几个，就是要产出几个：服务端读取该堆叠数量（按物品最大堆叠数封顶），作为方案的目标产量记下来。一趟产线仍然只出**一次合成**，因为装进去的 Create 配方始终是单次合成载荷——序列装配自己不会循环，而把 N 次合成的材料塞进同一份载荷，等于吃掉 N 倍原料、只出一次产物——所以方案里记的是这条线要跑几趟，物理上的循环要你自己搭：把产物喂回产线。
+
+**中文** — 算术在 `RepeatPlan` 里，分两种形状：普通配方（不消耗自己的产物）重复 `ceil(目标 / 单次产出)` 次；倍增/递归配方（`A + B = 2A`，消耗 `c` 个自身产物、产出 `p > c`）从上带的那 1 个起家，重复 `ceil((目标 - 1) / (p - c))` 次，每趟净增 `p - c`。产物"长不大"的配方（`p <= c`）判为**不可达**：重复次数保持 1，游戏会让你自己带产物来，哪里都没有"跑到成功为止"这条路。需要多趟时，方案拓扑末尾会多一行 `repeat 3x -> 4 Iron Ingot`；加载柜通过**服务端数据槽**（不读客户端手里物品的那份）上报柜内最大的循环次数，并提示`该产线包含 N 次循环组装，请准备充足的基础材料` / "This line runs N times - prepare enough base materials"。铁砧流程会继承这些数字：清空方案时把计算时的目标产量与循环次数抄进自定义方案，之后敲入原料不会重置它们。
+
 ## Technical notes (from Create's public sources & observed behaviour) / 关键技术点（依据 Create 公开源码与行为分析）
 
 **EN**
@@ -155,7 +165,7 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (15 headless checks) / events / payloads
+└── qa/ event/ network/            SelfTest (16 headless checks) / events / payloads
 ```
 
 ## Security (multiplayer anti-injection, landed 2026-09-07) / 安全（多人服防注入，2026-09-07 落地）
@@ -242,8 +252,8 @@ are welcome, and any entry can be corrected or removed on request.
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 15 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **15 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 16 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **16 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
 > The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
 > 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
 
@@ -263,7 +273,8 @@ gradlew runServer -PselfTest
 [PASS] Plan topology (chain: base -> machine+material -> product)
 [PASS] Custom assembly builds a deployer sequence
 [PASS] Single-material custom scheme falls back to one machine
-CPL SELF-TEST RESULT: 15 passed, 0 failed
+[PASS] Doubling recipe repeats to reach the target output
+CPL SELF-TEST RESULT: 16 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
@@ -275,28 +286,30 @@ CPL SELF-TEST RESULT: 15 passed, 0 failed
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
-> **EN** — Current snapshot: **15** checks. `Plan topology (chain: base -> machine+material -> product)`
+> **EN** — Current snapshot: **16** checks. `Plan topology (chain: base -> machine+material -> product)`
 > arrived with dev snapshot `0.0.0-dev.3`; `Tag ingredients kept in flat recipes`, `Duration only on
 > duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
 > `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
 > landed by release 1.0.1; `Custom assembly builds a deployer sequence` and `Single-material custom
-> scheme falls back to one machine` came with the 1.0.2 beta anvil flow. Adding or removing a `check(…)`
-> changes this number and nothing else, apart from the snapshot mentions in this README, in
-> `CHANGELOG.md` and in `RELEASING.md`.
-> **中文** — 当前快照 **15 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
+> scheme falls back to one machine` came with the 1.0.2 beta anvil flow, and `Doubling recipe repeats to
+> reach the target output` came with the same 1.0.2 beta, for the target-output / repeat budget. Adding or
+> removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
+> README, in `CHANGELOG.md` and in `RELEASING.md`.
+> **中文** — 当前快照 **16 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
 > `0.0.0-dev.3` 进来的；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
 > 这六项随正式版 1.0.1 落地；`Custom assembly builds a deployer sequence` 与
-> `Single-material custom scheme falls back to one machine` 随 1.0.2 beta 的铁砧流程加入。
+> `Single-material custom scheme falls back to one machine` 随 1.0.2 beta 的铁砧流程加入，
+> `Doubling recipe repeats to reach the target output` 同样随 1.0.2 beta 加入，对应目标产量/循环次数这部分功能。
 > 增删一个 `check(…)` 只会改变这个数字，别的地方不用动，
 > 只需要改本 README、`CHANGELOG.md`、`RELEASING.md` 里标注为"快照"的那几处。
 >
 > **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" describe earlier
-> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **15** checks
+> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **16** checks
 > and no DataPacket whitelist case.
 > **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" 是更早几轮的数字；
-> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **13 项**，也不再有任何 DataPacket 白名单用例。
+> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **16 项**，也不再有任何 DataPacket 白名单用例。
 
 ## Doc↔code consistency baseline (2026-09-13) / 文档—代码一致性核对基线（2026-09-13）
 

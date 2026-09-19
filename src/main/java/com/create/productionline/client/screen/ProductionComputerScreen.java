@@ -132,6 +132,15 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                             scheme.getSteps().size(), scheme.totalFacilityCount()).getString());
                     out.add(Component.translatable("screen.create_productionline.computer.embedded",
                             scheme.getCreateRecipes().size()).getString());
+                    // Target output / repeat budget: how often the line has to run for
+                    // the stack the player put into the target slot.
+                    if (scheme.repeats()) {
+                        out.add(Component.translatable("screen.create_productionline.computer.repeat",
+                                scheme.getTargetOutputCount(), scheme.getRepeatCount()).getString());
+                    } else {
+                        out.add(Component.translatable("screen.create_productionline.computer.target_output",
+                                scheme.getTargetOutputCount()).getString());
+                    }
                     // No topology preview here on purpose: the plan chain belongs to the
                     // item tooltip (see ScreenTopology); the computer only reports totals.
                 }

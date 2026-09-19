@@ -21,7 +21,7 @@ import java.util.Objects;
  */
 public final class LineScheme {
 
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
     public static final String SCHEME_TAG_KEY = "LineScheme";
 
     private int version = CURRENT_VERSION;
@@ -30,6 +30,18 @@ public final class LineScheme {
     private String baseMaterial = "";
     private final List<Step> steps = new ArrayList<>();
     private final List<CreateRecipeEntry> createRecipes = new ArrayList<>();
+    /**
+     * The output count the player asked for (the target slot's stack size). The
+     * installed recipe still produces one craft per pass — this is the number the
+     * plan and the repeat metadata are measured against.
+     */
+    private int targetOutputCount = 1;
+    /**
+     * How often the line has to run to reach {@link #targetOutputCount}. 1 means one
+     * pass is enough; feeding the product back is the player's build, because Create's
+     * sequenced assembly cannot loop by itself.
+     */
+    private int repeatCount = 1;
 
     /** A generated, spec-conformant Create recipe JSON file payload. */
     public static final class CreateRecipeEntry {
@@ -198,6 +210,45 @@ public final class LineScheme {
             total += step.getCount();
         }
         return total;
+    }
+
+    public int getTargetOutputCount() {
+        return targetOutputCount;
+    }
+
+    public void setTargetOutputCount(int targetOutputCount) {
+        this.targetOutputCount = Math.max(1, Math.min(RepeatPlan.MAX_TARGET, targetOutputCount));
+    }
+
+    public int getRepeatCount() {
+        return repeatCount;
+    }
+
+    public void setRepeatCount(int repeatCount) {
+        this.repeatCount = Math.max(1, repeatCount);
+    }
+
+    /** Stores both numbers of a computed {@link RepeatPlan}. */
+    public void setRepeatPlan(RepeatPlan plan) {
+        if (plan == null) {
+            return;
+        }
+        setTargetOutputCount(plan.targetOutput());
+        setRepeatCount(plan.reachable() ? plan.repeatCount() : 1);
+    }
+
+    /** The player asked for more than one pass, so the plan has to say so. */
+    public boolean repeats() {
+        return repeatCount > 1;
+    }
+
+    /** Copies another scheme's target/repeat numbers onto this one (fluent). */
+    public LineScheme repeatedLike(LineScheme other) {
+        if (other != null) {
+            setTargetOutputCount(other.getTargetOutputCount());
+            setRepeatCount(other.getRepeatCount());
+        }
+        return this;
     }
 
     @Override
