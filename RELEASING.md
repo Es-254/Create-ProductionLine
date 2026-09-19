@@ -15,6 +15,11 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   upload API cannot replace a file's content. The author archived that file (2026-09-20) and the jar
 >   was uploaded again as **8924265**; the caveat is therefore closed. Content can only ever be changed
 >   by uploading a new file, and archiving the old one is what keeps the list clean.
+> - **The `v1.0.2` Release body was re-synced on 2026-09-20** (7,685 chars, release id `392181858`). It had
+>   been generated at tag time and still called the jar a beta, referenced the old "16 checks" and the
+>   `*Unreleased*` note; the corrected text is the same section Modrinth and the CurseForge upload script
+>   take from `CHANGELOG.md`. The asset (215,411 B, `sha256:27e0a3c6…`), the tag and the
+>   `prerelease=false` flag were untouched by the update.
 > - **`main` is past the published `1.0.2`** (state machine extraction, material-budget line, 18 checks):
 >   it builds a jar that reports `1.0.2` but is not the released asset until the next cut. See the
 >   *Unreleased* section of `CHANGELOG.md`.
@@ -446,6 +451,16 @@ creates/updates the Release with the jar attached — a pre-release when the tag
 The Release body is the matching `CHANGELOG.md` section (release or dev heading), with GitHub's
 generated notes after it. To do it by hand instead, create a Release for the tag and attach
 `build/libs/create_productionline-<version>.jar`.
+
+> **The Release body is a snapshot taken when the tag is pushed.** Correcting the `CHANGELOG.md` section
+> afterwards leaves the published notes behind, and nothing re-runs by itself: the promotion of `1.0.2`
+> and the later wording fixes both happened after the tag, so the `v1.0.2` body still told readers the jar
+> was a beta (and still said "16 checks") until it was re-synced by hand on 2026-09-20. When a section
+> changes after its tag, re-sync the body with the same extraction the workflow uses —
+> `gh release edit v<version> --notes-file release-body.md`, or
+> `PATCH /repos/{owner}/{repo}/releases/{id}` with a `{"body": …}` payload — and keep the trailing
+> `**Full Changelog**: …` line the workflow appends. The asset and the pre-release flag are not touched
+> by that call.
 
 > Tagging rules: `v1.0.x` = release (not a pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).
 > Dev snapshots `0.0.0-dev.1` … `0.0.0-dev.4` are **not** tagged retroactively — they are documented
