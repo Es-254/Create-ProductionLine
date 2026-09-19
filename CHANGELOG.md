@@ -17,6 +17,24 @@ recorded as `0.0.0-dev.1` … `0.0.0-dev.4`; `1.0.1` was the first official rele
 version number `1.0.2` was reused for this beta — the old snapshot of the same number no longer
 exists anywhere, and no entry below refers to it.
 
+## Unreleased
+
+Work landed after the 1.0.2 beta was published; `main` builds a jar that reports 1.0.2 but is
+**not** the released 1.0.2 asset (the Release asset stays the artifact of record until the next cut).
+
+### Changed
+
+- **The anvil state machine is now a pure function** (`line/scheme/SchemeAnvilMachine`): it takes the two
+  slots plus the permission gate and returns the decision, and `AnvilSchemeCustomizer` only performs the
+  side/permission gate, writes the output stack and takes over the anvil's numbers. All twelve rows of the
+  table (not-our-item, non-OP, stacked scheme, clear, material-before-clearing, empty right slot, hammer,
+  lock-without-material, single-material lock plus its notice, lone-product lock, and both operations on a
+  locked scheme) are asserted by the self test — the first two in-play bugs of this feature lived in exactly
+  that seam and no check covered it.
+- **The plan reports its material budget.** `LineScheme.materialsPerPass()` and `materialBudget()` (units per
+  pass times the repeat count) drive a new computer-panel line, and the loop hint says that its repeat count
+  is measured from one base unit.
+- **Self test grew to 18 checks** (was 16): the anvil state table and the material budget.
 ## [1.0.2] — 2026-09-17 (beta)
 
 **Beta pre-release.** This jar is a beta: Modrinth channel *Beta*, CurseForge release type `beta`, and a

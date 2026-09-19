@@ -257,6 +257,24 @@ public final class LineScheme {
         return false;
     }
 
+    /**
+     * Material units one pass consumes: the base plus everything the deployer stations
+     * apply. Multiplied by {@link #getRepeatCount()} this is the raw-material budget the
+     * player has to prepare, which is the number the panels report.
+     */
+    public int materialsPerPass() {
+        int units = 0;
+        for (Step step : steps) {
+            units += step.getInputs().size();
+        }
+        return units;
+    }
+
+    /** Raw materials for the whole run: one pass multiplied by the repeat count. */
+    public int materialBudget() {
+        return materialsPerPass() * getRepeatCount();
+    }
+
     /** The player asked for more than one pass, so the plan has to say so. */
     public boolean repeats() {
         return repeatCount > 1;

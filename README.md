@@ -165,7 +165,7 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (16 headless checks) / events / payloads
+└── qa/ event/ network/            SelfTest (18 headless checks) / events / payloads
 ```
 
 ## Security (multiplayer anti-injection, landed 2026-09-07) / 安全（多人服防注入，2026-09-07 落地）
@@ -252,8 +252,8 @@ are welcome, and any entry can be corrected or removed on request.
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 16 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **16 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 18 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **18 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
 > The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
 > 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
 
@@ -274,7 +274,9 @@ gradlew runServer -PselfTest
 [PASS] Custom assembly builds a deployer sequence
 [PASS] Single-material custom scheme falls back to one machine
 [PASS] Doubling recipe repeats to reach the target output
-CPL SELF-TEST RESULT: 16 passed, 0 failed
+[PASS] Scheme anvil state machine table
+[PASS] Plan reports the material budget
+CPL SELF-TEST RESULT: 18 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
@@ -286,7 +288,7 @@ CPL SELF-TEST RESULT: 16 passed, 0 failed
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
-> **EN** — Current snapshot: **16** checks. `Plan topology (chain: base -> machine+material -> product)`
+> **EN** — Current snapshot: **18** checks. `Plan topology (chain: base -> machine+material -> product)`
 > arrived with dev snapshot `0.0.0-dev.3`; `Tag ingredients kept in flat recipes`, `Duration only on
 > duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
 > `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
@@ -295,7 +297,7 @@ CPL SELF-TEST RESULT: 16 passed, 0 failed
 > reach the target output` came with the same 1.0.2 beta, for the target-output / repeat budget. Adding or
 > removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
 > README, in `CHANGELOG.md` and in `RELEASING.md`.
-> **中文** — 当前快照 **16 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
+> **中文** — 当前快照 **18 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
 > `0.0.0-dev.3` 进来的；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
@@ -306,10 +308,10 @@ CPL SELF-TEST RESULT: 16 passed, 0 failed
 > 只需要改本 README、`CHANGELOG.md`、`RELEASING.md` 里标注为"快照"的那几处。
 >
 > **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" describe earlier
-> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **16** checks
+> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **18** checks
 > and no DataPacket whitelist case.
 > **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" 是更早几轮的数字；
-> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **16 项**，也不再有任何 DataPacket 白名单用例。
+> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **18 项**，也不再有任何 DataPacket 白名单用例。
 
 ## Doc↔code consistency baseline (2026-09-13) / 文档—代码一致性核对基线（2026-09-13）
 

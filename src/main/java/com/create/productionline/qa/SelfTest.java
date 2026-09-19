@@ -30,7 +30,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 16 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 18 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -110,6 +110,8 @@ public final class SelfTest {
             check("Single-material custom scheme falls back to one machine",
                     () -> customSingleMaterialFallback(level));
             check("Doubling recipe repeats to reach the target output", () -> doublingRepeatBudget(level));
+            check("Scheme anvil state machine table", () -> schemeAnvilStateTable());
+            check("Plan reports the material budget", () -> planMaterialBudget());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -483,6 +485,134 @@ public final class SelfTest {
         return true;
     }
 
+    /**
+     * The anvil decision table, exercised without an anvil, a player or a server. Every
+     * row of the state machine is asserted here, which is what the first in-play bugs of
+     * this feature were missing: the handler was only ever tested by hand.
+     */
+    private static boolean schemeAnvilStateTable() {
+        net.minecraft.world.item.ItemStack paper = new net.minecraft.world.item.ItemStack(Items.PAPER);
+        net.minecraft.world.item.ItemStack material =
+                new net.minecraft.world.item.ItemStack(Items.IRON_INGOT);
+        net.minecraft.world.item.ItemStack planStack = schemeStackWith(writtenStickScheme(), null);
+        net.minecraft.world.item.ItemStack clearedStack = schemeStackWith(
+                com.create.productionline.line.scheme.CustomAssemblyPlanner.cleared("minecraft:stick"),
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of(), false, false, "minecraft:stick", 1, 1));
+        com.create.productionline.line.scheme.CustomAssembly one =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of(), false, false, "minecraft:stick", 1, 1).withMaterial("minecraft:iron_ingot");
+        net.minecraft.world.item.ItemStack oneStack = schemeStackWith(
+                com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(one), one);
+        com.create.productionline.line.scheme.CustomAssembly lone =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of(), false, false, "minecraft:stick", 1, 1).withMaterial("minecraft:stick");
+        net.minecraft.world.item.ItemStack loneStack = schemeStackWith(
+                com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(lone), lone);
+        com.create.productionline.line.scheme.CustomAssembly lockedCustom =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of("minecraft:oak_planks", "minecraft:iron_ingot"), true, false,
+                        "minecraft:stick", 1, 1);
+        net.minecraft.world.item.ItemStack lockedStack = schemeStackWith(
+                com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(lockedCustom), lockedCustom);
+
+        boolean ok = true;
+        ok &= expectAction("not a scheme", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.PASS,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(
+                        new net.minecraft.world.item.ItemStack(Items.STONE), paper, true));
+        ok &= expectAction("non-OP", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.PASS,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(planStack, paper, false));
+        ok &= expectAction("stacked scheme", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(
+                        planStack.copyWithCount(2), paper, true));
+        ok &= expectAction("clear", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.CLEAR,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(planStack, paper, true));
+        ok &= expectAction("material before clearing",
+                com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(planStack, material, true));
+        ok &= expectAction("empty right slot", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(
+                        planStack, net.minecraft.world.item.ItemStack.EMPTY, true));
+        ok &= expectAction("hammer", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.HAMMER,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(clearedStack, material, true));
+        ok &= expectAction("lock without material",
+                com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(clearedStack, paper, true));
+        var lockOne = com.create.productionline.line.scheme.SchemeAnvilMachine.decide(oneStack, paper, true);
+        ok &= expectAction("lock single material",
+                com.create.productionline.line.scheme.SchemeAnvilMachine.Action.LOCK, lockOne);
+        if (!lockOne.notice()) {
+            System.out.println("   a single-material lock must tell the player it is provisional");
+            ok = false;
+        }
+        ok &= expectAction("lock lone product",
+                com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(loneStack, paper, true));
+        ok &= expectAction("locked + paper", com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(lockedStack, paper, true));
+        ok &= expectAction("locked + material",
+                com.create.productionline.line.scheme.SchemeAnvilMachine.Action.REFUSE,
+                com.create.productionline.line.scheme.SchemeAnvilMachine.decide(lockedStack, material, true));
+        if (ok) {
+            System.out.println("   12 rows of the anvil state table behave as specified");
+        }
+        return ok;
+    }
+
+    private static boolean expectAction(String what,
+            com.create.productionline.line.scheme.SchemeAnvilMachine.Action expected,
+            com.create.productionline.line.scheme.SchemeAnvilMachine.Decision actual) {
+        if (actual.action() != expected) {
+            System.out.println("   " + what + ": expected " + expected + ", got " + actual.action());
+            return false;
+        }
+        return true;
+    }
+
+    /** A plan whose steps consume two units per pass (base + one deployed material). */
+    private static LineScheme writtenStickScheme() {
+        LineScheme scheme = new LineScheme();
+        scheme.setRecipeId("minecraft:crafting/stick");
+        scheme.setOutputItem("minecraft:stick");
+        scheme.setBaseMaterial("minecraft:oak_planks");
+        LineScheme.Step feed = scheme.addStep("cpl:feed", 1);
+        feed.addInput("minecraft:oak_planks");
+        LineScheme.Step deploy = scheme.addStep("create:deployer", 1);
+        deploy.addInput("minecraft:iron_ingot");
+        deploy.addOutput("minecraft:stick");
+        return scheme;
+    }
+
+    private static net.minecraft.world.item.ItemStack schemeStackWith(LineScheme scheme,
+            com.create.productionline.line.scheme.CustomAssembly custom) {
+        net.minecraft.world.item.ItemStack stack =
+                new net.minecraft.world.item.ItemStack(com.create.productionline.registry.ModItems.LINE_SCHEME.get());
+        LineSchemeSerializer.saveToStack(stack, scheme);
+        if (custom != null) {
+            stack.set(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get(), custom);
+        }
+        return stack;
+    }
+
+    /**
+     * The material budget a plan reports: units per pass times the repeat count, which is
+     * the number the panels tell the player to prepare.
+     */
+    private static boolean planMaterialBudget() {
+        LineScheme plan = writtenStickScheme();
+        plan.setRepeatPlan(com.create.productionline.line.scheme.RepeatPlan.of(4, 2, 1));
+        if (plan.materialsPerPass() != 2) {
+            System.out.println("   expected 2 units per pass, got " + plan.materialsPerPass());
+            return false;
+        }
+        if (plan.materialBudget() != 6) {
+            System.out.println("   3 passes x 2 units should be 6, got " + plan.materialBudget());
+            return false;
+        }
+        System.out.println("   budget: " + plan.materialsPerPass() + " units per pass x "
+                + plan.getRepeatCount() + " passes = " + plan.materialBudget());
+        return true;
+    }
     private static boolean singleMaterialSemanticMachine(ServerLevel level) {
         RecipeDescriptor descriptor = new RecipeDescriptor("minecraft:crafting/stick",
                 "minecraft:crafting", List.of("#minecraft:planks"), List.of("minecraft:stick"));

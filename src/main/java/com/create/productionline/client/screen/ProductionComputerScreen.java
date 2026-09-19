@@ -137,6 +137,9 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
                     if (scheme.repeats()) {
                         out.add(Component.translatable("screen.create_productionline.computer.repeat",
                                 scheme.getTargetOutputCount(), scheme.getRepeatCount()).getString());
+                        out.add(Component.translatable("screen.create_productionline.computer.material_budget",
+                                scheme.materialsPerPass(), scheme.getRepeatCount(),
+                                scheme.materialBudget()).getString());
                     } else {
                         out.add(Component.translatable("screen.create_productionline.computer.target_output",
                                 scheme.getTargetOutputCount()).getString());

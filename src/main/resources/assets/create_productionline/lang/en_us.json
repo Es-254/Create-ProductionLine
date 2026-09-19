@@ -53,6 +53,7 @@
   "screen.create_productionline.computer.repeat": "Target output: %s, repeat %s times",
   "screen.create_productionline.computer.target_output": "Target output: %s",
   "item.create_productionline.line_scheme.custom.anvil": "Custom scheme: hand-built in an anvil",
-  "item.create_productionline.line_scheme.repeat_loop": "Feed the product back %s time(s) -> target output %s, needs an external return belt",
-  "item.create_productionline.line_scheme.repeat_restart": "Repeat from scratch %s time(s) -> target output %s"
+  "item.create_productionline.line_scheme.repeat_loop": "Feed the product back %s time(s) -> target output %s, needs an external return belt, counted from 1 base",
+  "item.create_productionline.line_scheme.repeat_restart": "Repeat from scratch %s time(s) -> target output %s",
+  "screen.create_productionline.computer.material_budget": "Material budget: %s per pass x %s passes = %s"
 }
