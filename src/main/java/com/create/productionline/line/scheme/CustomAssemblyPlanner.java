@@ -62,7 +62,10 @@ public final class CustomAssemblyPlanner {
         // The player's numbers survive the whole clear/hammer/lock cycle: `outputCount`
         // is what the compute step asked for, `repeatCount` how often the line must run.
         out.setTargetOutputCount(custom.outputCount());
-        out.setRepeatCount(custom.repeatCount());
+        // Path 2 (anvil): the embedded recipe is written with `count = outputCount`, so one
+        // pass already produces N — repeating it would double-count. The inherited
+        // computer-side budget stays in the component for reference only.
+        out.setRepeatCount(1);
         List<String> materials = custom.materials();
         if (materials.isEmpty()) {
             return out;

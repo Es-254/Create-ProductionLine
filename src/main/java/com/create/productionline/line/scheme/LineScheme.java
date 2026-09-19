@@ -237,6 +237,26 @@ public final class LineScheme {
         setRepeatCount(plan.reachable() ? plan.repeatCount() : 1);
     }
 
+    /**
+     * True when the product is also an input: the line can close the loop by feeding the
+     * product back to the belt head ("A + B = 2A"). False means every pass has to start
+     * from a freshly inserted base — the difference the plan has to spell out.
+     */
+    public boolean recyclesProduct() {
+        if (outputItem == null || outputItem.isBlank()) {
+            return false;
+        }
+        if (outputItem.equals(baseMaterial)) {
+            return true;
+        }
+        for (Step step : steps) {
+            if (step.getInputs().contains(outputItem)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The player asked for more than one pass, so the plan has to say so. */
     public boolean repeats() {
         return repeatCount > 1;

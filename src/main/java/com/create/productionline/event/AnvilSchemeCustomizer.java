@@ -94,10 +94,14 @@ public final class AnvilSchemeCustomizer {
             return;
         }
         String material = itemIdOf(right);
-        if (material == null || material.equals(custom.targetItem())) {
-            reject(event); // unmappable, or the material is the product itself
+        if (material == null) {
+            reject(event); // unmappable stack
             return;
         }
+        // The product itself IS a legal material: a self-recursive / doubling recipe
+        // ("A + B = 2A") needs A as the base that goes on the belt first, and Create then
+        // deploys B onto it and rolls 2 A out. Rejecting it here is what used to make such
+        // lines impossible to author.
         hammer(event, left, custom, material);
     }
 
@@ -127,6 +131,13 @@ public final class AnvilSchemeCustomizer {
     private static void lock(AnvilUpdateEvent event, Player player, ItemStack left, CustomAssembly custom) {
         if (!custom.isReadyToLock()) {
             reject(event); // nothing hammered yet
+            return;
+        }
+        if (custom.isSingleMaterial() && custom.materials().get(0).equals(custom.targetItem())) {
+            // Only the product was hammered: that is not a recipe (it would consume A and
+            // hand A back). A doubling line needs its product as the BASE plus at least one
+            // further material that is actually deployed onto it.
+            reject(event);
             return;
         }
         CustomAssembly locked = custom.withLocked(true);

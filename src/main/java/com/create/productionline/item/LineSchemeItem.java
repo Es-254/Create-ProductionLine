@@ -80,7 +80,12 @@ public class LineSchemeItem extends Item {
         // The player asked for more than one pass: the line has to run again (and the
         // materials have to be prepared for every pass).
         if (scheme.repeats()) {
-            tooltip.add(Component.translatable("item.create_productionline.line_scheme.repeat",
+            // Which kind of repetition this is decides what the player has to build: a
+            // product that is also an input can be looped back, anything else has to be
+            // restarted from a fresh base every pass.
+            tooltip.add(Component.translatable(scheme.recyclesProduct()
+                    ? "item.create_productionline.line_scheme.repeat_loop"
+                    : "item.create_productionline.line_scheme.repeat_restart",
                     scheme.getRepeatCount(), scheme.getTargetOutputCount())
                     .withStyle(ChatFormatting.AQUA));
         }

@@ -429,19 +429,42 @@ public final class SelfTest {
             System.out.println("   a recipe that eats as much as it makes must be unreachable, not looped");
             return false;
         }
+        // PATH 1 (computer): the scheme carries the repeat budget and has to say which
+        // kind of repetition it is — the product is also an input, so the line can be
+        // closed by feeding the product back to the belt head.
+        LineScheme computed = new LineScheme();
+        computed.setRecipeId("minecraft:crafting/iron_ingot_doubling");
+        computed.setOutputItem("minecraft:iron_ingot");
+        computed.setBaseMaterial("minecraft:iron_ingot");
+        LineScheme.Step deploy = computed.addStep("create:deployer", 1);
+        deploy.addInput("minecraft:coal");
+        deploy.addOutput("minecraft:iron_ingot");
+        computed.setRepeatPlan(doubling);
+        if (!computed.recyclesProduct() || !computed.repeats()) {
+            System.out.println("   the computed doubling plan lost its loop/repeat state");
+            return false;
+        }
+        String topology = String.join(" | ", com.create.productionline.util.SchemeTopology.lines(computed));
+        // The instruction is wrapped, so assert on fragments that cannot be split.
+        if (!topology.contains("loop 3x -> 4") || !topology.contains("belt head")) {
+            System.out.println("   the topology does not explain how to repeat: " + topology);
+            return false;
+        }
+        // PATH 2 (anvil): the embedded recipe is written with count = outputCount, so one
+        // pass already yields N and the plan must NOT ask for a second set of repeats.
         com.create.productionline.line.scheme.CustomAssembly custom =
                 new com.create.productionline.line.scheme.CustomAssembly(
                         List.of("minecraft:iron_ingot", "minecraft:coal"), true, false,
                         "minecraft:iron_ingot", 4, doubling.repeatCount());
         LineScheme plan = com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(custom);
-        if (plan.getTargetOutputCount() != 4 || plan.getRepeatCount() != 3 || !plan.repeats()) {
-            System.out.println("   the plan lost the target/repeat numbers: target="
+        if (plan.getTargetOutputCount() != 4 || plan.getRepeatCount() != 1 || plan.repeats()) {
+            System.out.println("   the custom plan must yield N in one pass and not repeat: target="
                     + plan.getTargetOutputCount() + " repeats=" + plan.getRepeatCount());
             return false;
         }
-        String topology = String.join(" | ", com.create.productionline.util.SchemeTopology.lines(plan));
-        if (!topology.contains("repeat 3x")) {
-            System.out.println("   the topology does not instruct the player to repeat: " + topology);
+        if (!plan.getBaseMaterial().equals("minecraft:iron_ingot")) {
+            System.out.println("   the product must be allowed as the base material, got base="
+                    + plan.getBaseMaterial());
             return false;
         }
         var derived = com.create.productionline.line.scheme.CustomAssemblyPlanner.derive(level, custom);
@@ -449,8 +472,14 @@ public final class SelfTest {
             System.out.println("   doubling custom scheme did not derive a sequenced assembly");
             return false;
         }
-        System.out.println("   doubling 1A+1B=2A, target 4 -> 3 passes, budget 6 materials, plan says '"
-                + topology.substring(Math.max(0, topology.length() - 18)) + "'");
+        if (!derived.entries().get(0).getJson().contains("\"count\": 4")) {
+            System.out.println("   the custom recipe must yield N in one pass: "
+                    + derived.entries().get(0).getJson());
+            return false;
+        }
+        System.out.println("   doubling A+B=2A: computer plan 3 passes / budget 6 / '"
+                + topology.substring(Math.max(0, topology.length() - 30))
+                + "'; anvil plan yields 4 per pass with no extra repeats");
         return true;
     }
 

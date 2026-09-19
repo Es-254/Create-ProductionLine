@@ -42,9 +42,14 @@ public final class SchemeTopology {
         // The repeat instruction closes the chain: one pass through the stations above
         // yields one craft, so a bigger target means running the line again.
         if (scheme.repeats()) {
-            out.add(TextWrap.wrapIndented("repeat " + scheme.getRepeatCount() + "x -> "
-                    + scheme.getTargetOutputCount() + " "
-                    + Names.nameOfItem(scheme.getOutputItem()), "  ").get(0));
+            boolean loop = scheme.recyclesProduct();
+            // Every wrapped fragment has to be kept: the instruction is long enough to be
+            // split, and keeping only the first fragment silently truncates the part that
+            // explains HOW to repeat.
+            out.addAll(TextWrap.wrapIndented((loop ? "loop " : "repeat ") + scheme.getRepeatCount() + "x -> "
+                    + scheme.getTargetOutputCount() + " " + Names.nameOfItem(scheme.getOutputItem())
+                    + (loop ? " (feed the product back to the belt head)"
+                            : " (re-feed the base each pass)"), "  "));
         }
         return out;
     }

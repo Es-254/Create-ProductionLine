@@ -53,5 +53,7 @@
   "loader.create_productionline.repeat_warning": "This line runs %s times - prepare enough base materials",
   "screen.create_productionline.computer.repeat": "Target output: %s (repeat %s times)",
   "screen.create_productionline.computer.target_output": "Target output: %s",
-  "item.create_productionline.line_scheme.custom.anvil": "Custom scheme (hand-built in an anvil, target kept)"
+  "item.create_productionline.line_scheme.custom.anvil": "Custom scheme (hand-built in an anvil, target kept)",
+  "item.create_productionline.line_scheme.repeat_loop": "Feed the product back %s time(s) -> target output %s (needs an external return belt to the belt head)",
+  "item.create_productionline.line_scheme.repeat_restart": "Repeat from scratch %s time(s) -> target output %s (re-insert the base and materials every pass)"
 }
