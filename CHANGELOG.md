@@ -76,7 +76,8 @@ wants.
 - **The Scheme Loader says how many passes its cabinet asks for.** It reports the largest repeat count among
   the schemes in the cabinet through a **server-derived menu data slot** (not the client's copy of the item),
   and its panel warns `该产线包含 N 次循环组装，请准备充足的基础材料` / "This line runs N times - prepare
-  enough base materials".
+  enough base materials". The first time a player opens such a cabinet they also get that single line in
+  their own action bar; the mod never posts to chat and never messages anyone else.
 - **The anvil flow inherits those numbers.** Clearing a scheme copies the compute-time target output and
   repeat count into the custom-scheme component, and hammering materials in never resets them;
   `CustomAssemblyPlanner` puts the target output into the descriptor it hands to `RecipeDeriver`, so the

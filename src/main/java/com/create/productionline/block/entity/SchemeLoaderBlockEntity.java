@@ -39,6 +39,11 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     private int activeCount = 0;
     /** Largest repeat count among this cabinet's schemes; drives the screen warning. */
     private int repeatNotice = 1;
+    /**
+     * Players already told about this cabinet's repeat budget (transient on purpose: a
+     * server restart may tell them once more, which is cheaper than persisting UUIDs).
+     */
+    private final java.util.Set<java.util.UUID> repeatNotified = new java.util.HashSet<>();
     private boolean pendingReconcile = true;
     /**
      * Key (dimension + position) this cabinet's contribution is currently
@@ -287,9 +292,33 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     }
 
     public SimpleMenuProvider menuProvider() {
-        return new SimpleMenuProvider((id, inv, player) ->
-                com.create.productionline.menu.SchemeLoaderMenu.fromServer(id, inv, this),
-                Component.translatable("container.create_productionline.scheme_loader"));
+        return new SimpleMenuProvider((id, inv, player) -> {
+            notifyRepeatOnce(player);
+            return com.create.productionline.menu.SchemeLoaderMenu.fromServer(id, inv, this);
+        }, Component.translatable("container.create_productionline.scheme_loader"));
+    }
+
+    /**
+     * One short action-bar line for the player who is opening this cabinet, and only
+     * the first time they do. Deliberately not a broadcast: the mod never posts to
+     * chat or to other players — the repeat budget is otherwise carried by the panel
+     * status line (a server-derived data slot), and this is just a nudge so a player
+     * who never reads the panel still learns that the line runs several times.
+     *
+     * <p>The notice is read straight from the slots rather than from
+     * {@link #getRepeatNotice()}, because a cabinet that was just filled may not have
+     * reconciled yet while its GUI is open.
+     */
+    private void notifyRepeatOnce(net.minecraft.world.entity.player.Player player) {
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+            return;
+        }
+        int repeats = maxRepeatAmongSlots();
+        if (repeats <= 1 || !repeatNotified.add(serverPlayer.getUUID())) {
+            return;
+        }
+        serverPlayer.displayClientMessage(
+                Component.translatable("loader.create_productionline.repeat_warning", repeats), true);
     }
 
     public void dropContents(Level level, BlockPos pos) {
