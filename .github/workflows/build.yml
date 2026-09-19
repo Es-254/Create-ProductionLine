@@ -136,8 +136,9 @@ jobs:
           # as a pre-release while `1.0.1` (release) does not.
           CHANNEL=$(grep -E '^mod_version_type=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
           case "$GITHUB_REF_NAME" in *-dev.*) CHANNEL=beta ;; esac
-          PRERELEASE=""
-          if [ "$CHANNEL" != "release" ]; then PRERELEASE="--prerelease"; fi
+          # Always pass the flag explicitly: leaving it out would keep a previous
+          # pre-release marking when a version is promoted from beta to release.
+          if [ "$CHANNEL" = "release" ]; then PRERELEASE="--prerelease=false"; else PRERELEASE="--prerelease"; fi
           echo "channel=$CHANNEL prerelease=${PRERELEASE:-no}"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             # --draft=false on purpose: a release can end up as a draft (e.g. left behind
