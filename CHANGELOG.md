@@ -121,10 +121,11 @@ now reads the target slot's stack size as the output the player wants.
 
 ### Changed
 
-- **Headless self test grew to 16 checks** (was 13; 15 after the anvil flow above). The new assertions cover
-  the assembly payload shape, the single-material fallback, and the repeat budget: a doubling recipe with
-  target output 4 must yield 3 passes, a material budget of 6 for two materials, a plan whose topology says
-  `repeat 3x`, and an unreachable recipe (`p <= c`) that must not be looped.
+- **Headless self test grew to 18 checks** (was 13; 15 after the anvil flow above, 16 for the target-output
+  / repeat budget, 18 after the promotion pass). The new assertions cover the assembly payload shape, the
+  single-material fallback, the repeat budget (a doubling recipe with target output 4 must yield 3 passes, a
+  material budget of 6 for two materials, a plan whose topology says `repeat 3x`, and an unreachable recipe
+  (`p <= c`) that must not be looped) and all twelve rows of the anvil state table.
 
 ## [1.0.1] — 2026-09-17 (release)
 
