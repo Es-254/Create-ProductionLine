@@ -5,6 +5,13 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-17):**
 >
+> - **`1.0.2` is a RELEASE** (promoted from beta on 2026-09-17): GitHub Release `v1.0.2` is no longer a
+>   pre-release and carries `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`), Modrinth
+>   holds that same jar as version `1.0.2` channel *Release* (id `NhXpGHHA`), and CurseForge file
+>   **8923748** is marked release type `release` — but its *content* is still the earlier beta jar
+>   (208,860 B), because CurseForge's API cannot replace a file's bytes: replace it in the dashboard
+>   (Files → the file → replace) if the difference matters.
+> - **`main` is past the published `1.0.2` asset.**
 > - **`main` is past the published `1.0.2`** (state machine extraction, material-budget line, 18 checks):
 >   it builds a jar that reports `1.0.2` but is not the released asset until the next cut. See the
 >   *Unreleased* section of `CHANGELOG.md`.
