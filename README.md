@@ -14,9 +14,9 @@ production line.
 | Mod ID / 包名 | `create_productionline` / `com.create.productionline` |
 | Platform / 平台 | NeoForge (FML 1.x) / MC `[1.21.1]` / JDK 21 |
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
-| Version / 版本 | **`1.0.1` (release)**, the first official release, supersedes every dev snapshot. Dev builds are **`0.0.0-dev.N`** (**beta**, built by `gradlew build -PdevBuild`, with N auto-incremented in `dev-build.txt`)。中文：首个正式发布；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
-| Artifact / 产物 | `build/libs/create_productionline-1.0.1.jar`, also downloadable from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/create-production-line), [Modrinth](https://modrinth.com/project/createproductionline) or the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page. CurseForge 页面已上线；Modrinth 项目仍在审核中，公开页面待通过后生效 / the CurseForge page is live, the Modrinth one goes live once the project passes review. 早期 1.0.0–1.0.3 构建包均为开发快照，已被 1.0.1 取代 (earlier 1.0.0–1.0.3 jars were dev snapshots and are superseded). |
-| Source size / 工程规模 | `src/main/java` **47 Java files** / **~6,900 lines** (the line count is a snapshot, it moves with every commit; the file count is the stable part) |
+| Version / 版本 | **`1.0.2` (beta, in development)** / **`1.0.1` (release, current stable)**. `1.0.2` adds the OP anvil flow and ships as a **beta pre-release** (Modrinth channel *Beta*, CurseForge release type `beta`, GitHub pre-release); **`1.0.1` stays the current release**, the first official release, which supersedes every dev snapshot. Dev builds are **`0.0.0-dev.N`** (**beta**, built by `gradlew build -PdevBuild`, with N auto-incremented in `dev-build.txt`)。中文：`1.0.2` 是开发中的 **beta**（新增 OP 铁砧自定义流程），按 **beta 预发布**（Modrinth *Beta* 通道、CurseForge `beta`、GitHub pre-release）；**`1.0.1` 仍是当前正式版**，也是首个正式发布，已取代全部开发快照；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
+| Artifact / 产物 | `build/libs/create_productionline-1.0.2.jar` (**the 1.0.2 beta**), also downloadable from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/create-production-line), [Modrinth](https://modrinth.com/project/createproductionline) or the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page. CurseForge 页面已上线；Modrinth 项目仍在审核中，公开页面待通过后生效 / the CurseForge page is live, the Modrinth one goes live once the project passes review. 早期 1.0.0–1.0.3 构建包均为开发快照，已被 1.0.1 取代（旧编号里的 1.0.2 就是其中之一，和这次重新编号的 1.0.2 beta 不是同一个包）(earlier 1.0.0–1.0.3 jars, including the old-numbering 1.0.2, were dev snapshots superseded by 1.0.1; the 1.0.2 beta named here is a new artifact under the new numbering). |
+| Source size / 工程规模 | `src/main/java` **51 Java files** / **~6,700 lines** (the line count is a snapshot, it moves with every commit; the file count is the stable part) |
 | Docs / 文档 | This file (**current implementation & usage** 当前实现与用法); `CHANGELOG.md` (**release history** 更新日志); `RELEASING.md` (**how a release is cut** 发布流程); `CONTRIBUTORS.md` (**contributors & funding** 贡献与资助名单); `THIRD_PARTY_NOTICES.md` (**third-party inventory** 第三方清单). Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png` |
 
 ---
@@ -84,6 +84,16 @@ production line.
 - **内建映射 24 条**：原版 6（crafting/smelting/smoking/blasting/campfire_cooking/stonecutting）+ Create 18（cutting/pressing/milling/crushing/mixing/compacting/deploying/item_application/sandpaper_polishing/mechanical_crafting/haunting/splashing/washing/fan_washing/fan_splashing/fan_haunting/fan_smoking/fan_blasting）。可用同一 JSON 的 `categories` 覆盖或扩展，`lookup()` 还有"尾键回退"。
 - 推导只有一个入口 `recipegen/RecipeDeriver`：`derive()` 一次返回输入顺序、产物 count 和可安装条目，产线计算机与加载柜共用。方案内嵌的 JSON 只是缓存，服务端始终以 `recipeId` + 实时 `RecipeManager` 为准。
 
+## OP anvil flow (hand-authored schemes) / OP 铁砧自定义流程（手写方案）
+
+**EN** — An operator (permission level 2) can hand-author a Line Scheme in an anvil instead of computing one. A scheme that already carries a plan, with `minecraft:paper` on the right, gives a **cleared** copy: every material step and every cached recipe payload is dropped, the target output and its per-craft count stay. The cleared scheme plus one material per operation **hammers** it: that material is appended to an ordered list and the plan, together with its embedded native recipe, is rebuilt from that list. `paper` again **locks** the scheme, and a locked scheme refuses every later anvil operation. Two or more materials produce a `create:sequenced_assembly` line, the first material as the base and every later material as one Deployer step; exactly one material cannot be expressed that way, so the scheme is locked with a `single_material_fallback` flag, derivation picks the semantic single machine instead, and the game says `单原料自定义方案需等待后续版本支持` / "Single-material custom schemes are not supported yet" in the tooltip, once more in the action bar when it locks.
+
+**EN** — Input that cannot be honoured (a stacked scheme, a material before clearing, an empty right slot, a material equal to the product, anything on a locked scheme) is refused outright: nothing is consumed and the item stays as it was. In the end no experience is spent: the vanilla gate needs a positive level cost to let the result be taken at all, so one level is charged and refunded on pickup, which means the net cost is zero but the player still needs at least 1 level to take it. Each operation uses exactly one item from the right slot.
+
+**中文** — OP（权限等级 2）可以不靠计算机，直接在铁砧里手写产线方案。左槽放一份已经带方案的产线方案、右槽放 `minecraft:paper`，得到的是**清空**后的副本：材料步骤和内嵌配方缓存全部丢弃，目标产物和它的单次产出数量保留。之后每放一种原料敲一次即**锤入**：该原料追加进有序列表，方案连同内嵌的原生配方按这份列表重建。再放一次 `paper` 就把方案**锁定**，锁定后任何后续铁砧操作都会被拒绝。两种以上原料生成 `create:sequenced_assembly` 产线，第一种原料上带当基底、之后每种原料一台机械手；只有一种原料时铁砧表达不了序列装配，方案会带 `single_material_fallback` 标记锁定，推导改走单原料语义机器，并在锁定时提示`单原料自定义方案需等待后续版本支持` / "Single-material custom schemes are not supported yet"（tooltip 里常驻一条，锁定时再走一条 action bar 消息）。
+
+**中文** — 输入不合法时（方案叠放、没清空就放原料、右槽为空、原料就是产物本身、对已锁定的方案动手）一律直接拒绝：不消耗任何物品，物品原样保留。经验上净消耗为 0：原版取件门槛要求成本必须大于 0，所以这里收 1 级、取件时再退回，也就是说当时至少要有 1 级才能取走。每次操作只消耗右槽里的一个物品。
+
 ## Technical notes (from Create's public sources & observed behaviour) / 关键技术点（依据 Create 公开源码与行为分析）
 
 **EN**
@@ -145,7 +155,7 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (13 headless checks) / events / payloads
+└── qa/ event/ network/            SelfTest (15 headless checks) / events / payloads
 ```
 
 ## Security (multiplayer anti-injection, landed 2026-09-07) / 安全（多人服防注入，2026-09-07 落地）
@@ -232,8 +242,8 @@ are welcome, and any entry can be corrected or removed on request.
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 13 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **13 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 15 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **15 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
 > The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
 > 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
 
@@ -251,7 +261,9 @@ gradlew runServer -PselfTest
 [PASS] Single-material recipes map to a semantic machine
 [PASS] Scheme embeds generated recipes (round trip)
 [PASS] Plan topology (chain: base -> machine+material -> product)
-CPL SELF-TEST RESULT: 13 passed, 0 failed
+[PASS] Custom assembly builds a deployer sequence
+[PASS] Single-material custom scheme falls back to one machine
+CPL SELF-TEST RESULT: 15 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
@@ -263,21 +275,25 @@ CPL SELF-TEST RESULT: 13 passed, 0 failed
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
-> **EN** — Current snapshot: **13** checks. `Plan topology (chain: base -> machine+material -> product)`
+> **EN** — Current snapshot: **15** checks. `Plan topology (chain: base -> machine+material -> product)`
 > arrived with dev snapshot `0.0.0-dev.3`; `Tag ingredients kept in flat recipes`, `Duration only on
 > duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
 > `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
-> landed by release 1.0.1. Adding or removing a `check(…)` changes this number and nothing else, apart
-> from the snapshot mentions in this README, in `CHANGELOG.md` and in `RELEASING.md`.
-> **中文** — 当前快照 **13 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
+> landed by release 1.0.1; `Custom assembly builds a deployer sequence` and `Single-material custom
+> scheme falls back to one machine` came with the 1.0.2 beta anvil flow. Adding or removing a `check(…)`
+> changes this number and nothing else, apart from the snapshot mentions in this README, in
+> `CHANGELOG.md` and in `RELEASING.md`.
+> **中文** — 当前快照 **15 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
 > `0.0.0-dev.3` 进来的；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
-> 这六项随正式版 1.0.1 落地。增删一个 `check(…)` 只会改变这个数字，别的地方不用动，
+> 这六项随正式版 1.0.1 落地；`Custom assembly builds a deployer sequence` 与
+> `Single-material custom scheme falls back to one machine` 随 1.0.2 beta 的铁砧流程加入。
+> 增删一个 `check(…)` 只会改变这个数字，别的地方不用动，
 > 只需要改本 README、`CHANGELOG.md`、`RELEASING.md` 里标注为"快照"的那几处。
 >
 > **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" describe earlier
-> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **13** checks
+> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **15** checks
 > and no DataPacket whitelist case.
 > **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" 是更早几轮的数字；
 > `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **13 项**，也不再有任何 DataPacket 白名单用例。

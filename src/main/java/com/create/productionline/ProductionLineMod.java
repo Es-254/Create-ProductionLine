@@ -47,6 +47,7 @@ public class ProductionLineMod {
         ModBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
         ModMenuTypes.MENU_TYPES.register(modEventBus);
         ModCreativeTabs.CREATIVE_TABS.register(modEventBus);
+        com.create.productionline.registry.ModDataComponents.DATA_COMPONENTS.register(modEventBus);
 
         if (FMLEnvironment.dist.isClient()) {
             com.create.productionline.client.ClientSetup.register(modEventBus);
@@ -55,5 +56,6 @@ public class ProductionLineMod {
         modEventBus.addListener(com.create.productionline.network.ModPayloads::onRegisterPayloads);
         NeoForge.EVENT_BUS.register(com.create.productionline.event.ServerLifecycleEvents.class);
         NeoForge.EVENT_BUS.register(com.create.productionline.event.ItemTooltipHandler.class);
+        NeoForge.EVENT_BUS.register(com.create.productionline.event.AnvilSchemeCustomizer.class);
     }
 }

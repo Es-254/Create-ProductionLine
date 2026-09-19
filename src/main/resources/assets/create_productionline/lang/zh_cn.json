@@ -44,5 +44,9 @@
   "screen.create_productionline.computer.plan_size": "方案：%s 步 / 共 %s 个设施（详见物品提示）",
   "screen.create_productionline.computer.embedded": "内嵌 Create 配方：%s 条",
   "gui.create_productionline.compute": "计算",
-  "item.create_productionline.guide.title": "施工指引："
+  "item.create_productionline.guide.title": "施工指引：",
+  "item.create_productionline.line_scheme.custom.building": "自定义方案：已砸入 %s 种原料（未锁定）",
+  "item.create_productionline.line_scheme.custom.locked": "自定义方案：已锁定，共 %s 种原料",
+  "item.create_productionline.line_scheme.custom.single_pending": "单原料自定义方案需等待后续版本支持（当前按材料语义走单机台）",
+  "screen.create_productionline.anvil.single_pending": "单原料自定义方案需等待后续版本支持"
 }

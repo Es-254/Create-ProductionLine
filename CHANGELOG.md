@@ -6,12 +6,59 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 **Version policy / 版本规范** (see `RELEASING.md`):
 
-- **release**: `1.0.x`, the value of `mod_version`; `1.0.1` is the first official release.
-- **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`).
-  Only `1.0.x` is tagged `v1.0.x` and published as `release`; a dev build is a pre-release/beta.
+- **release**: `1.0.x`, the value of `mod_version`; `1.0.1` is the current stable release.
+- **beta**: also a `1.0.x` value, published as a pre-release when `mod_version_type=beta`
+  (Modrinth/CurseForge channel *Beta*, GitHub pre-release). `1.0.2` is the first such cut.
+- **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
+  always published as `beta`.
 
-The 1.0.0 / 1.0.1 / 1.0.2 / 1.0.3 jars below were development snapshots and are recorded
-here as `0.0.0-dev.1` … `0.0.0-dev.4`; every one of them is superseded by **1.0.1**.
+The jars of the old numbering (1.0.0 / 1.0.1 / 1.0.2 / 1.0.3) were development snapshots and are
+recorded as `0.0.0-dev.1` … `0.0.0-dev.4`; `1.0.1` was the first official release. Note that the
+version number `1.0.2` was reused for this beta — the old snapshot of the same number no longer
+exists anywhere, and no entry below refers to it.
+
+## [1.0.2] — 2026-09-17 (beta)
+
+**Beta pre-release.** This jar is a beta: Modrinth channel *Beta*, CurseForge release type `beta`, and a
+GitHub Release marked as a pre-release. **`1.0.1` stays the current stable release.** Nothing here
+changes how an existing scheme behaves; the new flow only runs when an operator puts a Line Scheme into
+an anvil.
+
+### Added
+
+- **The OP anvil flow: hand-author a Line Scheme in an anvil.** An operator (permission level 2) builds a
+  plan one operation at a time. A scheme that already carries a plan plus `minecraft:paper` in the right
+  slot yields a cleared copy: every material step and every cached recipe payload is dropped, the target
+  output and its per-craft count stay. The cleared scheme plus one material per operation appends that
+  material to an ordered list and rebuilds the plan from it. The scheme plus paper again locks it:
+  `locked` freezes the scheme, and every later anvil operation on it is refused. Two or more materials
+  produce a `create:sequenced_assembly` payload, the first material as the base and every later material
+  as one `Deployer` step (`create:deployer` by default).
+- **A single material locks into a fallback instead of a fake sequence.** With exactly one material the
+  anvil cannot express a sequenced assembly, so the scheme is locked with a `single_material_fallback`
+  flag and derivation uses the single-material semantic machine (wood → saw/cutting, ore and `raw_*` →
+  crushing wheel, organic → millstone, metal/gem → press, default press). The player is told
+  `单原料自定义方案需等待后续版本支持` / "Single-material custom schemes are not supported yet", in the
+  tooltip and once in the action bar at lock time.
+- The hand-authored state lives in a registered **Data Component** (`cpl:custom_assembly`), persisted and
+  network-synchronised rather than parked in ad-hoc NBT.
+- Every operation is **server-authoritative**, gated on `player.hasPermissions(2)`. Illegal input (a
+  stacked scheme, a material before clearing, an empty right slot, a material equal to the product,
+  anything on a locked scheme) cancels it, so nothing is consumed and the item is untouched.
+- The operation **costs no experience and consumes exactly one item**. The level cost is the vanilla
+  minimum of 1 (`setCost(1)`; `AnvilMenu.mayPickup` requires `cost > 0`, so 0 would make the result
+  impossible to take) and that level is refunded when the item is taken, which leaves a net cost of zero
+  while the player still needs 1 level to pick it up. The repair penalty is cleared, and the right slot
+  contributes one item (`setMaterialCost(1)`; `0` would eat the whole stack).
+- The scheme loader **re-derives the entries from the component server-side** and ignores the embedded
+  JSON, exactly like the existing `recipeId` path. `RecipeDeriver` itself is unchanged: a new adapter
+  hands it a synthetic descriptor whose category decides between the assembly rule and the
+  single-material rule.
+
+### Changed
+
+- **Headless self test grew to 15 checks** (was 13). The two new assertions cover the assembly payload
+  shape and the single-material fallback.
 
 ## [1.0.1] — 2026-09-17 (release)
 
@@ -272,4 +319,5 @@ JEI is optional, and only for viewing recipes: this mod does not call its API.
 <!-- Dev snapshots (0.0.0-dev.N) are intentionally not tagged on GitHub and have no release
      page; only release versions (v1.0.x) get a tag and a GitHub Release. -->
 
+[1.0.2]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.1

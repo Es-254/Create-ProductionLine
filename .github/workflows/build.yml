@@ -131,8 +131,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="Create: Production Line $GITHUB_REF_NAME"
+          # A dev tag is always a pre-release; a release-line tag follows the channel
+          # declared in gradle.properties, so `1.0.2` with mod_version_type=beta ships
+          # as a pre-release while `1.0.1` (release) does not.
+          CHANNEL=$(grep -E '^mod_version_type=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          case "$GITHUB_REF_NAME" in *-dev.*) CHANNEL=beta ;; esac
           PRERELEASE=""
-          case "$GITHUB_REF_NAME" in *-dev.*) PRERELEASE="--prerelease" ;; esac
+          if [ "$CHANNEL" != "release" ]; then PRERELEASE="--prerelease"; fi
+          echo "channel=$CHANNEL prerelease=${PRERELEASE:-no}"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             # --draft=false on purpose: a release can end up as a draft (e.g. left behind
             # when its tag was re-cut) and a draft is invisible to everyone but the owner.

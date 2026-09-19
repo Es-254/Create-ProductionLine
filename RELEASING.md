@@ -7,17 +7,19 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >
 > - **GitHub — live and public.** `origin` is <https://github.com/Es-254/Create-ProductionLine>, the
 >   repository is **public** (`private: false`, indexed by GitHub search), and `main` is pushed. The
->   only tag ever pushed was `v1.0.2` — a dev-era artifact that **this release retires** (see
->   *Version policy*); the first official tag is `v1.0.1`.
+>   only tag is `v1.0.1` (the `v1.0.2` of the old numbering was deleted, and the number is now reused
+>   for the anvil-flow beta, see *Version policy*). `1.0.2` is prepared but not yet tagged.
 > - **Modrinth — submitted, in review; not yet publicly visible.** Anonymous calls still return **404**
 >   for both the slug `createproductionline` and the base62 id `7dcs0ruf` (re-checked 2026-09-17), while
 >   the **author view** returns `200` with `status = "processing"` — the project is going through
 >   Modrinth's review/scan pipeline. **`1.0.1` is published** (channel *Release*, version id `u4SwiPGj`,
 >   jar `create_productionline-1.0.1.jar`, 190,504 B, `sha256:2c644ed6…`), so the release itself is done;
 >   what is missing is the public approval that makes the page and its versions visible. The old `1.0.2`
->   version is still listed: Modrinth **refuses to delete a version while the project is under review**
->   (`400 project must have no required validation nags before or while under review`), so remove it
->   right after approval — the public version list should start at the first official release.
+>   version (old numbering, 176,195 B) is still listed: Modrinth **refuses to delete a version while the
+>   project is under review** (`400 project must have no required validation nags before or while under
+>   review`), so remove it right after approval. **That entry also blocks publishing the new `1.0.2`
+>   beta under the same number** — either delete it first (post-approval) or publish the beta with a
+>   distinct version number such as `1.0.2-beta`.
 >   Sync the project body in the same pass: `docs/platform-listing.md` no longer matches the live
 >   text (it described the old computer slots, i.e. paper / clipboard in the middle and right slots,
 >   where slot 2 now takes a blank Line Scheme and slot 3 optional paper).
@@ -38,7 +40,8 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 | Line / 版本线 | Version | Build command | Published as |
 | --- | --- | --- | --- |
-| **release** | `1.0.x` — the value of `mod_version` in `gradle.properties` | `.\gradlew.bat build` | `release` (Modrinth/CurseForge channel *Release*, GitHub Release, **not** a pre-release) |
+| **release** | `1.0.x` — the value of `mod_version` in `gradle.properties`, with `mod_version_type=release` | `.\gradlew.bat build` | `release` (Modrinth/CurseForge channel *Release*, GitHub Release, **not** a pre-release) |
+| **beta** | the same `mod_version`, with `mod_version_type=beta` | `.\gradlew.bat build` | `beta` (channel *Beta*, GitHub **pre-release**) — how `1.0.2` ships |
 | **dev (beta)** | `0.0.0-dev.N` — N comes from `dev-build.txt` | `.\gradlew.bat build -PdevBuild` | `beta` (channel *Beta*, GitHub **pre-release**) |
 
 Rules / 规则:
@@ -51,12 +54,18 @@ Rules / 规则:
 3. A dev version is a beta by definition: the publish tasks default to `beta` for it and **refuse**
    `release` (`-PreleaseType=release` on a dev version fails on purpose). 开发版默认 beta；
    只有 `1.0.x` 能以 `release` 类型发布。
-4. Tags: `v1.0.x` for a release, `v0.0.0-dev.N` for a dev build. A pushed `v*` tag makes
-   `build.yml` build that exact version and create/update the GitHub Release (pre-release when the
-   tag contains `-dev.`), so tagging is normally all you do on the GitHub side.
-5. History: the `1.0.0` / `1.0.1` / `1.0.2` / `1.0.3` jars were development snapshots and are
-   recorded in `CHANGELOG.md` as `0.0.0-dev.1` … `0.0.0-dev.4`. **`1.0.1` is the first official
-   release**; the old public `v1.0.2` tag/Release is retired.
+4. Tags: `v1.0.x` for a release-line cut (release or beta, decided by `mod_version_type`), and
+   `v0.0.0-dev.N` for a dev build. A pushed `v*` tag makes `build.yml` build that exact version and
+   create/update the GitHub Release, marked as a pre-release when the channel is not `release`
+   (a `-dev.` tag, or `mod_version_type=beta` at the tagged commit), so tagging is normally all you
+   do on the GitHub side.
+5. History: the `1.0.0` / `1.0.1` / `1.0.2` / `1.0.3` jars of the old numbering were development
+   snapshots and are recorded in `CHANGELOG.md` as `0.0.0-dev.1` … `0.0.0-dev.4`. `1.0.1` was the
+   first official release and is still the current stable one. The number `1.0.2` was **reused** for
+   the anvil-flow beta: the old `v1.0.2` tag and its Release were deleted before that, so the new
+   `v1.0.2` tag is a fresh object that points at the beta commit. Modrinth still carries a version
+   entry named `1.0.2` from the old numbering — see the Modrinth note in the current-state block
+   above before publishing this beta there.
 
 ---
 
@@ -334,7 +343,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (13 checks, then the server halts)
+# Headless QA self-test on a real server (15 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -347,7 +356,7 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:110`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **13 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **15 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
@@ -472,7 +481,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      13 passed; never hard-code the number)
+      15 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x` or `v0.0.0-dev.N`); GitHub Release created with the jar attached

@@ -48,6 +48,23 @@ public class LineSchemeItem extends Item {
         for (String line : com.create.productionline.util.SchemeTopology.lines(scheme)) {
             tooltip.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
         }
+        // Hand-built (anvil) state: how many materials, locked or not, and the
+        // single-material caveat, which is the one case an assembly line cannot express.
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
+        if (custom != null) {
+            if (custom.locked()) {
+                tooltip.add(Component.translatable("item.create_productionline.line_scheme.custom.locked",
+                        custom.materials().size()).withStyle(ChatFormatting.LIGHT_PURPLE));
+            } else {
+                tooltip.add(Component.translatable("item.create_productionline.line_scheme.custom.building",
+                        custom.materials().size()).withStyle(ChatFormatting.YELLOW));
+            }
+            if (custom.locked() && custom.singleMaterialFallback()) {
+                tooltip.add(Component.translatable("item.create_productionline.line_scheme.custom.single_pending")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
+        }
         if (!scheme.getCreateRecipes().isEmpty()) {
             tooltip.add(Component.translatable("item.create_productionline.line_scheme.recipes",
                     scheme.getCreateRecipes().size()).withStyle(ChatFormatting.DARK_AQUA));

@@ -30,7 +30,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 13 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 15 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -66,6 +66,12 @@ import net.minecraft.world.level.storage.LevelResource;
  *   <li>Plan topology — the Steps are a mirror of the derived recipe JSON: a
  *       sequenced payload becomes feed + one deployer per extra material, a flat
  *       payload becomes feed + one machine station.</li>
+ *   <li>Custom assembly (the OP anvil flow) builds one
+ *       {@code create:sequenced_assembly}: the first material as the base, one
+ *       {@code create:deploying} step per later material, and a plan that mirrors
+ *       it with one Deployer per extra material;</li>
+ *   <li>a single-material custom scheme falls back to the semantic single machine
+ *       instead of a sequence, which the anvil cannot express.</li>
  * </ol>
  */
 public final class SelfTest {
@@ -100,6 +106,9 @@ public final class SelfTest {
             check("Single-material recipes map to a semantic machine", () -> singleMaterialSemanticMachine(level));
             check("Scheme embeds generated recipes (round trip)", () -> schemeEmbedsRecipes());
             check("Plan topology (chain: base -> machine+material -> product)", () -> planTopology());
+            check("Custom assembly builds a deployer sequence", () -> customAssemblySequence(level));
+            check("Single-material custom scheme falls back to one machine",
+                    () -> customSingleMaterialFallback(level));
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -298,6 +307,88 @@ public final class SelfTest {
      * machine, i.e. planks are cut, so the derived payload is a
      * {@code create:cutting} recipe (mechanical saw) — not a fabricated payload.
      */
+    /**
+     * A locked custom scheme with two or more materials must derive exactly one
+     * {@code create:sequenced_assembly}: the first material is the base ingredient,
+     * every later material is one {@code create:deploying} step, and the plan shows
+     * one Deployer per extra material (the default machine for custom assemblies).
+     */
+    private static boolean customAssemblySequence(ServerLevel level) {
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of("minecraft:iron_block", "minecraft:gold_ingot", "minecraft:diamond"),
+                        true, false, "minecraft:iron_ingot", 1);
+        var derived = com.create.productionline.line.scheme.CustomAssemblyPlanner.derive(level, custom);
+        if (!derived.hasEntries() || derived.entries().size() != 1) {
+            System.out.println("   custom assembly derived " + derived.entries().size() + " entries, expected 1");
+            return false;
+        }
+        String json = derived.entries().get(0).getJson();
+        if (json == null || !json.contains("create:sequenced_assembly")) {
+            System.out.println("   custom assembly did not produce a sequenced assembly: " + json);
+            return false;
+        }
+        int deploySteps = json.split("create:deploying", -1).length - 1;
+        if (deploySteps != custom.materials().size() - 1) {
+            System.out.println("   expected " + (custom.materials().size() - 1)
+                    + " deploy steps, payload has " + deploySteps);
+            return false;
+        }
+        int ingredientAt = json.indexOf("\"ingredient\"");
+        int transitionalAt = json.indexOf("\"transitional_item\"");
+        if (ingredientAt < 0 || transitionalAt < ingredientAt
+                || !json.substring(ingredientAt, transitionalAt).contains(custom.materials().get(0))) {
+            System.out.println("   the first material is not the base ingredient: " + json);
+            return false;
+        }
+        LineScheme plan = com.create.productionline.line.scheme.CustomAssemblyPlanner.rebuild(custom);
+        long deployers = plan.getSteps().stream()
+                .filter(step -> com.create.productionline.line.analyzer.MachineSelector.DEPLOYER
+                        .equals(step.getFacilityType()))
+                .count();
+        if (deployers != custom.materials().size() - 1) {
+            System.out.println("   plan shows " + deployers + " deployers, expected "
+                    + (custom.materials().size() - 1));
+            return false;
+        }
+        System.out.println("   " + custom.materials().size() + " materials -> 1 sequence entry, "
+                + deploySteps + " deploy steps, plan mirrors it");
+        return true;
+    }
+
+    /**
+     * The anvil cannot express a single-material sequence ({@code sequenceEntry}
+     * returns null below two materials), so a scheme locked with one material
+     * carries the fallback flag and must derive the semantic single machine instead
+     * of a {@code create:sequenced_assembly}.
+     */
+    private static boolean customSingleMaterialFallback(ServerLevel level) {
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                new com.create.productionline.line.scheme.CustomAssembly(
+                        List.of("minecraft:iron_ingot"), true, true, "minecraft:iron_nugget", 1);
+        if (!custom.singleMaterialFallback()) {
+            System.out.println("   the fallback flag was not recorded on the component");
+            return false;
+        }
+        var derived = com.create.productionline.line.scheme.CustomAssemblyPlanner.derive(level, custom);
+        if (!derived.hasEntries()) {
+            System.out.println("   single-material custom scheme derived nothing");
+            return false;
+        }
+        String json = derived.entries().get(0).getJson();
+        if (json == null || json.contains("create:sequenced_assembly")) {
+            System.out.println("   single-material scheme must not be a sequence: " + json);
+            return false;
+        }
+        if (!json.contains("create:pressing")) {
+            System.out.println("   iron is expected to press (create:pressing): " + json);
+            return false;
+        }
+        System.out.println("   single material -> " + derived.entries().get(0).getFileName()
+                + " (semantic machine, no sequence)");
+        return true;
+    }
+
     private static boolean singleMaterialSemanticMachine(ServerLevel level) {
         RecipeDescriptor descriptor = new RecipeDescriptor("minecraft:crafting/stick",
                 "minecraft:crafting", List.of("#minecraft:planks"), List.of("minecraft:stick"));

@@ -282,8 +282,13 @@ if (project.hasProperty('publishMods')) {
 
     def changelogFile = file('CHANGELOG.md')
     def releaseNotes = changelogFile.exists() ? changelogFile.getText('UTF-8') : "Release ${project.version}"
-    // A dev build is a beta by definition; only a release version may go out as `release`.
-    def releaseType = project.findProperty('releaseType') ?: (devBuild ? 'beta' : 'release')
+    // A dev build is always a beta; a release-line version publishes as the channel
+    // declared by mod_version_type in gradle.properties (release | beta | alpha).
+    def releaseType = project.findProperty('releaseType')
+            ?: (devBuild ? 'beta' : (project.findProperty('mod_version_type') ?: 'release'))
+    if (releaseType != 'release' && releaseType != 'beta' && releaseType != 'alpha') {
+        throw new GradleException("mod_version_type must be release, beta or alpha (got '${releaseType}').")
+    }
     if (version.toString().contains('-dev.') && releaseType == 'release') {
         throw new GradleException("Dev version ${version} cannot be published as 'release' — use beta/alpha, or bump mod_version.")
     }

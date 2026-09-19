@@ -44,5 +44,9 @@
   "screen.create_productionline.computer.plan_size": "Plan: %s steps / %s facilities (see item tooltip)",
   "screen.create_productionline.computer.embedded": "Embedded Create recipes: %s",
   "gui.create_productionline.compute": "Compute",
-  "item.create_productionline.guide.title": "Build guide:"
+  "item.create_productionline.guide.title": "Build guide:",
+  "item.create_productionline.line_scheme.custom.building": "Custom scheme: %s material(s) hammered in, not locked yet",
+  "item.create_productionline.line_scheme.custom.locked": "Custom scheme: locked, %s material(s)",
+  "item.create_productionline.line_scheme.custom.single_pending": "Single-material custom schemes are not supported yet (a semantic single machine is used for now)",
+  "screen.create_productionline.anvil.single_pending": "Single-material custom schemes are not supported yet"
 }

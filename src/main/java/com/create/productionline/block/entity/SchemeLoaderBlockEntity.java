@@ -191,6 +191,21 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
                 continue;
             }
             LineScheme scheme = LineSchemeSerializer.fromStack(stack);
+            // A hand-built (anvil) scheme has no live recipeId: its authority is the
+            // server-written component, and the entries are re-derived from that list
+            // by the same deriver — the embedded JSON on the item is still ignored.
+            com.create.productionline.line.scheme.CustomAssembly custom =
+                    stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
+            if (custom != null && custom.locked()) {
+                var derivedCustom = com.create.productionline.line.scheme.CustomAssemblyPlanner
+                        .derive(serverLevel, custom);
+                for (LineScheme.CreateRecipeEntry entry : derivedCustom.entries()) {
+                    if (entry.isValid()) {
+                        map.put(entry.getFileName(), entry.getJson());
+                    }
+                }
+                continue;
+            }
             String recipeId = scheme.getRecipeId();
             if (recipeId == null || recipeId.isBlank()) {
                 continue; // nothing authoritative to derive from

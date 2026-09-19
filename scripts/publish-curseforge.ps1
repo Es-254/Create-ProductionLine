@@ -93,7 +93,14 @@ if (-not $jarVersion -and $Dev) {
 }
 if (-not $jarVersion) { $jarVersion = Read-Property $propsFile 'mod_version' }
 if (-not $jarVersion) { throw "mod_version is empty in $propsFile" }
-if (-not $ReleaseType) { $ReleaseType = if ($jarVersion -like '*-dev.*') { 'beta' } else { 'release' } }
+# Channel: a dev version is always beta; a release-line version uses mod_version_type
+# from gradle.properties (so `1.0.2` can ship as a beta), defaulting to release.
+if (-not $ReleaseType) {
+    $declaredType = Read-Property $propsFile 'mod_version_type'
+    $ReleaseType = if ($jarVersion -like '*-dev.*') { 'beta' }
+                   elseif ($declaredType) { $declaredType }
+                   else { 'release' }
+}
 if ($ReleaseType -notin @('release', 'beta', 'alpha')) {
     throw "-ReleaseType must be release, beta or alpha (got '$ReleaseType')."
 }
