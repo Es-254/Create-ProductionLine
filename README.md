@@ -193,6 +193,12 @@ com/create/productionline/
 
 ## Known limits / 已知边界
 
+### Trust model & beta limits / 信任模型与 beta 已知边界
+
+**EN** — A hand-authored scheme is **as powerful as a datapack**: the operator chooses the materials and the per-pass output, so an anvil-built line can declare a yield no real recipe has. That is intended (it is an authoring tool), and it is exactly why every anvil operation is server-authoritative and gated on permission level 2 — hand out OP with that in mind. Also true for this beta: the target output is read from the **target slot's stack size** (there is no numeric widget), there is **no unlock** (a locked scheme is frozen, build a new one), each operation consumes **one** item from the right slot (one material per strike; a stack is not hammered in at once), the anvil only accepts **concrete items** (so a `#tag` cannot be written that way), and a line that has to repeat needs **your own return belt**, because Create's sequenced assembly cannot loop by itself.
+
+**中文** — 手写方案**与数据包同级强大**：OP 自己决定原料与单趟产出，因此铁砧产线可以声明一个真实配方并不存在的产量。这是有意的（它就是给作者用的工具），也正是每一次铁砧操作都必须服务端权威、且卡在权限等级 2 的原因——发 OP 时请按这个信任模型考虑。这个 beta 还要记住几点：目标产量取自**目标槽的堆叠数量**（没有数字输入框）；**没有解锁**（锁定即冻结，要改就重做一份）；每次操作只消耗右槽**一个**物品（一次一击一种原料，整叠不会一次砸入）；铁砧只认**具体物品**（`#tag` 写不进去）；需要多趟的产线要**你自己搭回环传送带**——Create 的序列装配自己不会循环。
+
 **EN**
 
 - Sequence lines consume 1 unit of each material per step. That is cheaper than the source grid when a material repeats, and the line still produces output.

@@ -17,10 +17,10 @@ recorded as `0.0.0-dev.1` … `0.0.0-dev.4`; `1.0.1` was the first official rele
 version number `1.0.2` was reused for this beta — the old snapshot of the same number no longer
 exists anywhere, and no entry below refers to it.
 
-## Unreleased
+## Promotion pass — 1.0.2 (2026-09-17)
 
-Work landed after the 1.0.2 beta was published; `main` builds a jar that reports 1.0.2 but is
-**not** the released 1.0.2 asset (the Release asset stays the artifact of record until the next cut).
+The work that turned the published beta into the release: it is in the jar attached to the `v1.0.2`
+Release, and the earlier beta asset of the same number is superseded.
 
 ### Changed
 
@@ -35,7 +35,12 @@ Work landed after the 1.0.2 beta was published; `main` builds a jar that reports
   pass times the repeat count) drive a new computer-panel line, and the loop hint says that its repeat count
   is measured from one base unit.
 - **Self test grew to 18 checks** (was 16): the anvil state table and the material budget.
-## [1.0.2] — 2026-09-17 (beta)
+## [1.0.2] — 2026-09-17 (release)
+
+**Promoted from beta** on 2026-09-17: the same version number, now published as a **release** on all
+three platforms (GitHub Release, CurseForge release type `release`, Modrinth channel *Release*). The jar
+is the one built after the promotion pass recorded under *Unreleased* — state machine extraction, material
+budget line, 18 checks, documented trust model — so it supersedes the earlier 1.0.2 beta asset.
 
 **Beta pre-release.** This jar is a beta: Modrinth channel *Beta*, CurseForge release type `beta`, and a
 GitHub Release marked as a pre-release. **`1.0.1` stays the current stable release.** Existing schemes

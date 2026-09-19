@@ -53,6 +53,11 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 | **beta** | the same `mod_version`, with `mod_version_type=beta` | `.\gradlew.bat build` | `beta` (channel *Beta*, GitHub **pre-release**) — how `1.0.2` ships |
 | **dev (beta)** | `0.0.0-dev.N` — N comes from `dev-build.txt` | `.\gradlew.bat build -PdevBuild` | `beta` (channel *Beta*, GitHub **pre-release**) |
 
+> **OP trust model.** An anvil-authored scheme is as powerful as a datapack: the operator picks the
+> materials *and* the per-pass output (`count = outputCount`), so a hand-built line can declare a yield
+> no real recipe has. That is the point of the tool, and it is why the flow is server-authoritative and
+> gated on permission level 2 — keep that in mind when handing out OP.
+
 Rules / 规则:
 
 1. `mod_version` holds the **release** version only; never park a dev number there.
