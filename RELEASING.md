@@ -496,8 +496,10 @@ generated notes after it. To do it by hand instead, create a Release for the tag
 > `**Full Changelog**: …` line the workflow appends. The asset and the pre-release flag are not touched
 > by that call.
 
-> Tagging rules: `v1.0.x` = release (not a pre-release); `vx.y.z-snapshot.0.0.N` = snapshot/alpha
-> (pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).
+> Tagging rules: `v1.0.x` = a release-line cut — a release, or a pre-release when `mod_version_type` is
+> `beta`/`alpha` at the tagged commit (that is how the `1.0.2` beta carried `v1.0.2` before it was
+> promoted); `vx.y.z-snapshot.0.0.N` = snapshot/alpha (pre-release); `v0.0.0-dev.N` = dev/beta
+> (pre-release).
 > Dev snapshots `0.0.0-dev.1` … `0.0.0-dev.4` are **not** tagged retroactively — they are documented
 > in `CHANGELOG.md` only. The retired `v1.0.2` tag/Release belonged to the old numbering.
 >
