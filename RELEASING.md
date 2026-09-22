@@ -482,7 +482,7 @@ Pushing the tag is normally the whole GitHub step: `build.yml` builds **that** v
 jar name matches the tag, and
 creates/updates the Release with the jar attached — a pre-release whenever the channel is not `release`
 (a `-dev.` or `-snapshot.` tag, or `mod_version_type=beta`/`alpha`).
-The Release body is the matching `CHANGELOG.md` section (release or dev heading), with GitHub's
+The Release body is the matching `CHANGELOG.md` section (release, snapshot or dev heading), with GitHub's
 generated notes after it. To do it by hand instead, create a Release for the tag and attach
 `build/libs/create_productionline-<version>.jar`.
 
@@ -496,7 +496,8 @@ generated notes after it. To do it by hand instead, create a Release for the tag
 > `**Full Changelog**: …` line the workflow appends. The asset and the pre-release flag are not touched
 > by that call.
 
-> Tagging rules: `v1.0.x` = release (not a pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).
+> Tagging rules: `v1.0.x` = release (not a pre-release); `vx.y.z-snapshot.0.0.N` = snapshot/alpha
+> (pre-release); `v0.0.0-dev.N` = dev/beta (pre-release).
 > Dev snapshots `0.0.0-dev.1` … `0.0.0-dev.4` are **not** tagged retroactively — they are documented
 > in `CHANGELOG.md` only. The retired `v1.0.2` tag/Release belonged to the old numbering.
 >
