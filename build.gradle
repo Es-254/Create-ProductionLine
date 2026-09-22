@@ -21,8 +21,11 @@ tasks.named('wrapper', Wrapper).configure {
 //
 //   gradlew build               -> 1.0.1          (release, type `release`)
 //   gradlew build -PdevBuild    -> 0.0.0-dev.N    (dev, type `beta`)
+//   mod_version=1.0.3-snapshot.0.0.1              (snapshot of the next line, type `alpha`)
 //
-// `mod_version` in gradle.properties is the RELEASE version. Dev builds take N
+// `mod_version` carries the version this checkout builds: a finished release
+// (`x.y.z`) or a snapshot of one (`x.y.z-snapshot.0.0.N`, the counter is part of
+// the string and only moves forward). Dev builds take N
 // from dev-build.txt and advance that file after the jar is written, so every dev
 // artifact gets a distinct number; commit the bumped file with the dev build.
 // CI reproduces a tagged dev build with -PdevBuildNumber=<N> (the file is left
@@ -49,9 +52,12 @@ if (devBuild && devCounter == null) {
     }
 }
 version = devBuild ? "0.0.0-dev.${devCounter}" : mod_version
-// A release is any x.y.z; a dev build is always 0.0.0-dev.N (never a dev suffix on a release).
-if (!(version ==~ /\d+\.\d+\.\d+/) && !(version ==~ /0\.0\.0-dev\.\d+/)) {
-    throw new GradleException("Unsupported version '${version}': releases are x.y.z, dev builds 0.0.0-dev.N.")
+// A release is any x.y.z, a snapshot of one is x.y.z-snapshot.0.0.N, a dev build is
+// always 0.0.0-dev.N (a snapshot or dev suffix never appears on a finished release).
+if (!(version ==~ /\d+\.\d+\.\d+/)
+        && !(version ==~ /\d+\.\d+\.\d+-snapshot\.0\.0\.\d+/)
+        && !(version ==~ /0\.0\.0-dev\.\d+/)) {
+    throw new GradleException("Unsupported version '${version}': releases are x.y.z, snapshots x.y.z-snapshot.0.0.N, dev builds 0.0.0-dev.N.")
 }
 group = mod_group_id
 
@@ -291,6 +297,9 @@ if (project.hasProperty('publishMods')) {
     }
     if (version.toString().contains('-dev.') && releaseType == 'release') {
         throw new GradleException("Dev version ${version} cannot be published as 'release' — use beta/alpha, or bump mod_version.")
+    }
+    if (version.toString().contains('-snapshot.') && releaseType == 'release') {
+        throw new GradleException("Snapshot ${version} cannot be published as 'release' — snapshots ship as alpha (or beta), and the finished line drops the suffix.")
     }
     def supportedMc = ['1.21.1']
     def supportedLoaders = ['neoforge']

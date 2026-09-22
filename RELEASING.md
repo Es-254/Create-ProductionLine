@@ -77,6 +77,7 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 | --- | --- | --- | --- |
 | **release** | `1.0.x` — the value of `mod_version` in `gradle.properties`, with `mod_version_type=release` | `.\gradlew.bat build` | `release` (Modrinth/CurseForge channel *Release*, GitHub Release, **not** a pre-release) |
 | **beta** | the same `mod_version`, with `mod_version_type=beta` | `.\gradlew.bat build` | `beta` (channel *Beta*, GitHub **pre-release**) — how `1.0.2` shipped before it was promoted; use this line for the next beta cut |
+| **snapshot (alpha)** | `x.y.z-snapshot.0.0.N` — the value of `mod_version`, with `mod_version_type=alpha` | `.\gradlew.bat build` | `alpha` (channel *Alpha*, GitHub **pre-release**) — work in progress towards `x.y.z`, e.g. `1.0.3-snapshot.0.0.1` |
 | **dev (beta)** | `0.0.0-dev.N` — N comes from `dev-build.txt` | `.\gradlew.bat build -PdevBuild` | `beta` (channel *Beta*, GitHub **pre-release**) |
 
 > **OP trust model.** An anvil-authored scheme is as powerful as a datapack: the operator picks the
@@ -86,19 +87,24 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 Rules / 规则:
 
-1. `mod_version` holds the **release** version only; never park a dev number there.
-2. A dev build reads N from `dev-build.txt` and **advances that file after the jar is written**
+1. `mod_version` holds the version this checkout builds: a finished release (`x.y.z`) or, while a line
+   is being prepared, a snapshot of it (`x.y.z-snapshot.0.0.N`). A **dev** number never goes there.
+2. A snapshot is a pre-release and can never ship as `release`: `build.gradle` and both publish scripts
+   **refuse** `-PreleaseType=release` / `-ReleaseType release` for a `-snapshot.` version. The counter
+   is part of the string and only moves forward (`…snapshot.0.0.2` next); finishing the line means
+   dropping the suffix (`mod_version=1.0.3`) and setting `mod_version_type=release`.
+3. A dev build reads N from `dev-build.txt` and **advances that file after the jar is written**
    (`0.0.0-dev.5` → file becomes `6`); commit the bumped file together with the dev build so the
    numbering stays traceable. `-PdevBuildNumber=<N>` reproduces N without touching the file — that is
    how CI rebuilds a `v0.0.0-dev.N` tag.
-3. A dev version is a beta by definition: the publish tasks default to `beta` for it and **refuse**
+4. A dev version is a beta by definition: the publish tasks default to `beta` for it and **refuse**
    `release` (`-PreleaseType=release` on a dev version fails on purpose). 开发版默认 beta；
    只有 `1.0.x` 能以 `release` 类型发布。
-4. Tags: `v1.0.x` for a release-line cut (release or beta, decided by `mod_version_type`), and
-   `v0.0.0-dev.N` for a dev build. A pushed `v*` tag makes `build.yml` build that exact version and
-   create/update the GitHub Release, marked as a pre-release when the channel is not `release`
-   (a `-dev.` tag, or `mod_version_type=beta` at the tagged commit), so tagging is normally all you
-   do on the GitHub side.
+5. Tags: `v1.0.x` for a release-line cut (release or beta, decided by `mod_version_type`),
+   `vx.y.z-snapshot.0.0.N` for a snapshot, and `v0.0.0-dev.N` for a dev build. A pushed `v*` tag makes
+   `build.yml` build that exact version and create/update the GitHub Release, marked as a pre-release
+   when the channel is not `release` (a `-dev.`/`-snapshot.` tag, or `mod_version_type=beta`/`alpha` at
+   the tagged commit), so tagging is normally all you do on the GitHub side.
 5. History: the `1.0.0` / `1.0.1` / `1.0.2` / `1.0.3` jars of the old numbering were development
    snapshots and are recorded in `CHANGELOG.md` as `0.0.0-dev.1` … `0.0.0-dev.4`. `1.0.1` was the
    first official release. The number `1.0.2` was **reused** for the anvil-flow cut: the old `v1.0.2` tag

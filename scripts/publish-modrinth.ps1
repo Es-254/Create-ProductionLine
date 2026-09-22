@@ -114,6 +114,9 @@ if ($ReleaseType -notin @('release', 'beta', 'alpha')) {
 if ($version -like '*-dev.*' -and $ReleaseType -eq 'release') {
     throw "Dev version $version cannot be published as 'release' - use the beta channel."
 }
+if ($version -like '*-snapshot.*' -and $ReleaseType -eq 'release') {
+    throw "Snapshot $version cannot be published as 'release' - use the alpha channel (or beta)."
+}
 if (-not $Name) { $Name = "v$version" }
 
 $jar = Join-Path $ProjectRoot "build/libs/create_productionline-$version.jar"

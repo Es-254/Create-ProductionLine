@@ -19,7 +19,11 @@ recorded as `0.0.0-dev.1` … `0.0.0-dev.4`; `1.0.1` was the first official rele
 version number `1.0.2` was reused for this beta — the old snapshot of the same number no longer
 exists anywhere, and no entry below refers to it.
 
-## Unreleased
+## 1.0.3-snapshot.0.0.1 — 2026-09-20 (alpha)
+
+Work in progress towards `1.0.3`, published as a snapshot: version
+`1.0.3-snapshot.0.0.1`, channel *Alpha* on Modrinth and CurseForge, and a GitHub pre-release. The
+`1.0.3` line is not finished — treat this jar as the first look at the recipe-refresh rework.
 
 ### Added
 
