@@ -59,7 +59,9 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   review`): delete the superseded beta `IJy568s8` and the old-numbering `iuR73mao`, both of which
 >   duplicate the version number `1.0.2`. The project **body is now in sync**: re-pushed on 2026-09-22
 >   with `scripts/sync-modrinth-body.ps1` (`PATCH /v2/project/{id}` → `204`), after which the live text is
->   byte-identical to `docs/platform-listing.md` (2,739 chars) — it had still described the old computer
+>   byte-identical to `docs/platform-listing.md` (2,922 chars; the later wording fixes — the redstone
+>   signal, overridable mappings and the `cannot_map` quote — needed one more push) — it had still
+>   described the old computer
 >   slots (paper / clipboard in the middle and right slots, where slot 2 now takes a blank Line Scheme and
 >   slot 3 optional paper) and the pre-rework "reloads automatically" loader step. A version's *changelog*
 >   can normally be edited while under review too (`NhXpGHHA`'s was re-synced on 2026-09-20,
