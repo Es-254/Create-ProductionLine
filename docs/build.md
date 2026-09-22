@@ -16,6 +16,8 @@ gradlew build -x neoFormJoined1.21.1-20240808.144430DownloadAssets   # skip asse
 
 **版本规范** — `gradlew build` 出**正式版**（取 `mod_version`，形如 `1.0.x`）；若 `mod_version=1.0.3-snapshot.0.0.1` 且 `mod_version_type=alpha`，出的则是下一条版本线的**快照**（属预发布——构建与两个发布脚本都拒绝把 `-snapshot.` 版本以 `release` 类型发布）；`gradlew build -PdevBuild` 出**开发版 beta**（`0.0.0-dev.N`，N 取自 `dev-build.txt`，出包后自动 +1）。只有正式版能以 `release` 类型发布；开发版默认就是 `beta`，只有强行 `-PreleaseType=release` 才会被发布任务拒绝。`gradlew build -PdevBuildNumber=5` 用来复现指定编号的开发包、不动计数器，CI 对 `v0.0.0-dev.N` tag 就是这么构建的。
 
+Release flow (tag, CI, the three-platform upload) is in [`../RELEASING.md`](../RELEASING.md); per-version changes are in [`../CHANGELOG.md`](../CHANGELOG.md).
+
 发布流程（tag、CI、三平台上传）见 [`../RELEASING.md`](../RELEASING.md)；逐版本变更见 [`../CHANGELOG.md`](../CHANGELOG.md)。
 
 ## Source layout (highlights) / 源码布局（要点）

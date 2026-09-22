@@ -39,16 +39,18 @@ plus `loaderVersion="[1,)"`, `license="MIT"` and `displayTest="IGNORE_SERVER_VER
 
 ## 开发期依赖版本 / Development-time dependency versions
 
+Source: the `gradle.properties` keys (the file's section heading is "Third-party dependency versions (verified against official sources, 2026-04)").
+
 源码取自 `gradle.properties`（该文件的分节标题为 "Third-party dependency versions (verified against official sources, 2026-04)"）：
 
 | Key | Version / 版本 | Note / 说明 |
 | --- | --- | --- |
-| `minecraft_version` | `1.21.1` | The Minecraft version must agree with the Neo version to get a valid artifact / 必须与 Neo 版本一致才能得到有效产物 |
-| `neo_version` | `21.1.249` | 运行时要求 `>=` 此值，见上方依赖范围 |
-| `create_version` | `6.0.10-280` | Create 6.0.10 release -> corresponding maven build 6.0.10-280 |
-| `ponder_version` | `1.0.82` | Create Ponder |
-| `flywheel_version` | `1.0.6` | Flywheel |
-| `jei_version` | `19.52.0.423` | JEI 19.x for 1.21.1 |
+| `minecraft_version` | `1.21.1` | Must agree with the Neo version to get a valid artifact ／ 必须与 Neo 版本一致才能得到有效产物 |
+| `neo_version` | `21.1.249` | Runtime requires `>=` this value, see the ranges above ／ 运行时要求 `>=` 此值，见上方依赖范围 |
+| `create_version` | `6.0.10-280` | Create 6.0.10 release → the matching maven build `6.0.10-280` ／ Create 6.0.10 正式版对应的 maven 构建号 |
+| `ponder_version` | `1.0.82` | Create Ponder ／ Create Ponder 版本 |
+| `flywheel_version` | `1.0.6` | Flywheel ／ Flywheel 版本 |
+| `jei_version` | `19.52.0.423` | JEI 19.x for 1.21.1 ／ 1.21.1 用的 JEI 19.x |
 
 ## 构建网络与代理 / Build network & proxy
 

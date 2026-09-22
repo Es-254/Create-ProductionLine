@@ -24,18 +24,18 @@ world is re-read. The target item can then be produced by a real Create producti
 
 | File / 文件 | Topic / 主题 | What it covers / 内容 |
 | --- | --- | --- |
-| [`docs/usage.md`](docs/usage.md) | 使用 / Usage | 当前实现与用法 / current implementation & usage：模块详解、快速使用、数据包与刷新（含 `/cpl reload recipes`）、OP 铁砧自定义流程、目标产量与循环次数 |
-| [`docs/conversion.md`](docs/conversion.md) | 配方转换 / Conversion | 配方转换规则 + 关键技术点（依据 Create 公开源码与行为分析） |
-| [`docs/dependencies.md`](docs/dependencies.md) | 依赖 / Dependencies | 运行前置、依赖声明方式、开发期依赖版本、构建网络与代理 |
-| [`docs/compatibility.md`](docs/compatibility.md) | 兼容性与边界 / Compatibility & limits | loader 声明友好性、已知边界、信任模型与 beta 边界 |
-| [`docs/security.md`](docs/security.md) | 安全 / Security | 多人服防注入（2026-09-07 落地，含 `file:line` 依据） |
-| [`docs/build.md`](docs/build.md) | 构建与安装 / Build & install | 构建、安装、版本规范、源码布局 |
-| [`docs/qa.md`](docs/qa.md) | 无头自检 / QA | 自检运行方式、20 项快照、文档—代码一致性核对基线 |
-| [`docs/platform-listing.md`](docs/platform-listing.md) | 平台文案 / Platform listing | 上传到 Modrinth / CurseForge 的项目描述文案 |
-| [`CHANGELOG.md`](CHANGELOG.md) | 更新日志 / Release history | 每个版本的变更记录 |
-| [`RELEASING.md`](RELEASING.md) | 发布流程 / Releasing | 发布流程 / how a release is cut：版本规范、tag 与 CI、三平台发布路径 |
-| [`CONTRIBUTORS.md`](CONTRIBUTORS.md) | 贡献与资助名单 / Contributors | 资金支持与技术支持完整名单 |
-| [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | 第三方清单 / Third-party inventory | 第三方代码与许可清单 |
+| [`docs/usage.md`](docs/usage.md) | 使用 / Usage | Current implementation & usage: modules, quick start, data pack & refresh (`/cpl reload recipes`), the OP anvil flow, target output & repeat count ／ 当前实现与用法：模块详解、快速使用、数据包与刷新（含 `/cpl reload recipes`）、OP 铁砧自定义流程、目标产量与循环次数 |
+| [`docs/conversion.md`](docs/conversion.md) | 配方转换 / Conversion | Recipe conversion rules plus the technical notes taken from Create's public sources ／ 配方转换规则 + 关键技术点（依据 Create 公开源码与行为分析） |
+| [`docs/dependencies.md`](docs/dependencies.md) | 依赖 / Dependencies | Runtime prerequisites, how the dependencies are declared, development-time versions, build network & proxy ／ 运行前置、依赖声明方式、开发期依赖版本、构建网络与代理 |
+| [`docs/compatibility.md`](docs/compatibility.md) | 兼容性与边界 / Compatibility & limits | Loader-declaration friendliness, known limits, the trust model and the beta boundaries ／ loader 声明友好性、已知边界、信任模型与 beta 边界 |
+| [`docs/security.md`](docs/security.md) | 安全 / Security | The multiplayer anti-injection work (landed 2026-09-07), with `file:line` evidence ／ 多人服防注入（2026-09-07 落地，含 `file:line` 依据） |
+| [`docs/build.md`](docs/build.md) | 构建与安装 / Build & install | Building, installing, the version policy and the source layout ／ 构建、安装、版本规范、源码布局 |
+| [`docs/qa.md`](docs/qa.md) | 无头自检 / QA | How to run the self test, the 20-check snapshot and the doc↔code consistency baseline ／ 自检运行方式、20 项快照、文档—代码一致性核对基线 |
+| [`docs/platform-listing.md`](docs/platform-listing.md) | 平台文案 / Platform listing | The project body text uploaded to Modrinth / CurseForge ／ 上传到 Modrinth / CurseForge 的项目描述文案 |
+| [`CHANGELOG.md`](CHANGELOG.md) | 更新日志 / Release history | What changed in every version ／ 每个版本的变更记录 |
+| [`RELEASING.md`](RELEASING.md) | 发布流程 / Releasing | How a release is cut: version policy, tags and CI, the three-platform paths ／ 版本规范、tag 与 CI、三平台发布路径 |
+| [`CONTRIBUTORS.md`](CONTRIBUTORS.md) | 贡献与资助名单 / Contributors | The full funding-support and technical-support lists ／ 资金支持与技术支持完整名单 |
+| [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | 第三方清单 / Third-party inventory | Third-party code and licences ／ 第三方代码与许可清单 |
 
 > Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png`
 
@@ -58,8 +58,8 @@ world is re-read. The target item can then be produced by a real Create producti
 gradlew build      # -> build/libs/create_productionline-<version>.jar
 ```
 
-把该 jar 放进实例的 `mods/` 目录即可 / drop that jar into your instance's `mods/` folder.
-构建细节：[`docs/build.md`](docs/build.md) · 依赖与代理：[`docs/dependencies.md`](docs/dependencies.md)
+把该 jar 放进实例的 `mods/` 目录即可 / Drop that jar into your instance's `mods/` folder.
+构建细节 / build details: [`docs/build.md`](docs/build.md) · 依赖与代理 / dependencies & proxy: [`docs/dependencies.md`](docs/dependencies.md)
 
 ## 许可与贡献 / License & contributions
 

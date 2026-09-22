@@ -80,13 +80,13 @@ CPL SELF-TEST RESULT: 20 passed, 0 failed
 
 **EN** — Records the "code is the source of truth" line-by-line review, for later reference.
 
-**Corrected in this README**: computer slots changed from "top/bottom" to **3 side by side** (`ProductionComputerMenu.java:44-51`: target 44,20 / carrier 80,20 / clipboard 116,20); loader slot changed to **genuine-scheme-only**; built-in mappings corrected 17 → **24**; added `recipegen/RecipeDeriver`, `compat/ClipboardCompat`, `util/RecipeJsonReader` entries; jar size and source size now measured values. Also corrected later: the old "leftover `debug/` directory" and "`src/generated/` unused" notes (neither directory exists) and every "jar still ships `.bak` / `*_particle.png`" claim (the current jar was inspected and is clean).
+**Corrected in this document / 本文档已改正**: computer slots changed from "top/bottom" to **3 side by side** (`ProductionComputerMenu.java:44-51`: target 44,20 / carrier 80,20 / clipboard 116,20); loader slot changed to **genuine-scheme-only**; built-in mappings corrected 17 → **24**; added `recipegen/RecipeDeriver`, `compat/ClipboardCompat`, `util/RecipeJsonReader` entries; jar size and source size now measured values. Also corrected later: the old "leftover `debug/` directory" and "`src/generated/` unused" notes (neither directory exists) and every "jar still ships `.bak` / `*_particle.png`" claim (the current jar was inspected and is clean).
 
 **中文** — 这一节记录"以现有代码为准"逐条核对后的结论，方便后续改动拿来对照。
 
-**已按代码改正的本 README 条目**：计算机槽位由"上/下格"改为**3 格并排**（`ProductionComputerMenu.java:44-51`：目标 44,20 / 载体 80,20 / 剪贴板 116,20）；加载柜槽位由"载体槽"改为**只收真方案**；内建映射由 17 条更正为 **24 条**；补上 `recipegen/RecipeDeriver`、`compat/ClipboardCompat`、`util/RecipeJsonReader` 等模块条目；jar 体积和工程规模换成了实测值。后来又改正了两处：删掉"残留空目录 `debug/`"和"`src/generated/` 未启用"（这两个目录都不存在），以及所有"jar 里仍有 `.bak` / `*_particle.png`"的断言（实测过当前 jar，内容干净）。
+**已按代码改正的条目**：计算机槽位由"上/下格"改为**3 格并排**（`ProductionComputerMenu.java:44-51`：目标 44,20 / 载体 80,20 / 剪贴板 116,20）；加载柜槽位由"载体槽"改为**只收真方案**；内建映射由 17 条更正为 **24 条**；补上 `recipegen/RecipeDeriver`、`compat/ClipboardCompat`、`util/RecipeJsonReader` 等模块条目；jar 体积和工程规模换成了实测值。后来又改正了两处：删掉"残留空目录 `debug/`"和"`src/generated/` 未启用"（这两个目录都不存在），以及所有"jar 里仍有 `.bak` / `*_particle.png`"的断言（实测过当前 jar，内容干净）。
 
-**Code vs text mismatches still open (to fix; not README errors) / 代码与文案仍不一致的未修项（非本 README 描述错误）**
+**Code vs text mismatches still open (to fix; not doc errors) / 代码与文案仍不一致的未修项（非本文档描述错误）**
 
 Stale entries were **deleted, not softened**: any row that no longer matched the code as of this revision was removed rather than reworded. Verified-clean as of this revision, so no longer listed: the language files now describe the 3-slot side-by-side layout, `ClipboardCompat`'s javadoc no longer mentions the removed "controller", `SchemeLoaderMenu` / `SchemeLoaderBlockEntity` javadoc now state the genuine-scheme-only rule, the built jar ships no `.bak` / `*_particle.png` / `debug/` entries, and neither the empty `debug/` directory nor `src/generated/` exists any more. Also fixed since: the dismantler got its own GUI background (no longer the 16-slot loader sheet), and the loader screen's "embedded recipes" count now comes from the server-derived active count instead of the item's cached JSON.
 
