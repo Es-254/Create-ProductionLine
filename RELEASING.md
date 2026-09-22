@@ -55,24 +55,33 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   visible. Two cleanups wait for it, because Modrinth **refuses to delete a version while the project
 >   is under review** (`400 project must have no required validation nags before or while under
 >   review`): delete the superseded beta `IJy568s8` and the old-numbering `iuR73mao`, both of which
->   duplicate the version number `1.0.2`. Sync the project body in the same pass:
->   `docs/platform-listing.md` no longer matches the live text (it described the old computer slots,
->   i.e. paper / clipboard in the middle and right slots, where slot 2 now takes a blank Line Scheme and
->   slot 3 optional paper). A version's *changelog*, by contrast, **can** be edited while under review:
->   `NhXpGHHA`'s was re-synced to the corrected `CHANGELOG.md` section on 2026-09-20
->   (`PATCH /v2/version/{id}` → `204`). Everything else about the Modrinth path (token, ids, scripts) is
->   ready.
+>   duplicate the version number `1.0.2`. The project **body is now in sync**: re-pushed on 2026-09-22
+>   with `scripts/sync-modrinth-body.ps1` (`PATCH /v2/project/{id}` → `204`), after which the live text is
+>   byte-identical to `docs/platform-listing.md` (2,739 chars) — it had still described the old computer
+>   slots (paper / clipboard in the middle and right slots, where slot 2 now takes a blank Line Scheme and
+>   slot 3 optional paper) and the pre-rework "reloads automatically" loader step. A version's *changelog*
+>   can normally be edited while under review too (`NhXpGHHA`'s was re-synced on 2026-09-20,
+>   `PATCH /v2/version/{id}` → `204`), **but not for the snapshot**: `GET` and `PATCH` on
+>   `/v2/version/pLbPKG48` both answer **404** since 2026-09-22 even though the project's version list
+>   still shows it as `alpha / listed` (the author dashboard is the place to look for a review note).
+>   Everything else about the Modrinth path (token, ids, scripts) is ready.
+> - **Snapshot `1.0.3-snapshot.0.0.1`** is on Modrinth as version `pLbPKG48` (channel *Alpha*, 226,361 B,
+>   `sha512:a6180290…`) and on CurseForge as file **`8947278`** (release type `alpha`, pending review);
+>   the GitHub side is the pre-release above. All three were fed the same local jar.
 > - **CurseForge — live.** Project **`1699977`**, public page
 >   <https://www.curseforge.com/minecraft/mc-mods/create-production-line> (slug
->   `create-production-line`), MIT licence, environment **Client & Server**, description already in
->   sync with `docs/platform-listing.md`. The current file is **`8924265`** =
->   `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`, release type `release`, uploaded
->   2026-09-20), i.e. the same bytes as the GitHub Release and the Modrinth version; the first file was
->   `8905098` (`1.0.1`, 190,504 B) and `8923748` (the `1.0.2` beta jar) is archived.
->   **One cosmetic item is open:** the *file-page changelog* of `8924265` is the text captured before
->   the promotion notes were corrected (it still calls the jar a beta) — `update-file` answers
->   `500 An unhandled exception` for `changelog` (re-measured 2026-09-20), so it can only be fixed in
->   the dashboard, or by uploading once more and archiving this file. §0.3 carries the API details.
+>   `create-production-line`), MIT licence, environment **Client & Server**. The current file is
+>   **`8924265`** = `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`, release type
+>   `release`, uploaded 2026-09-20), i.e. the same bytes as the GitHub Release and the Modrinth version;
+>   the first file was `8905098` (`1.0.1`, 190,504 B) and `8923748` (the `1.0.2` beta jar) is archived.
+>   The snapshot is file **`8947278`** (release type `alpha`, pending review).
+>   **Two things can only be fixed in the dashboard**, because this API has no write path for either:
+>   the project **description** still predates the recipe-refresh wording in `docs/platform-listing.md`
+>   (re-checked 2026-09-22: the Eternal API answers `403` for an upload token, i.e. it needs a separate
+>   Eternal key, and the legacy API is behind Cloudflare and only carries file endpoints), and each
+>   **file-page changelog** is the text captured at upload time (`update-file` answers `500` for
+>   `changelog`). Paste `docs/platform-listing.md` into the description editor, and the matching
+>   `CHANGELOG.md` section into a file page, whenever those need to match. §0.3 carries the API details.
 >
 > Because the repository is public and pushed, §0.4 (bootstrap) is **history rather than a to-do**, and
 > §3 (tag + GitHub Release) is a normal step of every release. §M remains the day-to-day path.
