@@ -402,9 +402,11 @@ git push -u origin main
    next `1.0.x`; a snapshot sets it to `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha`; a dev build
    just uses `dev-build.txt` (`-PdevBuild`).
 2. Move the `CHANGELOG.md` "Unreleased" items into a new section — `## [x.y.z] — YYYY-MM-DD` for a
-   release, `## 0.0.0-dev.N — YYYY-MM-DD (beta)` for a dev build — and **for a release add the matching
-   `[x.y.z]: …` link definition at the bottom**, otherwise a heading like `## [1.0.1]` renders as
-   literal brackets. Dev headings carry no brackets on purpose (dev snapshots are not tagged).
+   release, `## x.y.z-snapshot.0.0.N — YYYY-MM-DD (alpha)` for a snapshot (that is the form
+   `1.0.3-snapshot.0.0.1` uses), `## 0.0.0-dev.N — YYYY-MM-DD (beta)` for a dev build — and **for a
+   release add the matching `[x.y.z]: …` link definition at the bottom**, otherwise a heading like
+   `## [1.0.1]` renders as literal brackets. Snapshot and dev headings carry no brackets on purpose
+   (only `1.0.x` releases use the `[x.y.z]` link form).
 3. If the description changed, edit `docs/platform-listing.md`.
 
 ## 2. Verify
@@ -478,7 +480,8 @@ git push origin main --tags        # origin already exists — do NOT re-add it
 Pushing the tag is normally the whole GitHub step: `build.yml` builds **that** version
 (`-PdevBuildNumber=N` for a `v0.0.0-dev.N` tag; a snapshot tag builds its own `mod_version`), verifies the
 jar name matches the tag, and
-creates/updates the Release with the jar attached — a pre-release when the tag contains `-dev.`.
+creates/updates the Release with the jar attached — a pre-release whenever the channel is not `release`
+(a `-dev.` or `-snapshot.` tag, or `mod_version_type=beta`/`alpha`).
 The Release body is the matching `CHANGELOG.md` section (release or dev heading), with GitHub's
 generated notes after it. To do it by hand instead, create a Release for the tag and attach
 `build/libs/create_productionline-<version>.jar`.
@@ -572,7 +575,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x`, `vx.y.z-snapshot.0.0.N` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
-      (CI does this from the tag — pre-release for `-dev.`)
+      (CI does this from the tag — a pre-release unless the channel is `release`)
 - [ ] Modrinth version published (MC 1.21.1, NeoForge, Create = required dependency)
 - [ ] CurseForge file published — `gradlew -PpublishMods publishCurseForge`
       (1.21.1 / NeoForge / Java 21 / Client / Server, Create = required dependency)

@@ -18,10 +18,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The four jars of the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) predate this policy: they
 were published with channel `release` back then, and they are recorded below as the development snapshots
-`0.0.0-dev.1` … `0.0.0-dev.4`. No entry below uses their old numbers. The **first official release** is
+`0.0.0-dev.1` … `0.0.0-dev.4`. No entry below is one of those four jars. The **first official release** is
 `1.0.1` as cut under the current policy — it shares a number with one of those snapshots but is a
 different artifact. The number `1.0.2` was reused for the anvil-flow cut, so the old snapshot of that
-number no longer exists anywhere either. The four `0.0.0-dev.N` sections below are that renumbered record,
+number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that renumbered record,
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 

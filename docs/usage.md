@@ -19,14 +19,14 @@
 
 1. **Compute** — the computer GUI has **3 slots side by side**: `target item / Line Scheme / paper` (left→right). Put the target in slot 1 and a **blank Line Scheme** in slot 2 — that is the carrier the plan is written to, and only a genuine Line Scheme can activate a loader later. Slot 3 is optional and takes **paper**: fill it as well and both carriers receive the same plan. Press **Compute**. The item tooltip then shows `Output: …`, `Recipe: …`, `Base: … (goes on the line first)`, `1. [material] -> Feed`, `2. [material] -> Deployer`… plus `Embedded Create recipes: N`.
 2. **Activate** — put the written **Line Scheme** into any slot of a **Scheme Loader** (multi-slot/multi-cabinet). The server re-derives the recipes from `recipeId`, writes the datapack and installs them right away — a recipe-only refresh, no `/reload`. Only genuine Line Scheme items activate: paper/clipboard/mirror/forged NBT never do.
-3. **Build** (assembly = sequenced assembly) — feed the base first (arm/funnel/chute/drop-in all fine); **one Deployer per extra material** (USE mode, facing DOWN above the belt, holding that material); the product rolls out at the end. A "Generic Intermediate" at the end means the sequence is unfinished / a material is missing.
+3. **Build** — for an assembly recipe the line is a **sequenced assembly**: feed the base first (arm/funnel/chute/drop-in all fine); **one Deployer per extra material** (USE mode, facing DOWN above the belt, holding that material); the product rolls out at the end. A "Generic Intermediate" at the end means the sequence is unfinished / a material is missing.
 4. **Dismantle / mirror** — the dismantler refunds materials and produces a read-only mirror.
 
 **中文**
 
 1. **计算**：计算机 GUI 的 3 个槽位**并排**，自左至右是`目标物品 / 产线方案 / 纸`。目标物品放第 1 格，第 2 格放**空白产线方案**——方案就写在这上面，之后也只有真方案能激活加载柜。第 3 格可选放**纸**：也放上则两份载体写入同一份方案。全部放好后点【计算】。完成后物品 tooltip 显示 `目标产物：…`、`来源配方：…`、`基底：…（最先上线…）`、`1. [原料] -> 投料`、`2. [原料] -> 机械手`… 以及 `内嵌 Create 配方：N 条`。
 2. **激活**：把写好的**产线方案**放入**方案加载柜**任意格（可多格/多柜）→ 服务端按 `recipeId` 重推导配方写入数据包并**即时生效**（只刷新配方，不跑 `/reload`）。加载柜只认真正的产线方案物品：纸/剪贴板/镜像/伪造 NBT 都不会激活。
-3. **搭建**（装配类=序列装配）：基底先上带（动力臂/漏斗/溜槽/直接放均可）；**每种追加原料一台机械手**（USE 模式、朝下置于传送带上方、手持对应原料）；跑完 roll 出成品；末端出现"通用中间产物"=序列未完/缺料。
+3. **搭建**：装配类配方走**序列装配**——基底先上带（动力臂/漏斗/溜槽/直接放均可）；**每种追加原料一台机械手**（USE 模式、朝下置于传送带上方、手持对应原料）；跑完 roll 出成品；末端出现"通用中间产物"=序列未完/缺料。
 4. **拆解/镜像**：破拆机还原原料并生成只读镜像。
 
 ## Data pack & refresh / 数据包与刷新
