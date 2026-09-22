@@ -27,9 +27,10 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   `*Unreleased*` note; the corrected text is the same section Modrinth and the CurseForge upload script
 >   take from `CHANGELOG.md`. The asset (215,411 B, `sha256:27e0a3c6…`), the tag and the
 >   `prerelease=false` flag were untouched by the update.
-> - **`main` is past the published `1.0.2`** (state machine extraction, material-budget line, 18 checks):
->   it builds a jar that reports `1.0.2` but is not the released asset until the next cut. See the
->   *Unreleased* section of `CHANGELOG.md`.
+> - **`main` is past the published `1.0.2`**: it now carries the recipe-refresh work and builds
+>   `1.0.3-snapshot.0.0.1` (20 checks), which is published as the alpha snapshot above. The `1.0.2` release
+>   asset stays the released artifact of record until the `1.0.3` line is finished. The `1.0.3` scope is
+>   wider than this snapshot — see the snapshot section of `CHANGELOG.md`.
 > - **History, superseded by the release above — `1.0.2` as a beta** (2026-09-17): GitHub Release `v1.0.2`
 >   marked **pre-release** with `create_productionline-1.0.2.jar` (208,860 B, `sha256:542cc877…`),
 >   CurseForge file id **8923748** (release type *beta*), Modrinth version **1.0.2** channel *beta*
@@ -402,7 +403,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (18 checks, then the server halts)
+# Headless QA self-test on a real server (20 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -415,13 +416,14 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:110`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **18 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **20 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
 duration-capable types` / `Loader accepts written schemes only` / `Self-referential recipes are skipped`
-landed by release 1.0.1). If the number grows, only the snapshot mentions in
-this file, `README.md` and `CHANGELOG.md` need touching — never the criterion.
+landed by release 1.0.1, with the anvil state table, the material budget and the two recipe-refresh cases
+afterwards). If the number grows, only the snapshot mentions in
+this file, `docs/qa.md` and `CHANGELOG.md` need touching — never the criterion.
 
 ```powershell
 # one-liner: run the self-test and assert on the pattern instead of a literal count
@@ -550,7 +552,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      18 passed; never hard-code the number)
+      20 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
