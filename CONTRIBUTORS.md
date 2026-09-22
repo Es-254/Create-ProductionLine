@@ -43,7 +43,7 @@ Lists are ordered by support date (newest first). Amounts are optional — you m
 
 | Contributor / 贡献者 | Contribution / 贡献内容 | Date / 日期 |
 | --- | --- | --- |
-| YUNLIN (project owner / 项目作者) | Mod design, implementation, in-game verification / 模组设计、实现、实机验证 | 2026-09 |
+| YUNLIN (project owner / 项目作者; in-game author name `Es254` / 模组内署名 `Es254`) | Mod design, implementation, in-game verification / 模组设计、实现、实机验证 | 2026-09 |
 | _（待填 / TBD）_ | | |
 
 Art credit / 美术来源：item icons (Generic Intermediate, Line Scheme, Mirror) and the app icon are

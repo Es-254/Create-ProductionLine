@@ -8,7 +8,7 @@
 
 1. **Computer / 计算机** — item to produce in the **left** slot, a **blank Line Scheme** in the middle slot; the right slot is optional and takes **paper** (same plan, but only a Line Scheme can be activated). Press **Compute**; an ordered plan, a generated native Create recipe and a build guide are written onto the carrier.
    左格放目标物品，中格放**空白产线方案**；右格可选放**纸**（写入同一份方案，但只有真方案能激活加载柜），点【计算】即生成方案 + 原生配方 + 施工指引。
-2. **Loader / 加载柜** — insert the written **Line Scheme** into a **Scheme Loader**: the recipes install into the world datapack and take effect immediately (only recipes are refreshed — no `/reload`), and several schemes combine (union).
+2. **Loader / 加载柜** — insert the written **Line Scheme** into a **Scheme Loader**: the recipes install into the world datapack and take effect immediately (only recipes are refreshed — no `/reload`), several schemes combine (union), and the cabinet emits redstone while recipes are active.
    放入方案即写入数据包并即时生效（只刷新配方，不跑 `/reload`）；多方案并集生效，生效时输出红石信号。
 3. **Build / 搭建** — follow the plan. Assembly recipes use **Sequenced Assembly**: base first on a belt, then **one Deployer per extra material** above it.
    按方案搭建；装配类即序列装配：基底先上带，每种追加原料一台机械手。
@@ -21,7 +21,7 @@
   机器工艺 → 扁平 `create:<type>`；合成/装配 → `create:sequenced_assembly`；原生 `create:mechanical_crafting` 另外生成一份不冲突的变体。
 - **Tag fidelity / 标签保真** — tags are written back as `{"tag": …}`, so any tag member matches (this is what makes tag-based recipes such as 48-round rifle ammo craftable).
   标签原样写回 `{"tag": …}`，同标签下任何成员都能匹配（像 48 发步枪弹这类靠标签的配方因此可制）。
-- **24 built-in mappings / 24 条内建映射**, extendable in `config/create_productionline-mappings.json`, which also selects the assembly mode.
+- **24 built-in mappings / 24 条内建映射**, overridable or extendable in `config/create_productionline-mappings.json`, which also selects the assembly mode.
   内建 24 条映射，可在 `config/create_productionline-mappings.json` 里覆盖或扩展，该文件同时决定装配模式。
 - **Honest failure / 如实报错** — an unmappable recipe reports "Cannot map this recipe, extend config/create_productionline-mappings.json" instead of inventing a plan.
   无法映射的配方如实报"该配方无法映射，可在 config/create_productionline-mappings.json 补充"，不会凭空编一份方案出来。

@@ -11,8 +11,8 @@ gradlew runServer -PselfTest
 
 > **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 20 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
 > **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **20 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
-> The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
-> 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
+> **EN** — The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the output below.
+> **中文** — 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
 
 ```
 [PASS] TC-05 scheme NBT round-trip
@@ -94,6 +94,6 @@ Stale entries were **deleted, not softened**: any row that no longer matched the
 
 | Location / 位置 | State / 现状 | Note / 说明 |
 | --- | --- | --- |
-| `lang` `loader.create_productionline.slots_filled` | hard-codes `%s/16` / 写死 `%s/16` | consistent with `SchemeLoaderBlockEntity.SLOT_COUNT=16` / 与 `SchemeLoaderBlockEntity.SLOT_COUNT=16` 一致，但改容量会漏改 |
+| `lang` `loader.create_productionline.slots_filled` | hard-codes `%s/16` / 写死 `%s/16` | consistent with `SchemeLoaderBlockEntity.SLOT_COUNT=16`, but changing the capacity would miss it / 与 `SchemeLoaderBlockEntity.SLOT_COUNT=16` 一致，但改容量会漏改 |
 
 > 返回 [总体 / Overview](../README.md)

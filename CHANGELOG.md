@@ -21,7 +21,9 @@ were published with channel `release` back then, and they are recorded below as 
 `0.0.0-dev.1` … `0.0.0-dev.4`. No entry below uses their old numbers. The **first official release** is
 `1.0.1` as cut under the current policy — it shares a number with one of those snapshots but is a
 different artifact. The number `1.0.2` was reused for the anvil-flow cut, so the old snapshot of that
-number no longer exists anywhere either.
+number no longer exists anywhere either. The four `0.0.0-dev.N` sections below are that renumbered record,
+and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
+actually published with at the time was `release`.
 
 ## 1.0.3-snapshot.0.0.1 — 2026-09-20 (alpha)
 
@@ -65,31 +67,12 @@ release.
   reaches the live `RecipeManager` through the recipe-only refresh, and this pack's payloads round-trip
   through the server's recipe codec under their data pack id while a conditional payload is refused.
 
-## Promotion pass — 1.0.2 (2026-09-17)
-
-The work that turned the published beta into the release: it is in the jar attached to the `v1.0.2`
-Release, and the earlier beta asset of the same number is superseded.
-
-### Changed
-
-- **The anvil state machine is now a pure function** (`line/scheme/SchemeAnvilMachine`): it takes the two
-  slots plus the permission gate and returns the decision, and `AnvilSchemeCustomizer` only performs the
-  side/permission gate, writes the output stack and takes over the anvil's numbers. All twelve rows of the
-  table (not-our-item, non-OP, stacked scheme, clear, material-before-clearing, empty right slot, hammer,
-  lock-without-material, single-material lock plus its notice, lone-product lock, and both operations on a
-  locked scheme) are asserted by the self test — the first two in-play bugs of this feature lived in exactly
-  that seam and no check covered it.
-- **The plan reports its material budget.** `LineScheme.materialsPerPass()` and `materialBudget()` (units per
-  pass times the repeat count) drive a new computer-panel line, and the loop hint says that its repeat count
-  is measured from one base unit.
-- **Self test grew to 18 checks** (was 16): the anvil state table and the material budget.
-
 ## [1.0.2] — 2026-09-17 (release)
 
 **Promoted from beta** on 2026-09-17: the same version number, now published as a **release** on all
 three platforms (GitHub Release, CurseForge release type `release`, Modrinth channel *Release*). The jar
-is the one built after the promotion pass recorded above — state machine extraction, material budget
-line, 18 checks, documented trust model — so it supersedes the earlier 1.0.2 beta asset.
+is the one built after the promotion pass described under *Changed* below — state machine extraction,
+material budget line, documented trust model — so it supersedes the earlier 1.0.2 beta asset.
 
 **CurseForge content replaced** on 2026-09-20: promotion first flipped the existing CurseForge file
 (208,860 B beta jar) to release type `release`, which left the wrong bytes under a release label — the
@@ -167,6 +150,16 @@ now reads the target slot's stack size as the output the player wants.
 
 ### Changed
 
+- **The anvil state machine is now a pure function** (`line/scheme/SchemeAnvilMachine`): it takes the two
+  slots plus the permission gate and returns the decision, and `AnvilSchemeCustomizer` only performs the
+  side/permission gate, writes the output stack and takes over the anvil's numbers. All twelve rows of the
+  table (not-our-item, non-OP, stacked scheme, clear, material-before-clearing, empty right slot, hammer,
+  lock-without-material, single-material lock plus its notice, lone-product lock, and both operations on a
+  locked scheme) are asserted by the self test — the first two in-play bugs of this feature lived in exactly
+  that seam and no check covered it.
+- **The plan reports its material budget.** `LineScheme.materialsPerPass()` and `materialBudget()` (units per
+  pass times the repeat count) drive a new computer-panel line, and the loop hint says that its repeat count
+  is measured from one base unit.
 - **Headless self test grew to 18 checks** (was 13; 15 after the anvil flow above, 16 for the target-output
   / repeat budget, 18 after the promotion pass). The new assertions cover the assembly payload shape, the
   single-material fallback, the repeat budget (a doubling recipe with target output 4 must yield 3 passes, a
@@ -356,7 +349,8 @@ this entry is kept for provenance only.
 
 ## 0.0.0-dev.1 — 2026-09-13 (beta)
 
-First public dev snapshot (beta; superseded by 1.0.1). Requires **Minecraft 1.21.1**,
+First public dev snapshot (published with channel `release` at the time; recorded as `beta` under the
+current policy, superseded by the release `1.0.1`). Requires **Minecraft 1.21.1**,
 **NeoForge 21.1.249+** and **Create 6.0.10+**.
 JEI is optional, and only for viewing recipes: this mod does not call its API.
 

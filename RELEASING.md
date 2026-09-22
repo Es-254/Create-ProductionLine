@@ -50,7 +50,8 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   visible through the author API:
 >   `NhXpGHHA` = `1.0.2` channel *Release* (215,411 B, `sha256:27e0a3c6…`, the released jar),
 >   `IJy568s8` = the same `1.0.2` as a *Beta* (208,860 B, superseded),
->   `iuR73mao` = the old-numbering `1.0.2` (176,195 B, a dev snapshot) and
+>   `iuR73mao` = the old-numbering `1.0.2` (176,195 B; channel `release` at the time, recorded as a dev
+>   snapshot under the current policy) and
 >   `u4SwiPGj` = `1.0.1` channel *Release* (190,504 B, `sha256:2c644ed6…`).
 >   So the releases themselves are done; what is missing is the public approval that makes the page
 >   visible. Two cleanups wait for it, because Modrinth **refuses to delete a version while the project
@@ -398,7 +399,8 @@ git push -u origin main
 ## 1. Prepare the version
 
 1. Pick the line (see *Version policy*): a release bumps `mod_version` in `gradle.properties` to the
-   next `1.0.x`; a dev build just uses `dev-build.txt` (`-PdevBuild`).
+   next `1.0.x`; a snapshot sets it to `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha`; a dev build
+   just uses `dev-build.txt` (`-PdevBuild`).
 2. Move the `CHANGELOG.md` "Unreleased" items into a new section — `## [x.y.z] — YYYY-MM-DD` for a
    release, `## 0.0.0-dev.N — YYYY-MM-DD (beta)` for a dev build — and **for a release add the matching
    `[x.y.z]: …` link definition at the bottom**, otherwise a heading like `## [1.0.1]` renders as
@@ -474,7 +476,8 @@ git push origin main --tags        # origin already exists — do NOT re-add it
 ```
 
 Pushing the tag is normally the whole GitHub step: `build.yml` builds **that** version
-(`-PdevBuildNumber=N` for a `v0.0.0-dev.N` tag), verifies the jar name matches the tag, and
+(`-PdevBuildNumber=N` for a `v0.0.0-dev.N` tag; a snapshot tag builds its own `mod_version`), verifies the
+jar name matches the tag, and
 creates/updates the Release with the jar attached — a pre-release when the tag contains `-dev.`.
 The Release body is the matching `CHANGELOG.md` section (release or dev heading), with GitHub's
 generated notes after it. To do it by hand instead, create a Release for the tag and attach
@@ -523,7 +526,7 @@ $env:CURSEFORGE_TOKEN = "<token>"     # optional: ~/.gradle/gradle.properties wo
 
 # CurseForge: runs scripts/publish-curseforge.ps1 (the old CurseForgeGradle plugin is broken, §0.3)
 .\gradlew.bat -PpublishMods publishCurseForge
-.\gradlew.bat -PpublishMods publishCurseForge -PcurseforgeFileId=8905098   # edit that file instead of adding one
+.\gradlew.bat -PpublishMods publishCurseForge -PcurseforgeFileId=8924265   # edit that file instead of adding one
 .\gradlew.bat -PpublishMods publishCurseForge -PdevBuild                   # publish the newest dev jar as beta
 ```
 
@@ -568,7 +571,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       20 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
-- [ ] Git tag pushed (`v1.0.x` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
+- [ ] Git tag pushed (`v1.0.x`, `vx.y.z-snapshot.0.0.N` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
       (CI does this from the tag — pre-release for `-dev.`)
 - [ ] Modrinth version published (MC 1.21.1, NeoForge, Create = required dependency)
 - [ ] CurseForge file published — `gradlew -PpublishMods publishCurseForge`
