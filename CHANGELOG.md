@@ -21,9 +21,14 @@ exists anywhere, and no entry below refers to it.
 
 ## 1.0.3-snapshot.0.0.1 — 2026-09-20 (alpha)
 
-Work in progress towards `1.0.3`, published as a snapshot: version
-`1.0.3-snapshot.0.0.1`, channel *Alpha* on Modrinth and CurseForge, and a GitHub pre-release. The
-`1.0.3` line is not finished — treat this jar as the first look at the recipe-refresh rework.
+**A performance optimization — and only part of the `1.0.3` line.** The `1.0.3` plan also covers redrawn
+machine textures, the safety-mechanism pass, GUI work and a unified art style; none of that is in this jar.
+What it does carry is the first piece of that line: the recipe-refresh rework, which is the path a scheme
+activation pays for on every insert, so it is the one worth measuring first.
+
+Published as version `1.0.3-snapshot.0.0.1`, channel *Alpha* on Modrinth and CurseForge, and a GitHub
+pre-release. The `1.0.3` line is not finished: treat this jar as a preview of the performance work, not as a
+release.
 
 ### Added
 
@@ -45,6 +50,13 @@ Work in progress towards `1.0.3`, published as a snapshot: version
 
 ### Changed
 
+- **Performance: activating a scheme no longer reloads the world's data packs.** The old activation path ran
+  a full `/reload` for every insert or removal, so a single cabinet cost a server-wide re-read of all data
+  packs and every listener that hangs off them. Now the cost is a parse of this pack's own files, and the
+  only server-wide path left is the explicit command: re-reading the recipes of every data pack took ~250 ms
+  for 2,819 recipes on the test server, where a full reload also rebuilds tags, loot tables, advancements and
+  functions. Nothing about the produced line changes — the same recipes are installed, just through a
+  narrower door.
 - **Self test grew to 20 checks** (was 18): a recipe file that appears after its data pack was discovered
   reaches the live `RecipeManager` through the recipe-only refresh, and this pack's payloads round-trip
   through the server's recipe codec under their data pack id while a conditional payload is refused.
