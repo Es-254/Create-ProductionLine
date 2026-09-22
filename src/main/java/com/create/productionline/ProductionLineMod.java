@@ -57,5 +57,6 @@ public class ProductionLineMod {
         NeoForge.EVENT_BUS.register(com.create.productionline.event.ServerLifecycleEvents.class);
         NeoForge.EVENT_BUS.register(com.create.productionline.event.ItemTooltipHandler.class);
         NeoForge.EVENT_BUS.register(com.create.productionline.event.AnvilSchemeCustomizer.class);
+        NeoForge.EVENT_BUS.register(com.create.productionline.event.CommandEvents.class);
     }
 }

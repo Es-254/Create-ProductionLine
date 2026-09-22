@@ -1,13 +1,13 @@
 # Create: Production Line / 机械动力：产业线
 
 **EN** — A Create addon for **Minecraft 1.21.1 / NeoForge**. Point it at any recipe (vanilla,
-Create, another mod), and it writes **native Create recipe JSON** at runtime, drops the files into
-a world datapack and reloads that datapack. The target item can then be produced by a real Create
-production line.
+Create, another mod), and it writes **native Create recipe JSON** at runtime into a world datapack and
+installs it immediately — no `/reload`, because only the recipes are refreshed and nothing else in the
+world is re-read. The target item can then be produced by a real Create production line.
 
 **中文** — 面向 **Minecraft 1.21.1 / NeoForge** 的 Create 附属模组。配方不管来自原版、Create
-还是别的 mod，都能在游戏内实时转成 **Create 原生配方 JSON** 写进世界数据包，再 `/reload` 一次，
-目标物品随后就能沿一条真实 Create 产线生产出来。
+还是别的 mod，都能在游戏内实时转成 **Create 原生配方 JSON** 写进世界数据包并**即时生效**（不跑
+`/reload`，只刷新配方），目标物品随后就能沿一条真实 Create 产线生产出来。
 
 | Item / 项 | Value / 值 |
 | --- | --- |
@@ -27,7 +27,7 @@ production line.
 | --- | --- | --- |
 | Production Computer / 产线计算机 | **3 slots side by side** (`SLOT_TARGET=0` target, `SLOT_SCHEME=1` blank Line Scheme carrier, `SLOT_CLIPBOARD=2` optional paper — that constant name is legacy, clipboards are not accepted). On **Compute** the client scans resource packs and sends parsed recipe JSON; the server re-derives from the live `RecipeManager`, writes a **single-layer direct plan + embedded native Create recipe JSON** onto the carrier, and injects the `custom_data.LineBuildGuide` build guide. | **3 格并排**（`SLOT_TARGET=0` 目标物品 / `SLOT_SCHEME=1` 空白产线方案载体 / `SLOT_CLIPBOARD=2` 可选纸——这个常量名是历史遗留，剪贴板放不进去）。点【计算】时，客户端先扫资源包、把解析出的配方 JSON 交给服务端；服务端拿实时 `RecipeManager` 重新推导，然后把**单层直连方案 + 内嵌 Create 原生配方 JSON**写入载体，同时注入 `custom_data.LineBuildGuide` 施工指引。 |
 | Line Scheme / 产线方案 | Carries `LineScheme` NBT (`Version/RecipeId/OutputItem/BaseMaterial/Steps[]` + embedded `CreateRecipes`); activatable by the loader, readable by the dismantler. | 携带 `LineScheme` NBT（`Version/RecipeId/OutputItem/BaseMaterial/Steps[]` + 内嵌 `CreateRecipes`），可被加载柜激活、被破拆机读取。 |
-| Scheme Loader / 方案加载柜 | **16 slots (2×8)**, **accepts only genuine `LineSchemeItem`** (paper/clipboard/mirror/forged NBT rejected). On insert it re-derives this cabinet's contribution server-side from each scheme's `recipeId`, writes the `cpl_converted` union and runs `/reload`; contributions from other cabinets and slots are **unioned, never overwritten**. The cabinet emits redstone while recipes are active. | **16 格（2×8）**，**只收真 `LineSchemeItem`**（纸/剪贴板/镜像/伪造 NBT 一律拒收）。放入即按方案 `recipeId` 在服务端**重推导**本柜贡献，写进 `cpl_converted` 并集并 `/reload`；多柜、多格之间是**并集，互不覆盖**。有生效配方时输出红石信号。 |
+| Scheme Loader / 方案加载柜 | **16 slots (2×8)**, **accepts only genuine `LineSchemeItem`** (paper/clipboard/mirror/forged NBT rejected). On insert it re-derives this cabinet's contribution server-side from each scheme's `recipeId`, writes the `cpl_converted` union and installs it into the running server — the recipe-only refresh, no `/reload`; contributions from other cabinets and slots are **unioned, never overwritten**. The cabinet emits redstone while recipes are active. | **16 格（2×8）**，**只收真 `LineSchemeItem`**（纸/剪贴板/镜像/伪造 NBT 一律拒收）。放入即按方案 `recipeId` 在服务端**重推导**本柜贡献，写进 `cpl_converted` 并集并**只刷新配方**（不跑 `/reload`）；多柜、多格之间是**并集，互不覆盖**。有生效配方时输出红石信号。 |
 | Dismantler / 破拆机 | 2 slots (item / optional scheme). An **unfinished intermediate** (Generic Intermediate + Create's `SEQUENCED_ASSEMBLY` component) is refunded by re-reading the sequence recipe it names: base + exactly the materials the finished steps consumed, plus a read-only mirror. A **finished product** refunds one full inverse batch (consume `count`, refund inputs), resolved server-side. Tags refund their first registered member; nothing is consumed when nothing can be refunded. | 2 格（物品 / 方案可选）。**未完成的中间产物**（通用中间产物 + Create `SEQUENCED_ASSEMBLY` 组件）会按它记录的序列配方**退还基底，外加已完成步骤真正吃掉的原料**，并给一份只读镜像；**成品**按"一次完整产出的逆运算"退款（消耗 count 个、退还输入），配方由服务端解析。tag 退回首个成员；退不出任何东西时不消耗物品。 |
 | Generic Intermediate / 通用中间产物 | Sequenced-assembly transitional item (`extends SequencedAssemblyItem`, carries progress component). | 序列装配过渡物（`extends SequencedAssemblyItem`，带进度组件）。 |
 | Line Scheme Mirror / 产线方案镜像 | Read-only display snapshot (`LineSchemeMirror` key); structurally contains no executable scheme, so it **cannot be activated or fed back to the dismantler**. | 只读展示快照（`LineSchemeMirror` 键）。结构上不含可执行方案，所以**不可激活、不可复喂破拆机**。 |
@@ -37,16 +37,44 @@ production line.
 **EN**
 
 1. **Compute** — the computer GUI has **3 slots side by side**: `target item / Line Scheme / paper` (left→right). Put the target in slot 1 and a **blank Line Scheme** in slot 2 — that is the carrier the plan is written to, and only a genuine Line Scheme can activate a loader later. Slot 3 is optional and takes **paper**: fill it as well and both carriers receive the same plan. Press **Compute**. The item tooltip then shows `Output: …`, `Recipe: …`, `Base: … (goes on the line first)`, `1. [material] -> Feed`, `2. [material] -> Deployer`… plus `Embedded Create recipes: N`.
-2. **Activate** — put the written **Line Scheme** into any slot of a **Scheme Loader** (multi-slot/multi-cabinet). The server re-derives the recipes from `recipeId`, writes the datapack and reloads automatically. Only genuine Line Scheme items activate: paper/clipboard/mirror/forged NBT never do.
+2. **Activate** — put the written **Line Scheme** into any slot of a **Scheme Loader** (multi-slot/multi-cabinet). The server re-derives the recipes from `recipeId`, writes the datapack and installs them right away — a recipe-only refresh, no `/reload`. Only genuine Line Scheme items activate: paper/clipboard/mirror/forged NBT never do.
 3. **Build** (assembly = sequenced assembly) — feed the base first (arm/funnel/chute/drop-in all fine); **one Deployer per extra material** (USE mode, facing DOWN above the belt, holding that material); the product rolls out at the end. A "Generic Intermediate" at the end means the sequence is unfinished / a material is missing.
 4. **Dismantle / mirror** — the dismantler refunds materials and produces a read-only mirror.
 
 **中文**
 
 1. **计算**：计算机 GUI 的 3 个槽位**并排**，自左至右是`目标物品 / 产线方案 / 纸`。目标物品放第 1 格，第 2 格放**空白产线方案**——方案就写在这上面，之后也只有真方案能激活加载柜。第 3 格可选放**纸**：也放上则两份载体写入同一份方案。全部放好后点【计算】。完成后物品 tooltip 显示 `目标产物：…`、`来源配方：…`、`基底：…（最先上线…）`、`1. [原料] -> 投料`、`2. [原料] -> 机械手`… 以及 `内嵌 Create 配方：N 条`。
-2. **激活**：把写好的**产线方案**放入**方案加载柜**任意格（可多格/多柜）→ 服务端按 `recipeId` 重推导配方写入数据包并自动 `/reload`。加载柜只认真正的产线方案物品：纸/剪贴板/镜像/伪造 NBT 都不会激活。
+2. **激活**：把写好的**产线方案**放入**方案加载柜**任意格（可多格/多柜）→ 服务端按 `recipeId` 重推导配方写入数据包并**即时生效**（只刷新配方，不跑 `/reload`）。加载柜只认真正的产线方案物品：纸/剪贴板/镜像/伪造 NBT 都不会激活。
 3. **搭建**（装配类=序列装配）：基底先上带（动力臂/漏斗/溜槽/直接放均可）；**每种追加原料一台机械手**（USE 模式、朝下置于传送带上方、手持对应原料）；跑完 roll 出成品；末端出现"通用中间产物"=序列未完/缺料。
 4. **拆解/镜像**：破拆机还原原料并生成只读镜像。
+
+## Data pack & refresh / 数据包与刷新
+
+**EN** — The generated recipes are written into a real world data pack (`world/datapacks/cpl_converted`,
+namespace `cpl`), so they survive a restart and can be read with any text editor. Activating a scheme does
+**not** run `/reload`: the recipes this pack owns are parsed and swapped into the running recipe manager
+(`RecipeManager.replaceRecipes`), then the clients get the server's normal post-reload sync. A payload the
+mod cannot parse in place — a conditional recipe, or a file edited by hand — makes the activation fall back
+to a full `/reload`, which is also the only path that discovers a data pack folder the server has not seen
+yet.
+
+- `/cpl reload recipes` — permission level 2. Re-reads the recipe JSON of every data pack the server knows
+  and installs the result through the recipe reload listener, so NeoForge recipe conditions and vanilla's
+  error handling behave exactly as during a reload. Tags, loot tables, advancements and functions are not
+  touched. The reply goes to the sender only — the mod never broadcasts chat. Handy after editing a recipe
+  file yourself.
+- Anything else (tags, loot tables, advancements, functions, a newly added pack folder) still needs the
+  vanilla `/reload`.
+
+**中文** — 生成的配方写在真实的世界数据包里（`world/datapacks/cpl_converted`，命名空间 `cpl`），重启后依然
+有效，也能用文本编辑器直接查看。激活方案**不跑 `/reload`**：本模组自己那几条配方会被解析并替换进正在运行的配方
+管理器（`RecipeManager.replaceRecipes`），随后客户端走原版的重载后同步。若某条配方无法就地解析（带条件、或被手工
+改坏），激活会回落到完整 `/reload`——那也是唯一能发现"服务器尚未见过的数据包文件夹"的路径。
+
+- `/cpl reload recipes` —— 权限等级 2。按**配方重载监听器**重读服务器已知的所有数据包的配方 JSON，因此 NeoForge
+  的配方条件与原版的报错行为都和 `/reload` 时一致；标签/战利品表/进度/函数一概不动。回复只发给执行者，本模组从不
+  广播聊天栏。自己改过配方文件后可用。
+- 其余内容（标签、战利品表、进度、函数、新加的数据包文件夹）仍需原版 `/reload`。
 
 ## Recipe conversion rules / 配方转换规则
 
@@ -160,12 +188,13 @@ com/create/productionline/
 │                                  / RecipeMapper (build-guide text only)
 ├── line/analyzer                  RecipeAnalyzer (features) + MachineSelector (machine choice / step layout)
 ├── recipegen                      CreateRecipePack (flat/mechanical/sequenceEntry + multi-cabinet union rebuild)
+│                                  RecipeHotSwap (recipe-only refresh: owned-recipe inject / listener re-run)
 │                                  RecipeDeriver (server-side single derivation entry) / 服务端唯一推导入口
 ├── compat/                        ClipboardCompat (carrier checks / whitelist / guide injection)
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (18 headless checks) / events / payloads
+└── qa/ event/ network/            SelfTest (20 headless checks) / events incl. the /cpl command / payloads
 ```
 
 ## Security (multiplayer anti-injection, landed 2026-09-07) / 安全（多人服防注入，2026-09-07 落地）
@@ -258,8 +287,8 @@ are welcome, and any entry can be corrected or removed on request.
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 18 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **18 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 20 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **20 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
 > The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the lines below.
 > 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
 
@@ -282,7 +311,9 @@ gradlew runServer -PselfTest
 [PASS] Doubling recipe repeats to reach the target output
 [PASS] Scheme anvil state machine table
 [PASS] Plan reports the material budget
-CPL SELF-TEST RESULT: 18 passed, 0 failed
+[PASS] Recipe-only reload registers new recipes
+[PASS] Owned recipes parse for injection
+CPL SELF-TEST RESULT: 20 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
@@ -294,22 +325,26 @@ CPL SELF-TEST RESULT: 18 passed, 0 failed
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
-> **EN** — Current snapshot: **18** checks. `Plan topology (chain: base -> machine+material -> product)`
+> **EN** — Current snapshot: **20** checks. `Plan topology (chain: base -> machine+material -> product)`
 > arrived with dev snapshot `0.0.0-dev.3`; `Tag ingredients kept in flat recipes`, `Duration only on
 > duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
 > `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
 > landed by release 1.0.1; `Custom assembly builds a deployer sequence` and `Single-material custom
 > scheme falls back to one machine` came with the 1.0.2 anvil flow, and `Doubling recipe repeats to
-> reach the target output` came with the same 1.0.2 release, for the target-output / repeat budget. Adding or
+> reach the target output`, `Scheme anvil state machine table` and `Plan reports the material budget`
+> came with the same 1.0.2 release; `Recipe-only reload registers new recipes` and `Owned recipes parse
+> for injection` came with the recipe-refresh work on `main` after 1.0.2. Adding or
 > removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
 > README, in `CHANGELOG.md` and in `RELEASING.md`.
-> **中文** — 当前快照 **18 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
+> **中文** — 当前快照 **20 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
 > `0.0.0-dev.3` 进来的；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
 > 这六项随正式版 1.0.1 落地；`Custom assembly builds a deployer sequence` 与
 > `Single-material custom scheme falls back to one machine` 随 1.0.2 的铁砧流程加入，
-> `Doubling recipe repeats to reach the target output` 同样随 1.0.2 加入，对应目标产量/循环次数这部分功能。
+> `Doubling recipe repeats to reach the target output`、`Scheme anvil state machine table`、
+> `Plan reports the material budget` 同样随 1.0.2 加入；`Recipe-only reload registers new recipes` 与
+> `Owned recipes parse for injection` 随 1.0.2 之后在 `main` 上做的配方刷新改造加入。
 > 增删一个 `check(…)` 只会改变这个数字，别的地方不用动，
 > 只需要改本 README、`CHANGELOG.md`、`RELEASING.md` 里标注为"快照"的那几处。
 >

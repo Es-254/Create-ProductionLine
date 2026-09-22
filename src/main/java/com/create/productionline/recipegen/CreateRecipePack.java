@@ -366,11 +366,19 @@ public final class CreateRecipePack {
     }
 
     /**
-     * Writes pack.mcmeta + the union of all loader contribution files, then
-     * reloads. The union is hashed first: when it is byte-identical to the union
-     * last written, the delete + rewrite + {@code /reload} cycle is skipped
-     * entirely (a reload re-reads every datapack and every recipe on the server,
-     * so a no-op reconcile must not cost one).
+     * Writes pack.mcmeta + the union of all loader contribution files and makes
+     * the running server see it. The union is hashed first: when it is
+     * byte-identical to the union last written, the delete + rewrite + apply cycle
+     * is skipped entirely (a refresh re-reads every recipe on the server, so a
+     * no-op reconcile must not cost one).
+     *
+     * <p>The refresh itself goes through {@link RecipeHotSwap#applyOwned}: the
+     * recipes this pack owns are parsed and swapped into the live
+     * {@link net.minecraft.world.item.crafting.RecipeManager}, so activating a
+     * scheme costs a parse of this pack's own files instead of a server-wide
+     * {@code /reload}. A full reload remains the fallback when the swap refuses a
+     * payload, because that path also handles recipe conditions and can discover a
+     * data pack folder the server has not seen yet.
      *
      * @return the number of recipes in the union — unchanged whether or not the
      *         files were actually rewritten
@@ -411,6 +419,18 @@ public final class CreateRecipePack {
         }
 
         Path recipeDir = packRoot.resolve("data/" + PACK_NAMESPACE + "/recipe");
+        // The files on disk are this pack's previous state — written by an earlier
+        // pass of this session, or loaded by the server at start-up — so their names
+        // are exactly the ids that have to leave the live recipe set. Without this a
+        // union that shrank would keep serving the recipes it dropped.
+        List<String> installedBefore = new ArrayList<>();
+        try (var stream = Files.list(recipeDir)) {
+            stream.map(p -> p.getFileName().toString())
+                    .filter(n -> n.endsWith(".json"))
+                    .forEach(n -> installedBefore.add(n.substring(0, n.length() - ".json".length())));
+        } catch (java.io.IOException e) {
+            ProductionLineMod.LOGGER.debug("No previous cpl recipe folder to diff against: {}", e.toString());
+        }
         deleteRecursively(recipeDir);
         Files.createDirectories(recipeDir);
 
@@ -427,7 +447,12 @@ public final class CreateRecipePack {
         lastUnionDigest = digest;
         ProductionLineMod.LOGGER.info("Active cpl recipe union now has {} recipe(s) from {} loader contribution file(s)",
                 all.size(), contribFiles.size());
-        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "reload");
+        RecipeHotSwap.Outcome outcome = RecipeHotSwap.applyOwned(server, all, installedBefore);
+        if (!outcome.ok()) {
+            ProductionLineMod.LOGGER.warn("CPL recipe swap refused ({}), falling back to a full /reload",
+                    outcome.detail());
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "reload");
+        }
         return all.size();
     }
 

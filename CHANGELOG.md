@@ -19,6 +19,32 @@ recorded as `0.0.0-dev.1` … `0.0.0-dev.4`; `1.0.1` was the first official rele
 version number `1.0.2` was reused for this beta — the old snapshot of the same number no longer
 exists anywhere, and no entry below refers to it.
 
+## Unreleased
+
+### Added
+
+- **Recipe refresh without `/reload`.** A Scheme Loader used to run a full `/reload` whenever its recipes
+  changed, which re-reads every data pack, tag, loot table, advancement and function — a visible tick spike
+  on a modded world, for a change that only ever touches recipes. The recipes this pack owns are now parsed
+  and swapped straight into the live `RecipeManager` (`RecipeHotSwap.applyOwned`, public API:
+  `RecipeManager.replaceRecipes`), followed by the server's own post-reload sync, so nothing else is re-read
+  and no pack folder has to be re-discovered. The data pack files are still written to
+  `world/datapacks/cpl_converted` and stay the source of truth across restarts. A payload that cannot be
+  parsed in place — a conditional recipe, or a file edited by hand — makes the swap refuse and the activation
+  falls back to the full `/reload`, so the slow path is still there where it is the correct one.
+- **`/cpl reload recipes`** (permission level 2) re-reads the recipe JSON of every data pack the server knows
+  and installs the result through the recipe reload listener itself, so NeoForge recipe conditions and
+  vanilla's error handling behave exactly as during a reload. Tags, loot tables, advancements and functions
+  are not touched, and the reply goes only to whoever ran the command. A data pack folder that appeared
+  *after* the last reload still needs a full `/reload` to be discovered — the documented boundary of the
+  command.
+
+### Changed
+
+- **Self test grew to 20 checks** (was 18): a recipe file that appears after its data pack was discovered
+  reaches the live `RecipeManager` through the recipe-only refresh, and this pack's payloads round-trip
+  through the server's recipe codec under their data pack id while a conditional payload is refused.
+
 ## Promotion pass — 1.0.2 (2026-09-17)
 
 The work that turned the published beta into the release: it is in the jar attached to the `v1.0.2`

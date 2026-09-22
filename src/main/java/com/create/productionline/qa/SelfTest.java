@@ -1,5 +1,6 @@
 package com.create.productionline.qa;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -22,6 +23,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.storage.LevelResource;
 
 /**
@@ -30,7 +32,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 18 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 20 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -71,7 +73,20 @@ import net.minecraft.world.level.storage.LevelResource;
  *       {@code create:deploying} step per later material, and a plan that mirrors
  *       it with one Deployer per extra material;</li>
  *   <li>a single-material custom scheme falls back to the semantic single machine
- *       instead of a sequence, which the anvil cannot express.</li>
+ *       instead of a sequence, which the anvil cannot express;</li>
+ *   <li>the target-output / repeat budget: a doubling recipe ({@code A + B = 2A})
+ *       must repeat {@code ceil((target - 1) / net gain)} times, and a recipe that
+ *       cannot grow the stock must not be looped;</li>
+ *   <li>all twelve rows of the anvil state machine (clear / hammer / lock / refuse
+ *       / not-our-item / non-OP / stacked scheme / …);</li>
+ *   <li>the plan reports its material budget (units per pass × passes);</li>
+ *   <li>a recipe file that appears AFTER a data pack has been discovered reaches the
+ *       live {@code RecipeManager} through the recipe-only refresh, without a full
+ *       {@code /reload} (this is what {@code /cpl reload recipes} and every scheme
+ *       activation rely on);</li>
+ *   <li>this pack's payloads round-trip through the server's recipe codec and land
+ *       under the id the data pack would give them, while a conditional payload is
+ *       refused instead of being loaded unconditionally.</li>
  * </ol>
  */
 public final class SelfTest {
@@ -112,6 +127,8 @@ public final class SelfTest {
             check("Doubling recipe repeats to reach the target output", () -> doublingRepeatBudget(level));
             check("Scheme anvil state machine table", () -> schemeAnvilStateTable());
             check("Plan reports the material budget", () -> planMaterialBudget());
+            check("Recipe-only reload registers new recipes", () -> recipeOnlyReload(server));
+            check("Owned recipes parse for injection", () -> ownedRecipeInjection(server));
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -193,6 +210,90 @@ public final class SelfTest {
             // the live cpl_converted pack stays exactly as it was.
             com.create.productionline.recipegen.CreateRecipePack.removeIsolated(server);
         }
+    }
+
+    /**
+     * The recipe-only refresh behind {@code /cpl reload recipes} and behind every
+     * scheme activation: a recipe file that appears AFTER the server discovered a
+     * data pack must reach the live {@code RecipeManager} without a full
+     * {@code /reload}. The isolated self-test pack was just installed — and
+     * installing is what made the server discover it — so one extra file written
+     * straight into its folder reproduces exactly what a hand-edited data pack does.
+     */
+    private static boolean recipeOnlyReload(MinecraftServer server) throws Exception {
+        var files = new java.util.LinkedHashMap<String, String>();
+        files.put("cpl_test_hot", com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                com.create.productionline.recipegen.CreateRecipePack.flat("create:mixing",
+                        List.of("minecraft:copper_ingot", "minecraft:coal"), "create:brass_ingot")));
+        Path packRoot = server.getWorldPath(LevelResource.DATAPACK_DIR)
+                .resolve(com.create.productionline.recipegen.CreateRecipePack.SELFTEST_FOLDER);
+        ResourceLocation seeded = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_hot");
+        ResourceLocation added = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_hot2");
+        try {
+            if (com.create.productionline.recipegen.CreateRecipePack.installIsolated(server, files) != 1
+                    || server.getRecipeManager().byKey(seeded).isEmpty()) {
+                System.out.println("   could not seed the isolated pack with " + seeded);
+                return false;
+            }
+            // Written behind the server's back: only a recipe refresh can notice it.
+            Files.writeString(packRoot.resolve("data/cpl_selftest/recipe/cpl_test_hot2.json"),
+                    com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                            com.create.productionline.recipegen.CreateRecipePack.flat("create:mixing",
+                                    List.of("minecraft:gold_ingot", "minecraft:redstone"), "create:rose_quartz")),
+                    StandardCharsets.UTF_8);
+            if (server.getRecipeManager().byKey(added).isPresent()) {
+                System.out.println("   " + added + " was already loaded — the check would prove nothing");
+                return false;
+            }
+            com.create.productionline.recipegen.RecipeHotSwap.Outcome outcome =
+                    com.create.productionline.recipegen.RecipeHotSwap.reloadRecipes(server);
+            boolean addedLoaded = server.getRecipeManager().byKey(added).isPresent();
+            boolean seededKept = server.getRecipeManager().byKey(seeded).isPresent();
+            System.out.println("   recipe-only reload: mode=" + outcome.mode() + ", " + outcome.recipes()
+                    + " recipe(s) in " + outcome.millis() + " ms, new=" + addedLoaded
+                    + ", earlier=" + seededKept);
+            return outcome.ok() && addedLoaded && seededKept;
+        } finally {
+            com.create.productionline.recipegen.CreateRecipePack.removeIsolated(server);
+        }
+    }
+
+    /**
+     * The primitive a scheme activation uses: this pack's payload must round-trip
+     * through the same recipe codec the server uses when it reads the data pack,
+     * and must receive the id the data pack gives it ({@code cpl:<file name>}) —
+     * the live recipe set is rebuilt from exactly those ids. A conditional payload
+     * must be REFUSED here: the caller then falls back to a full reload, which
+     * evaluates conditions, instead of loading the recipe unconditionally.
+     */
+    private static boolean ownedRecipeInjection(MinecraftServer server) throws Exception {
+        var union = new java.util.LinkedHashMap<String, String>();
+        union.put("cpl_test_inject", com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                com.create.productionline.recipegen.CreateRecipePack.flat("create:pressing",
+                        List.of("minecraft:iron_ingot"), "create:iron_sheet")));
+        List<RecipeHolder<?>> holders = com.create.productionline.recipegen.RecipeHotSwap.parseOwned(server, union);
+        if (holders.size() != 1) {
+            System.out.println("   parseOwned produced " + holders.size() + " holder(s), expected 1");
+            return false;
+        }
+        RecipeHolder<?> holder = holders.get(0);
+        ResourceLocation expectedId = ResourceLocation.fromNamespaceAndPath("cpl", "cpl_test_inject");
+        ResourceLocation expectedType = ResourceLocation.fromNamespaceAndPath("create", "pressing");
+        ResourceLocation actualType = BuiltInRegistries.RECIPE_TYPE.getKey(holder.value().getType());
+        System.out.println("   injected holder: " + holder.id() + " type=" + actualType);
+        if (!expectedId.equals(holder.id()) || !expectedType.equals(actualType)) {
+            return false;
+        }
+        var conditional = new java.util.LinkedHashMap<String, String>();
+        conditional.put("cpl_test_conditional",
+                "{\"type\":\"create:pressing\",\"neoforge:conditions\":[],\"ingredients\":[],\"results\":[]}");
+        try {
+            com.create.productionline.recipegen.RecipeHotSwap.parseOwned(server, conditional);
+        } catch (Exception refused) {
+            return true;
+        }
+        System.out.println("   a conditional payload was accepted instead of being refused");
+        return false;
     }
 
     /**

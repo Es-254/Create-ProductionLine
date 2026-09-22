@@ -55,5 +55,7 @@
   "item.create_productionline.line_scheme.custom.anvil": "自定义方案：铁砧手写",
   "item.create_productionline.line_scheme.repeat_loop": "循环回收产物 %s 次 → 目标产量 %s，需外部回环，按 1 个基底起算",
   "item.create_productionline.line_scheme.repeat_restart": "从头重复组装 %s 次 → 目标产量 %s",
-  "screen.create_productionline.computer.material_budget": "材料预算：每轮 %s 份 × %s 轮 = %s 份"
+  "screen.create_productionline.computer.material_budget": "材料预算：每轮 %s 份 × %s 轮 = %s 份",
+  "commands.create_productionline.reload.recipes": "已重载 %s 条配方，耗时 %s ms",
+  "commands.create_productionline.reload.failed": "重载失败：%s"
 }
