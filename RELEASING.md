@@ -3,8 +3,13 @@
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
 
-> **Current state (verified against this repository + the live APIs, 2026-09-17):**
+> **Current state (verified against this repository + the live APIs, 2026-09-20):**
 >
+> - **`1.0.3-snapshot.0.0.1` is published as an alpha pre-release** (2026-09-20) — the recipe-refresh
+>   rework, and the first look at the `1.0.3` line: GitHub Release `v1.0.3-snapshot.0.0.1`
+>   (`prerelease: true`, asset 226,361 B, `sha256:aaf8e9e2…`), Modrinth version `pLbPKG48` (channel
+>   *Alpha*, same bytes), CurseForge file **`8947278`** (release type `alpha`, pending review).
+>   `1.0.2` stays the current **stable** release; a snapshot is never a finished line.
 > - **`1.0.2` is a RELEASE** (promoted from beta on 2026-09-17) **and all three platforms carry the same
 >   bytes**: GitHub Release `v1.0.2` is not a pre-release and holds
 >   `create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`), Modrinth holds that same jar as
