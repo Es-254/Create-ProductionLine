@@ -34,14 +34,15 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 > - **History, superseded by the release above — `1.0.2` as a beta** (2026-09-17): GitHub Release `v1.0.2`
 >   marked **pre-release** with `create_productionline-1.0.2.jar` (208,860 B, `sha256:542cc877…`),
 >   CurseForge file id **8923748** (release type *beta*), Modrinth version **1.0.2** channel *beta*
->   (id `IJy568s8`). All three carry the same bytes. `1.0.1` stays the current stable release.
+>   (id `IJy568s8`). All three carry the same bytes, and `1.0.1` was the current stable release at that
+>   point (it is the one before `1.0.2` now).
 >   Modrinth now lists two versions numbered `1.0.2` — this beta and the old-numbering entry that
 >   cannot be deleted while the project is in review; remove the old one after approval.
 > - **GitHub — live and public.** `origin` is <https://github.com/Es-254/Create-ProductionLine>, the
 >   repository is **public** (`private: false`, indexed by GitHub search), and `main` is pushed. The
->   tags are `v1.0.1` and `v1.0.2` — the number `1.0.2` was reused for the anvil-flow cut after the
->   old-numbering tag of the same name was deleted (see *Version policy*), and that cut is now the
->   current release.
+>   tags are `v1.0.1`, `v1.0.2` and `v1.0.3-snapshot.0.0.1` — the number `1.0.2` was reused for the
+>   anvil-flow cut after the old-numbering tag of the same name was deleted (see *Version policy*), and
+>   that cut is now the current release.
 > - **Modrinth — submitted, still in review; not publicly visible.** Anonymous calls return **404** for
 >   both the slug `createproductionline` and the base62 id `7dcs0ruf` (re-checked 2026-09-20) and the
 >   project does not show up in search, while the **author view** returns `200` with
@@ -122,21 +123,24 @@ Rules / 规则:
    `build.yml` build that exact version and create/update the GitHub Release, marked as a pre-release
    when the channel is not `release` (a `-dev.`/`-snapshot.` tag, or `mod_version_type=beta`/`alpha` at
    the tagged commit), so tagging is normally all you do on the GitHub side.
-5. History: the `1.0.0` / `1.0.1` / `1.0.2` / `1.0.3` jars of the old numbering were development
-   snapshots and are recorded in `CHANGELOG.md` as `0.0.0-dev.1` … `0.0.0-dev.4`. `1.0.1` was the
-   first official release. The number `1.0.2` was **reused** for the anvil-flow cut: the old `v1.0.2` tag
-   and its Release were deleted before that, so the new `v1.0.2` tag is a fresh object. That cut shipped
-   as a beta on 2026-09-17 and was **promoted to a release** the same day, so `1.0.2` is now the current
-   stable release and `1.0.1` the one before it. Modrinth still carries a version
-   entry named `1.0.2` from the old numbering — see the Modrinth note in the current-state block
-   above before publishing this beta there.
+6. History: the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) produced four jars *before this
+   policy existed*. They were published with channel `release` at the time — which is why the platforms
+   still carry entries of those numbers — and `CHANGELOG.md` records them as the development snapshots
+   `0.0.0-dev.1` … `0.0.0-dev.4`; under today's policy none of them is a release. The **first official
+   release** is `1.0.1` as cut under the current policy (190,504 B, `sha256:2c644ed6…`): it shares a
+   number with one of those snapshots but is a different artifact.
+7. The number `1.0.2` was **reused** for the anvil-flow cut (the old `v1.0.2` tag and its Release were
+   deleted first, so the current `v1.0.2` is a fresh object). That cut shipped as a beta on 2026-09-17
+   and was **promoted to a release** the same day, so `1.0.2` is the current stable release. `1.0.3` is
+   being cut in snapshots — `1.0.3-snapshot.0.0.1` is the first. Modrinth still carries an old entry
+   named `1.0.2`; see the Modrinth note in the current-state block.
 
 ---
 
 ## M. Modrinth + GitHub release
 
-Everything below works today, except that publishing to Modrinth is blocked until the project is
-approved and listed (§M.1.2).
+Everything below works today, Modrinth publishing included — the project *page* stays private until
+Modrinth approves and lists it (§M.1.2).
 
 ### M.1 One-time
 
@@ -298,7 +302,7 @@ Nothing leaves your machine except the jar, and no credentials are involved.
 
 ---
 
-## 0. Full setup (GitHub done · CurseForge later)
+## 0. Full setup (GitHub + CurseForge done · Modrinth waiting for review)
 
 ### 0.1 Placeholders — current status
 
@@ -370,8 +374,8 @@ longer declares it:
 
 The repository is **public and pushed**: `origin` is
 <https://github.com/Es-254/Create-ProductionLine> and `main` holds the full history. The tags are
-`v1.0.1` and `v1.0.2` — the old-numbering `v1.0.2` was deleted and the number re-cut for the anvil-flow
-release (see *Version policy*), so a fresh clone sees exactly those two.
+`v1.0.1`, `v1.0.2` and `v1.0.3-snapshot.0.0.1` — the old-numbering `v1.0.2` was deleted and the number
+re-cut for the anvil-flow release (see *Version policy*), so a fresh clone sees exactly those three.
 The bootstrap below is recorded so the original setup stays
 reproducible — **do not re-run it on a clone that already has `origin`.**
 
@@ -423,7 +427,7 @@ Check the self-test log ends with a line matching:
 ```
 
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
-`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:110`), so the acceptance
+`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:139`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
 misjudge the very next release that adds a case. The current snapshot is **20 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`

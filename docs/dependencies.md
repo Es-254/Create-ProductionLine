@@ -54,9 +54,9 @@ Source: the `gradle.properties` keys (the file's section heading is "Third-party
 
 ## 构建网络与代理 / Build network & proxy
 
-**EN** — If your network cannot reach a repository, put the proxy in your **user-level** `~/.gradle/gradle.properties`, not in this repo (there is a commented example in that file).
+**EN** — If your network cannot reach a repository, put the proxy in your **user-level** `~/.gradle/gradle.properties`, not in this repo: this repo's `gradle.properties` only carries a **commented** example (that file is shared, and a machine-specific setting in it would break everyone else's build).
 
-**中文** — 如果网络访问不了仓库，代理请写在**用户级** `~/.gradle/gradle.properties` 里，别写进本仓库（本仓库 `gradle.properties` 有注释示例）。
+**中文** — 如果网络访问不了仓库，代理请写在**用户级** `~/.gradle/gradle.properties` 里，别写进本仓库：本仓库的 `gradle.properties` 只放**注释形式**的示例（该文件是共享的，写死本机设置会让别人的构建失败）。
 
 离线构建（跳过资产下载）与只验证编译的命令见 [build.md](build.md)。
 

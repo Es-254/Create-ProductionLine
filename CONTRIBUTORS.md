@@ -18,8 +18,8 @@ Lists are ordered by support date (newest first). Amounts are optional — you m
 
 > **How to be added / 如何登记**：send the maintainer the name (or "Anonymous"), the amount or range,
 > the date, and whether the name may be shown publicly. 把「署名（或匿名）/ 金额或区间 / 日期 / 是否公开」发给维护者即可入列。
-> **Recurring support / 持续资助**：state the period (e.g. `2026-09 monthly`) and it is listed once per period.
-> **Declined / 谢绝**：if you prefer not to be listed, say so and nothing is recorded.
+> **Recurring support / 持续资助**：state the period (e.g. `2026-09 monthly`) and it is listed once per period. 写明周期（例：`2026-09 monthly`），每个周期只登记一次。
+> **Declined / 谢绝**：if you prefer not to be listed, say so and nothing is recorded. 不想被列入的话说一声即可，不记录任何内容。
 > **Corrections / 更正**：any entry can be changed or removed at any time on request. 任何条目可随时按要求修改或删除。
 
 ---
@@ -28,7 +28,7 @@ Lists are ordered by support date (newest first). Amounts are optional — you m
 
 | Contributor / 贡献者 | Contribution / 贡献内容 | Period / 时间 |
 | --- | --- | --- |
-| **DeepSeek Harness (dsh) · deepseek-v4-flash** — AI coding agent / AI 编码代理 | Create 6.0.10 反编译取证（序列装配执行链、机械手 USE/FACING 前置、过渡物进度组件）；配方转换算法修复（标签保真、方案与配方单一顺序、原生 `create:mechanical_crafting` 额外序列化）；多人服防注入加固（`RecipeDeriver` 服务端重推导、加载柜白名单、破拆机权威退款、镜像纯文本化）；构建/网络工具链（1.0.x 构建与安装、直连/代理与迅雷下载通道）；双语文档与 QA 自检用例 | 2026-09 |
+| **DeepSeek Harness (dsh) · deepseek-v4-flash** — AI coding agent / AI 编码代理 | Create 6.0.10 反编译取证（序列装配执行链、机械手 USE/FACING 前置、过渡物进度组件）；配方转换算法修复（标签保真、方案与配方单一顺序、原生 `create:mechanical_crafting` 额外序列化）；多人服防注入加固（`RecipeDeriver` 服务端重推导、加载柜白名单、破拆机权威退款、镜像纯文本化）；构建/网络工具链（1.0.x 构建与安装、直连/代理与迅雷下载通道）；双语文档与 QA 自检用例 / decompilation evidence for Create 6.0.10 (sequenced-assembly chain, Deployer USE/FACING preconditions, transitional progress component); recipe-conversion algorithm fixes (tag fidelity, one shared material order, an extra sequence for native `create:mechanical_crafting`); multiplayer anti-injection hardening (server-side re-derivation, loader whitelist, authoritative dismantler refund, text-only mirror); build & network toolchain; bilingual docs and QA self-test cases | 2026-09 |
 | **deepseek-v4-pro** — AI model / AI 模型 | 架构与实现评审、加固与发布方案评估 / architecture & implementation review, hardening and release assessment | 2026-09 |
 | **deepseek-v4-vision-exp** — AI vision model / AI 视觉模型 | 截图判读与 GUI/资源核对（模组界面、实机产线截图取证）/ screenshot reading and GUI/asset verification | 2026-09 |
 | _（待登记 / to be listed）_ | | |
@@ -64,8 +64,12 @@ GUI 槽位皮肤为**运行时引用** Create 的 `AllGuiTextures`，未打包�
 | JEI | Optional recipe viewer / 可选配方查看器 | MIT |
 | Registrate / Ponder / Flywheel | Build/runtime libraries / 构建与运行时库 | MIT |
 
-> Full inventory / 完整清单见 `THIRD_PARTY_NOTICES.md`；本项目自身许可见 `LICENSE`。
-> Assets note / 素材说明：本模组**不打包**任何第三方素材——全部贴图与图标为作者原创（源文件 `贴图/`，
+> Full inventory: see `THIRD_PARTY_NOTICES.md`; this project's own licence: `LICENSE`.
+> 完整清单见 `THIRD_PARTY_NOTICES.md`；本项目自身许可见 `LICENSE`。
+> **Assets note / 素材说明**：this mod bundles **no** third-party assets — every texture and icon is
+> original artwork by the author (sources in `贴图/`, shipped as `create_productionline.ico` /
+> `icon_512x512.png` and under `src/main/resources/assets/...`); Create's GUI controls are only
+> runtime-referenced. 本模组**不打包**任何第三方素材——全部贴图与图标为作者原创（源文件 `贴图/`，
 > 工程内为 `create_productionline.ico` / `icon_512x512.png` 与 `src/main/resources/assets/...`）；
 > Create 的 GUI 控件仅为运行时引用。
 

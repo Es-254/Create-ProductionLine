@@ -9,15 +9,19 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **release**: `1.0.x`, the value of `mod_version`; `1.0.2` is the current stable release (`1.0.1` is the
   one before it).
 - **beta**: also a `1.0.x` value, published as a pre-release when `mod_version_type=beta`
-  (Modrinth/CurseForge channel *Beta*, GitHub pre-release). `1.0.2` spent 2026-09-17 as the first such
-  cut before it was promoted to a release.
+  (Modrinth/CurseForge channel *Beta*, GitHub pre-release). The first such cut was `1.0.2` on
+  2026-09-17, which was promoted to a release the same day.
+- **snapshot (alpha)**: `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha` — work in progress towards
+  `x.y.z`. `1.0.3-snapshot.0.0.1` is the first.
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
   always published as `beta`.
 
-The jars of the old numbering (1.0.0 / 1.0.1 / 1.0.2 / 1.0.3) were development snapshots and are
-recorded as `0.0.0-dev.1` … `0.0.0-dev.4`; `1.0.1` was the first official release. Note that the
-version number `1.0.2` was reused for this beta — the old snapshot of the same number no longer
-exists anywhere, and no entry below refers to it.
+The four jars of the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) predate this policy: they
+were published with channel `release` back then, and they are recorded below as the development snapshots
+`0.0.0-dev.1` … `0.0.0-dev.4`. No entry below uses their old numbers. The **first official release** is
+`1.0.1` as cut under the current policy — it shares a number with one of those snapshots but is a
+different artifact. The number `1.0.2` was reused for the anvil-flow cut, so the old snapshot of that
+number no longer exists anywhere either.
 
 ## 1.0.3-snapshot.0.0.1 — 2026-09-20 (alpha)
 

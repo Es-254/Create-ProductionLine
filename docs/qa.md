@@ -39,11 +39,11 @@ CPL SELF-TEST RESULT: 20 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:110`), so the pass criterion is
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:139`), so the pass criterion is
 > *the last line matches `\d+ passed, 0 failed`*, never a literal number. The number below is only a
 > convenience snapshot, and its value is the count of `check("…")` calls in `qa/SelfTest.java`.
 > **中文** — **判一个构建过没过，别把项数写死。** `qa/SelfTest.java` 打印的是
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:110`），判据因此是
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:139`），判据因此是
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >

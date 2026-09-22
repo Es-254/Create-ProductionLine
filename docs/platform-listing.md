@@ -23,8 +23,8 @@
   标签原样写回 `{"tag": …}`，同标签下任何成员都能匹配（像 48 发步枪弹这类靠标签的配方因此可制）。
 - **24 built-in mappings / 24 条内建映射**, extendable in `config/create_productionline-mappings.json`, which also selects the assembly mode.
   内建 24 条映射，可在 `config/create_productionline-mappings.json` 里覆盖或扩展，该文件同时决定装配模式。
-- **Honest failure / 如实报错** — an unmappable recipe reports "cannot map" instead of inventing a plan.
-  无法映射的配方如实报"无法转换"，不会凭空编一份方案出来。
+- **Honest failure / 如实报错** — an unmappable recipe reports "Cannot map this recipe, extend config/create_productionline-mappings.json" instead of inventing a plan.
+  无法映射的配方如实报"该配方无法映射，可在 config/create_productionline-mappings.json 补充"，不会凭空编一份方案出来。
 
 ## Requirements / 前置
 

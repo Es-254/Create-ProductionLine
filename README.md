@@ -18,7 +18,7 @@ world is re-read. The target item can then be produced by a real Create producti
 | Prerequisites / 前置 | Create `6.0.10+` (**required** 缺失拒载); JEI `19.x` (**optional** 仅配方查看，不调用其 API) |
 | Version / 版本 | **`1.0.3-snapshot.0.0.1` (alpha snapshot: performance optimization, part of `1.0.3`)** / **`1.0.2` (release, current stable)** / **`1.0.1` (release, previous)**. The snapshot implements **only part** of the `1.0.3` line — the recipe-refresh rework, which is a **performance** change (activating a scheme no longer runs a server-wide `/reload`); the texture / GUI / art-style work planned for `1.0.3` is **not** in this jar. It ships as a **pre-release** (GitHub pre-release, CurseForge release type `alpha`, Modrinth channel *Alpha*) and is not a finished release. `1.0.2` adds the OP anvil flow plus the target-output / repeat budget and was **promoted from beta to a release on 2026-09-17**, so it stays the current stable release. Dev builds are **`0.0.0-dev.N`** (**beta**, built by `gradlew build -PdevBuild`, with N auto-incremented in `dev-build.txt`)。中文：**`1.0.3-snapshot.0.0.1`** 是 `1.0.3` 线的**部分功能实现**——只含"仅刷新配方"这一块**性能优化**（激活方案不再触发全服 `/reload`），`1.0.3` 计划里的贴图重绘/GUI 优化/艺术风格统一**不在本包内**；按**预发布**发布（GitHub pre-release、CurseForge `alpha`、Modrinth *Alpha*），不是成品版。**`1.0.2` 仍是当前正式版**（2026-09-17 由 beta 晋升，含 OP 铁砧自定义流程与目标产量/循环次数）；`1.0.1` 为上一正式版；开发构建为 `0.0.0-dev.N`（beta），由 `-PdevBuild` 产出并按 `dev-build.txt` 递增。 |
 | Artifact / 产物 | `build/libs/create_productionline-1.0.3-snapshot.0.0.1.jar` (**the snapshot**, 226,361 B, `sha256:aaf8e9e2…`); the current release remains `build/libs/create_productionline-1.0.2.jar` (215,411 B, `sha256:27e0a3c6…`, the same bytes on all three platforms). Both are downloadable from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/create-production-line), [Modrinth](https://modrinth.com/project/createproductionline) or the [Releases](https://github.com/Es-254/Create-ProductionLine/releases) page. CurseForge 页面已上线；Modrinth 项目仍在审核中，公开页面待通过后生效 / the CurseForge page is live, the Modrinth one goes live once the project passes review. 早期 1.0.0–1.0.3 构建包均为开发快照，已被正式版取代（旧编号里的 1.0.2 就是其中之一，与这次的 1.0.2 不是同一个包）(earlier 1.0.0–1.0.3 jars, including the old-numbering 1.0.2, were dev snapshots superseded by 1.0.1; the 1.0.2 named here is a new artifact under the new numbering). |
-| Source size / 工程规模 | `src/main/java` **51 Java files** / **~6,700 lines** (the line count is a snapshot, it moves with every commit; the file count is the stable part) |
+| Source size / 工程规模 | `src/main/java` **55 Java files** / **~8,500 lines** (7,719 non-blank). The line count is a snapshot that moves with every commit; the file count is the stable part ／ **55 个 Java 文件 / 约 8,500 行**（非空 7,719 行）。行数每次提交都会变，文件数才是稳定值 |
 
 ## 文档 / Docs
 
@@ -38,6 +38,14 @@ world is re-read. The target item can then be produced by a real Create producti
 | [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | 第三方清单 / Third-party inventory | Third-party code and licences ／ 第三方代码与许可清单 |
 
 > Icon / 图标: `create_productionline.ico` (16–256), platform icon `icon_512x512.png`
+
+> **Language contract / 语言契约** — the reader-facing documents are bilingual: `README.md` and every
+> `docs/*.md` page pair an English block with its Chinese counterpart (tables carry both in the cells).
+> `CONTRIBUTORS.md` follows the same rule for its prose. `CHANGELOG.md`, `RELEASING.md` and
+> `THIRD_PARTY_NOTICES.md` are **maintainer / release / legal records and English-first**: their headings
+> and a few notes are bilingual, the bodies are not. 读者文档（`README.md` 与 `docs/*.md`）为**双语**：每段英文
+> 都有对应中文（表格在单元格内并列），`CONTRIBUTORS.md` 的正文同样双语；而 `CHANGELOG.md`、
+> `RELEASING.md`、`THIRD_PARTY_NOTICES.md` 属**维护/发布/法律记录，以英文为主**——只有标题与少数说明是双语的。
 
 ## 模块一览 / Modules at a glance
 
