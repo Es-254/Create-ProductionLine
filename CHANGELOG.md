@@ -25,7 +25,11 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
-## Unreleased
+## 0.0.0-dev.5 — 2026-09-24 (beta)
+
+A development snapshot of `main`, published **to GitHub only** — no Modrinth and no CurseForge upload for
+this one. It carries the redrawn Production Computer below plus everything already shipped in
+`1.0.3-snapshot.0.0.1` (the recipe-only refresh).
 
 ### Changed
 
