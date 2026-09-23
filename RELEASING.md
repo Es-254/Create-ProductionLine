@@ -3,8 +3,13 @@
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
 
-> **Current state (verified against this repository + the live APIs, 2026-09-20):**
+> **Current state (verified against this repository + the live APIs, 2026-09-24):**
 >
+> - **`0.0.0-dev.5` is a dev snapshot published to GitHub only** (2026-09-24) — deliberately **not**
+>   uploaded to Modrinth or CurseForge (their newest entries are still the `1.0.3-snapshot.0.0.1` ones).
+>   GitHub Release `v0.0.0-dev.5` (`prerelease: true`, asset `create_productionline-0.0.0-dev.5.jar`,
+>   228,185 B, `sha256:14cb64ea…` — the same bytes the local `gradlew build -PdevBuild` produced), built
+>   from `main` after the Production Computer redraw; `dev-build.txt` advanced to `6`.
 > - **`1.0.3-snapshot.0.0.1` is published as an alpha pre-release** (2026-09-20) — a **performance
 >   optimization** and **only part of the `1.0.3` line** (the recipe-refresh rework; the texture / GUI /
 >   art-style work of `1.0.3` is not in it): GitHub Release `v1.0.3-snapshot.0.0.1`
