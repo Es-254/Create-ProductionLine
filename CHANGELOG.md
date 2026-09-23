@@ -39,6 +39,10 @@ actually published with at the time was `release`.
   namespaced, its seven occluded `#missing` pillar faces point at the shell texture, and
   `minecraft:block/block` is back as the parent so the item keeps the standard GUI transforms.
 
+  Scope of the `1.0.3` art work: **blocks only**. The item icons and the GUI sheets were drawn for `1.0.1`
+  and stay as they are; of the three machines, the Scheme Loader and the Dismantler are still to be drawn
+  (one block at a time, each replacing the old 16×16 faces the same way).
+
 ## 1.0.3-snapshot.0.0.1 — 2026-09-20 (alpha)
 
 **A performance optimization — and only part of the `1.0.3` line.** The `1.0.3` plan also covers redrawn
