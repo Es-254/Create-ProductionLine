@@ -25,6 +25,20 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
+## Unreleased
+
+### Changed
+
+- **The Production Computer has been redrawn.** Its single-cube, five-face 16×16 art is replaced by a
+  16-element Blockbench model — base plate, top plate, four corner pillars and a front bezel carrying a
+  screen and a keyboard — with four textures (shell 32×32, baseboard 64×64, board 64×64, keyboard
+  128×128). The block now declares `noOcclusion`: an open-sided chassis is not a full cube, so without it
+  the neighbouring blocks cull their faces against it and its own boundary faces vanish into them. The
+  five old face textures are gone. Three things in the export had to be repaired before it could render:
+  its bare texture paths (`block/…` resolves to `minecraft:`, i.e. the purple/black missing texture) are
+  namespaced, its seven occluded `#missing` pillar faces point at the shell texture, and
+  `minecraft:block/block` is back as the parent so the item keeps the standard GUI transforms.
+
 ## 1.0.3-snapshot.0.0.1 — 2026-09-20 (alpha)
 
 **A performance optimization — and only part of the `1.0.3` line.** The `1.0.3` plan also covers redrawn

@@ -27,6 +27,11 @@ public final class ModBlocks {
                             .mapColor(MapColor.METAL)
                             .strength(3.5F, 6.0F)
                             .sound(SoundType.METAL)
+                            // The 1.0.3 model is an open-sided chassis (base plate, top plate, four
+                            // corner pillars, front panel) rather than a full cube: without this the
+                            // neighbouring blocks would cull their faces against it and its own
+                            // boundary faces would vanish into them.
+                            .noOcclusion()
                             .requiresCorrectToolForDrops()));
 
     public static final DeferredBlock<SchemeLoaderBlock> SCHEME_LOADER =
