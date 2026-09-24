@@ -3,8 +3,15 @@
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
 
-> **Current state (verified against this repository + the live APIs, 2026-09-24):**
+> **Current state (verified against this repository + the live APIs, 2026-09-25):**
 >
+> - **`0.0.0-dev.6` is a dev snapshot published to GitHub only** (2026-09-25) — again **no** Modrinth and no
+>   CurseForge entry. GitHub Release `v0.0.0-dev.6` (`prerelease: true`, asset
+>   `create_productionline-0.0.0-dev.6.jar`, 248,890 B, `sha256:65815583…`, byte-identical to the local
+>   `gradlew build -PdevBuildNumber=6`), and it is the snapshot that carries **all three redrawn machines**
+>   (computer, scheme loader with its fill bar, dismantler) plus the normalised texture names.
+>   Numbering note: the earlier *local* `dev.6` (loader only) and `dev.7` builds were never published, so
+>   `dev.6` names this state; `dev-build.txt` already stands at `8`, i.e. the next dev cut is `dev.8`.
 > - **`0.0.0-dev.5` is a dev snapshot published to GitHub only** (2026-09-24) — deliberately **not**
 >   uploaded to Modrinth or CurseForge (their newest entries are still the `1.0.3-snapshot.0.0.1` ones).
 >   GitHub Release `v0.0.0-dev.5` (`prerelease: true`, asset `create_productionline-0.0.0-dev.5.jar`,
