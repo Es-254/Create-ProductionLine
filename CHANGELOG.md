@@ -25,7 +25,11 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
-## Unreleased
+## 0.0.0-dev.6 — 2026-09-25 (beta)
+
+A development snapshot of `main`, published **to GitHub only** — no Modrinth and no CurseForge upload. It
+carries **all three redrawn machines** (the Production Computer from `0.0.0-dev.5`, plus the Scheme Loader
+with its new fill bar and the Dismantler) and normalises three texture names the exports misspelled.
 
 ### Added
 
@@ -43,9 +47,9 @@ actually published with at the time was `release`.
   plate, four corner pillars, a 256×256 baseboard, a front screen and the six bar strips — replaces the old
   16×16 four-face cube, and the block declares `noOcclusion` for the same reason (open-sided chassis). The
   author renamed the shared shell texture to `production_block_shell`, so the computer's model follows that
-  rename, and the four old loader face textures are gone. Two notes for the next export: the screen texture
-  is spelled `loader_sceen`, and the six strips had placeholder textures (`bar_1`, `bar_3`, `bar_3`,
-  `bar_4`, `bar_5`, `bar_6` — `bar_2` unused), so the mapping is now left→right = `bar_1 … bar_6`.
+  rename, and the four old loader face textures are gone. One note for the next export: the six strips had
+  placeholder textures (`bar_1`, `bar_3`, `bar_3`, `bar_4`, `bar_5`, `bar_6` — `bar_2` unused), so the
+  mapping is now left→right = `bar_1 … bar_6`.
 - **The Dismantler has been redrawn** — the third and last machine: 18 elements (base and top plates, four
   corner pillars, an inner baseboard, three stepped bars, four holders, a button and a rod) over twelve part
   textures (mostly 16×16, the baseboard 64×64) plus the shared shell. Same repairs, plus one this export
@@ -55,6 +59,11 @@ actually published with at the time was `release`.
   are gone. Because its parts map a whole face onto a 1 px strip of a 16×16 texture, the install samples
   every face's pixels: 108 faces, none transparent, colours matching the parts (holders 120, stepped bars
   180/85, button pure red, shell pale yellow).
+- **Three misspelled texture names are normalised**: `loader_sceen` → `loader_screen`,
+  `production_dismantler_hoder1…4` / `hoderb` → `holder1…4` / `holderb`, and
+  `production_dismantler_basebord` → `baseboard`. Every model reference follows; the source folder carries
+  the same names, and the unused byte-identical duplicate `Dismantler_basebord.png` is gone. Renaming them
+  inside the Blockbench project too keeps the next export from bringing the old spelling back.
 
 ## 0.0.0-dev.5 — 2026-09-24 (beta)
 

@@ -4,7 +4,7 @@
 	"textures": {
 		"shell": "create_productionline:block/production_block_shell",
 		"baseboard": "create_productionline:block/production_loader_baseboard",
-		"screen": "create_productionline:block/loader_sceen",
+		"screen": "create_productionline:block/loader_screen",
 		"particle": "create_productionline:block/production_block_shell",
 		"bar1": "create_productionline:block/loader_bar_1",
 		"bar2": "create_productionline:block/loader_bar_2",
