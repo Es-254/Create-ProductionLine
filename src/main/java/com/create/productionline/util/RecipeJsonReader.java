@@ -383,8 +383,65 @@ public final class RecipeJsonReader {
         }
     }
 
-    /** Recursive scan for every {@code item}/{@code tag} reference (skips result blocks). */
-    public static void collectAllItemRefs(JsonElement el, List<String> out, String excludeResult) {
+    /**
+     * How many fluid-form ingredients a recipe JSON declares.
+     *
+     * <p>Fluids cannot exist as items, so they never appear in the item input list this
+     * class produces and can never be part of a dismantler refund. Rather than let the
+     * fluid silently vanish, the dismantler asks for this count and tells the player.
+     *
+     * <p>Only ingredient positions are scanned ({@code ingredients}, {@code ingredient},
+     * {@code input}, {@code template}, {@code base}, {@code addition}, {@code key},
+     * {@code sequence}), so a fluid <em>result</em> is not miscounted as an input. An
+     * object counts as a fluid when it carries {@code fluid} / {@code fluid_tag} /
+     * {@code fluids} (the NeoForge component form) or an {@code amount} without an
+     * {@code item} — the shapes mods actually write.
+     */
+    public static int countFluidIngredients(ResourceManager manager, ResourceLocation recipeId) {
+        JsonObject obj = readRecipeJson(manager, recipeId);
+        if (obj == null) {
+            return 0;
+        }
+        int[] count = {0};
+        for (String key : new String[]{"ingredients", "ingredient", "input", "template", "base",
+                "addition", "key", "sequence"}) {
+            if (obj.has(key)) {
+                countFluidIngredients(obj.get(key), count);
+            }
+        }
+        return count[0];
+    }
+
+    private static void countFluidIngredients(JsonElement el, int[] count) {
+        if (el == null || el.isJsonNull()) {
+            return;
+        }
+        if (el.isJsonArray()) {
+            for (var sub : el.getAsJsonArray()) {
+                countFluidIngredients(sub, count);
+            }
+            return;
+        }
+        if (!el.isJsonObject()) {
+            return;
+        }
+        var o = el.getAsJsonObject();
+        if (!o.has("item") && !o.has("tag")
+                && (o.has("fluid") || o.has("fluid_tag") || o.has("fluids") || o.has("amount"))) {
+            count[0]++;
+            return;
+        }
+        // Shaped recipes nest their ingredients under "key"; sequenced assembly nests one
+        // step's own list under "ingredients". Everything else here is a plain ingredient.
+        if (o.has("ingredients")) {
+            countFluidIngredients(o.get("ingredients"), count);
+        }
+        if (o.has("key")) {
+            countFluidIngredients(o.get("key"), count);
+        }
+    }
+
+    /** Recursive scan for every {@code item}/{@code tag} reference (skips result blocks). */    public static void collectAllItemRefs(JsonElement el, List<String> out, String excludeResult) {
         if (el == null) {
             return;
         }

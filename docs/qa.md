@@ -1,4 +1,4 @@
-# 无头自检 / QA
+﻿# 无头自检 / QA
 
 > [← 总体 / Overview](../README.md) · 相关： [构建与安装](build.md) · [依赖](dependencies.md) · [配方转换](conversion.md) · [兼容性与边界](compatibility.md)
 
@@ -9,8 +9,8 @@
 gradlew runServer -PselfTest
 ```
 
-> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 21 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
-> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **21 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
+> **EN** — `-PselfTest` forwards `create_productionline.selfTest=true` to the GAME JVM. A bare `-D` on the Gradle command line does not reach it. The property is read by `qa/SelfTest.isEnabled()`, and once the server is up the 22 checks run against a **real server** (real registries/NBT/components/`RecipeManager`).
+> **中文** — `-PselfTest` 会把 `create_productionline.selfTest=true` 传给**游戏 JVM**；在 Gradle 命令行上直接写 `-D` 传不到游戏进程。该属性由 `qa/SelfTest.isEnabled()` 读取，服务器启动后就对着**真实服务器**跑这 **22 项**检查（真实注册表/NBT/组件/`RecipeManager`）。
 > **EN** — The server halts itself afterwards, but the game process may not exit cleanly. If `:runServer` hangs, kill the game JVM; the task then reports `FAILED` even though the checks passed, so judge by the output below.
 > **中文** — 自检后服务器会自行 `halt`，但游戏进程有时不会干净退出。若 `:runServer` 卡住，手动结束游戏进程即可；这时任务会显示 `FAILED`，而检查本身已经通过了，以下面的输出为准。
 
@@ -36,19 +36,20 @@ gradlew runServer -PselfTest
 [PASS] Recipe-only reload registers new recipes
 [PASS] Owned recipes parse for injection
 [PASS] GUI layout fits the drawn wells
-CPL SELF-TEST RESULT: 21 passed, 0 failed
+[PASS] Dismantler decision table, doubling refund, fluid notice
+CPL SELF-TEST RESULT: 22 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:139`), so the pass criterion is
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:147`), so the pass criterion is
 > *the last line matches `\d+ passed, 0 failed`*, never a literal number. The number below is only a
 > convenience snapshot, and its value is the count of `check("…")` calls in `qa/SelfTest.java`.
 > **中文** — **判一个构建过没过，别把项数写死。** `qa/SelfTest.java` 打印的是
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:139`），判据因此是
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:147`），判据因此是
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
-> **EN** — Current snapshot: **21** checks. `Plan topology (chain: base -> machine+material -> product)`
+> **EN** — Current snapshot: **22** checks. `Plan topology (chain: base -> machine+material -> product)`
 > arrived with dev snapshot `0.0.0-dev.3`; `Tag ingredients kept in flat recipes`, `Duration only on
 > duration-capable types`, `Loader accepts written schemes only`, `Self-referential recipes are skipped`,
 > `Deriver refuses native/unmappable recipes` and `Single-material recipes map to a semantic machine`
@@ -60,7 +61,7 @@ CPL SELF-TEST RESULT: 21 passed, 0 failed
 > on `main` after 1.0.2. Adding or
 > removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
 > file (`docs/qa.md`), in `../CHANGELOG.md` and in `../RELEASING.md`.
-> **中文** — 当前快照 **21 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
+> **中文** — 当前快照 **22 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
 > `0.0.0-dev.3` 进来的；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
@@ -74,10 +75,10 @@ CPL SELF-TEST RESULT: 21 passed, 0 failed
 > 只需要改本文件（`docs/qa.md`）、`../CHANGELOG.md`、`../RELEASING.md` 里标注为"快照"的那几处。
 >
 > **EN** — Historical docs mentioning "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" describe earlier
-> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **21** checks
+> rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **22** checks
 > and no DataPacket whitelist case.
 > **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" 是更早几轮的数字；
-> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **21 项**，也不再有任何 DataPacket 白名单用例。
+> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **22 项**，也不再有任何 DataPacket 白名单用例。
 
 ## Doc↔code consistency baseline (2026-09-13) / 文档—代码一致性核对基线（2026-09-13）
 

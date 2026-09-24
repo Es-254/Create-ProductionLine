@@ -55,20 +55,38 @@ actually published with at the time was `release`.
   matching reason.
 - **The dismantler's hint overstated the scheme slot.** It read "right slot = scheme" while the scheme is
   optional (a mirror snapshot is synthesised from the recipe when the slot is empty) and did not say where
-  the refunds go — they are dropped beside the machine. Both languages now say the slot is optional and
-  the chat line on success says where the materials landed.
+  the refunds go — they are dropped beside the machine. Both languages now say the slot is optional, and
+  that a scheme in the item slot is erased rather than refunded.
+- **A refund was not the inverse it claimed to be for recipes that consume their own product.** The
+  refund list dropped any input equal to the product, so `1 A + 1 B = 2 A` consumed `2 A` and returned
+  only `B` — eating an `A`. The product now stays in the refund list, which makes the batch a true
+  inverse (`2 A -> 1 A + 1 B`) and, as before, never lets a `count > 1` recipe be farmed one item at a
+  time. The self test dismantles a real doubling recipe and counts the dropped items.
+- **Fluid-form ingredients vanished without a word.** A fluid cannot exist as an item, so it can never be
+  part of a refund — but the player used to get no hint at all that part of the recipe was not coming
+  back. The dismantler now counts the fluid ingredients of the source recipe and says so
+  (`另有 N 项流体原料无法退还` / "Another N fluid ingredient(s) could not be refunded"). A pure-fluid
+  recipe still refuses outright (`NOT_REFUNDABLE`) without consuming anything.
 
 ### Added
 
+- **The Dismantler erases a written Line Scheme back to a blank one.** A plan costs nothing to
+  author — the Production Computer only writes onto the carrier, it consumes no materials — so a
+  scheme that is no longer wanted should not be a dead item. Put one into the item slot and press
+  **Dismantle**: the plan is erased and a **fresh blank scheme** takes its place. A blank scheme has
+  nothing to erase and a mirror is a read-only snapshot; both are refused with their own message
+  instead of being mistaken for a product that does not match the plan.
 - **The Production Computer reports its result in the player's chat.** The panel can only show four rows
   between its button and the inventory groove, so the same status list (product, target output / repeat
   budget, material budget, plan size, embedded recipe count) is now also sent — privately, to whoever
   pressed **Compute**, never as a broadcast — as chat lines. The list is built once
   (`menu/ComputerStatus`) and used by both the screen and the server, so panel and chat can never drift
   apart. A long plan is no longer truncated away.
-- **Self test grew to 21 checks** (was 20): `GUI layout fits the drawn wells` asserts that every slot grid
-  is centred inside its well, that text starts below the well and stays clear of the button and of the
-  player-inventory groove, and that nothing runs off the panel.
+- **Self test grew to 22 checks** (was 20): `GUI layout fits the drawn wells` asserts that every slot
+  grid is centred inside its well and that text starts below the well and stays clear of the button and
+  of the player-inventory groove, and `Dismantler decision table, doubling refund, fluid notice` places a
+  real dismantler, runs a real `1 A + 1 B = 2 A` recipe through it and counts the items that actually
+  dropped.
 
 ## 0.0.0-dev.6 — 2026-09-25 (beta)
 

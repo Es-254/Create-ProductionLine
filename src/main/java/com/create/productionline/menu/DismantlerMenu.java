@@ -50,8 +50,9 @@ public class DismantlerMenu extends AbstractContainerMenu {
     }
 
     /** Runs the authoritative dismantle on the server and reports what happened. */
-    public DismantlerBlockEntity.RevertResult revert() {
-        return be != null ? be.revert() : DismantlerBlockEntity.RevertResult.NOT_SERVER_SIDE;
+    public DismantlerBlockEntity.RevertOutcome revert() {
+        return be != null ? be.revert() : new DismantlerBlockEntity.RevertOutcome(
+                DismantlerBlockEntity.RevertResult.NOT_SERVER_SIDE, 0);
     }
 
     public ItemStack getItem() {

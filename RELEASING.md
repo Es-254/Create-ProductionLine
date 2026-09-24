@@ -1,4 +1,4 @@
-# Releasing / 发布流程
+﻿# Releasing / 发布流程
 
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
@@ -443,7 +443,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (21 checks, then the server halts)
+# Headless QA self-test on a real server (22 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -454,9 +454,9 @@ Check the self-test log ends with a line matching:
 ```
 
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
-`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:139`), so the acceptance
+`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:147`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **21 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **22 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
@@ -597,7 +597,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      21 passed; never hard-code the number)
+      22 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x`, `vx.y.z-snapshot.0.0.N` or `v0.0.0-dev.N`); GitHub Release created with the jar attached

@@ -1,4 +1,4 @@
-# 构建与安装 / Build & install
+﻿# 构建与安装 / Build & install
 
 > [← 总体 / Overview](../README.md) · 相关： [依赖](dependencies.md) · [无头自检](qa.md) · [兼容性与边界](compatibility.md) · [配方转换](conversion.md)
 
@@ -40,7 +40,7 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (21 headless checks) / events incl. the /cpl command / payloads
+└── qa/ event/ network/            SelfTest (22 headless checks) / events incl. the /cpl command / payloads
 ```
 
 > 返回 [总体 / Overview](../README.md)

@@ -36,14 +36,22 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
     public static final int SLOT_SCHEME = 1;
 
     /**
-     * Outcome of a dismantle attempt. The GUI's button claims "materials back +
-     * mirror", so a refusal has to say <em>why</em> instead of doing nothing —
-     * every value except {@link #DONE} and {@link #NOT_SERVER_SIDE} carries the
-     * translation key of the line sent to the player who pressed the button.
+     * Outcome of a dismantle attempt plus what could not be given back. The GUI's
+     * button claims "materials back + mirror", so a refusal has to say <em>why</em>
+     * instead of doing nothing — every {@link RevertResult} except
+     * {@link RevertResult#DONE}, {@link RevertResult#SCHEME_ERASED} and
+     * {@link RevertResult#NOT_SERVER_SIDE} carries the translation key of the line
+     * sent to the player who pressed the button.
      */
     public enum RevertResult {
         /** Consumed, materials refunded, mirror produced. */
         DONE("dismantler.create_productionline.result.done"),
+        /** A written scheme was erased and a fresh blank one handed back. */
+        SCHEME_ERASED("dismantler.create_productionline.result.scheme_erased"),
+        /** A blank scheme holds nothing to erase. */
+        SCHEME_ALREADY_BLANK("dismantler.create_productionline.result.scheme_already_blank"),
+        /** A mirror is a read-only snapshot: nothing to take apart. */
+        MIRROR_READ_ONLY("dismantler.create_productionline.result.mirror_read_only"),
         /** Slot 0 was empty. */
         NOTHING_HELD("dismantler.create_productionline.result.nothing_held"),
         /** Slot 0 held something this machine cannot dismantle (no provenance). */
@@ -71,7 +79,22 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
         }
 
         public boolean ok() {
-            return this == DONE;
+            return this == DONE || this == SCHEME_ERASED;
+        }
+    }
+
+    /**
+     * What a dismantle attempt did, and what it could not give back.
+     *
+     * @param result        the outcome, {@link RevertResult#ok()} when something happened
+     * @param fluidsSkipped fluid-form ingredients the source recipe also used: a fluid
+     *                      cannot exist as an item, so it is never part of the refund and
+     *                      the player has to be told rather than left guessing
+     */
+    public record RevertOutcome(RevertResult result, int fluidsSkipped) {
+
+        static RevertOutcome refusal(RevertResult result) {
+            return new RevertOutcome(result, 0);
         }
     }
 
@@ -94,23 +117,47 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
      *       (tags refund their first registered member as a best effort).</li>
      *   <li><b>a finished product</b>; then the recipe is resolved server-side (scheme
      *       {@code recipeId}, verified against the live {@code RecipeManager}) and the refund is
-     *       one batch of its inputs, consuming {@code count} products to stay the inverse of the
-     *       recipe (a {@code count > 1} recipe must not be farmed one product at a time).</li>
+     *       one batch of its inputs — <em>including</em> the product itself when the recipe
+     *       consumes it ({@code A + B = 2A} must give back {@code A + B}, not just {@code B}) —
+     *       consuming {@code count} products so that a {@code count > 1} recipe is never
+     *       farmed one product at a time.</li>
+     *   <li><b>a written Line Scheme</b>; it holds no materials at all (authoring a plan costs
+     *       one blank carrier and nothing else, see the Production Computer), so dismantling
+     *       one simply erases the plan and hands back a <b>fresh blank scheme</b>. A blank
+     *       scheme has nothing to erase and a mirror is a read-only snapshot: both are
+     *       refused with their own message.</li>
      * </ol>
-     * The Line Scheme in slot 1 is now <b>optional</b>: when present it supplies the mirror's
+     * The Line Scheme in slot 1 is <b>optional</b>: when present it supplies the mirror's
      * plan text, otherwise a mirror snapshot is synthesized from the recipe that was parsed.
      *
-     * @return {@link RevertResult#DONE} when the item was consumed and materials
-     *         (plus a mirror) were produced; any other value names the refusal, and
-     *         nothing was consumed or produced.
+     * <p>Fluids cannot exist as items, so fluid-form ingredients are never refunded; the
+     * count of them is reported in {@link RevertOutcome#fluidsSkipped()} so the player is
+     * told instead of being left to wonder where the water went.
+     *
+     * @return the outcome: {@link RevertResult#DONE} / {@link RevertResult#SCHEME_ERASED}
+     *         when something happened, otherwise the refusal and nothing was consumed.
      */
-    public RevertResult revert() {
+    public RevertOutcome revert() {
         if (!(level instanceof ServerLevel serverLevel)) {
-            return RevertResult.NOT_SERVER_SIDE;
+            return RevertOutcome.refusal(RevertResult.NOT_SERVER_SIDE);
         }
         ItemStack slotZero = inventory.getItem(SLOT_ITEM);
         if (slotZero.isEmpty()) {
-            return RevertResult.NOTHING_HELD;
+            return RevertOutcome.refusal(RevertResult.NOTHING_HELD);
+        }
+        // A scheme holds no materials: the plan on it was computed for free (the computer
+        // only writes onto the carrier), so "dismantling" one is erasing it. One item in,
+        // one blank item back, in the same slot.
+        if (slotZero.getItem() == ModItems.LINE_SCHEME.get()) {
+            if (!schemeCarriesContent(slotZero)) {
+                return RevertOutcome.refusal(RevertResult.SCHEME_ALREADY_BLANK);
+            }
+            inventory.setItem(SLOT_ITEM, new ItemStack(ModItems.LINE_SCHEME.get()));
+            setChanged();
+            return new RevertOutcome(RevertResult.SCHEME_ERASED, 0);
+        }
+        if (slotZero.getItem() == ModItems.LINE_SCHEME_MIRROR.get()) {
+            return RevertOutcome.refusal(RevertResult.MIRROR_READ_ONLY);
         }
         // Slot 1 (Line Scheme) is optional: genuine schemes supply the mirror text, mirrors /
         // paper / clipboard carriers are ignored (they must not act as authoritative input).
@@ -127,20 +174,23 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
         var manager = serverLevel.getServer().getResourceManager();
         java.util.List<String> toRestore = new java.util.ArrayList<>();
         int consume = 1;
+        int fluidsSkipped = 0;
         LineScheme mirrorScheme = scheme;
 
         if (slotZero.getItem() == ModItems.GENERIC_INTERMEDIATE.get()) {
             // --- unfinished intermediate: refund what it already absorbed -------------
             var assembly = slotZero.get(com.simibubi.create.AllDataComponents.SEQUENCED_ASSEMBLY);
             if (assembly == null) {
-                return RevertResult.NO_PROVENANCE; // a plain intermediate carries no provenance
+                return RevertOutcome.refusal(RevertResult.NO_PROVENANCE); // no provenance
             }
             com.create.productionline.util.RecipeJsonReader.SequenceParts parts =
                     com.create.productionline.util.RecipeJsonReader.sequenceParts(
                             manager, assembly.id());
             if (parts == null) {
-                return RevertResult.RECIPE_MISSING; // recipe gone / not a sequence recipe
+                return RevertOutcome.refusal(RevertResult.RECIPE_MISSING);
             }
+            fluidsSkipped = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(
+                    manager, assembly.id());
             if (parts.base() != null) {
                 toRestore.add(parts.base());
             }
@@ -149,7 +199,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
                 toRestore.add(parts.stepMaterials().get(i)); // multiplicity is intentional
             }
             if (toRestore.isEmpty()) {
-                return RevertResult.NOT_REFUNDABLE;
+                return RevertOutcome.refusal(RevertResult.NOT_REFUNDABLE);
             }
             if (mirrorScheme == null) {
                 mirrorScheme = synthesizeSequenceMirror(parts);
@@ -160,20 +210,21 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             com.create.productionline.line.mapper.RecipeDescriptor desc =
                     com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
             if (desc == null || desc.outputs().isEmpty()) {
-                return RevertResult.RECIPE_MISSING;
+                return RevertOutcome.refusal(RevertResult.RECIPE_MISSING);
             }
             String authoritativeOutput = desc.outputs().get(0);
             ResourceLocation slotKey = BuiltInRegistries.ITEM.getKey(slotZero.getItem());
             if (slotKey == null || !slotKey.toString().equals(authoritativeOutput)) {
-                return RevertResult.OUTPUT_MISMATCH;
+                return RevertOutcome.refusal(RevertResult.OUTPUT_MISMATCH);
             }
             for (String in : desc.uniqueInputs()) {
-                if (!in.equals(authoritativeOutput)) {
-                    toRestore.add(in);
-                }
+                // The product itself stays in the refund list on purpose: for a recipe that
+                // consumes what it makes (A + B = 2A) the inverse of one craft is
+                // 2A -> 1A + 1B, and dropping the self-reference would eat an A instead.
+                toRestore.add(in);
             }
             if (toRestore.isEmpty()) {
-                return RevertResult.NOT_REFUNDABLE;
+                return RevertOutcome.refusal(RevertResult.NOT_REFUNDABLE);
             }
             // The refund is the inverse of the recipe, so a recipe yielding `count` items is
             // only dismantled in batches of `count`; the live recipe wins over the JSON text.
@@ -181,10 +232,12 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             ResourceLocation rid = ResourceLocation.tryParse(desc.recipeId());
             if (rid != null) {
                 jsonCount = com.create.productionline.util.RecipeJsonReader.resultCount(manager, rid);
+                fluidsSkipped = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(
+                        manager, rid);
             }
             consume = Math.max(1, Math.max(jsonCount, desc.outputCount()));
             if (slotZero.getCount() < consume) {
-                return RevertResult.NOT_ENOUGH; // not enough products for one full inverse batch
+                return RevertOutcome.refusal(RevertResult.NOT_ENOUGH); // needs a full batch
             }
             if (mirrorScheme == null) {
                 mirrorScheme = synthesizeDescriptorMirror(desc);
@@ -201,7 +254,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             }
         }
         if (refunds.isEmpty()) {
-            return RevertResult.NOT_REFUNDABLE;
+            return RevertOutcome.refusal(RevertResult.NOT_REFUNDABLE);
         }
 
         BlockPos pos = getBlockPos();
@@ -228,7 +281,18 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             net.minecraft.world.level.block.Block.popResource(serverLevel, pos, mirror);
         }
         setChanged();
-        return RevertResult.DONE;
+        return new RevertOutcome(RevertResult.DONE, fluidsSkipped);
+    }
+
+    /**
+     * True when a Line Scheme stack carries anything at all: a computed plan, or a
+     * hand-authored one that is still being built on the anvil (which has a
+     * {@code CUSTOM_ASSEMBLY} component but may not have Steps yet — the same reason
+     * {@code LineSchemeItem}'s tooltip does not treat "no steps" as "empty").
+     */
+    private static boolean schemeCarriesContent(ItemStack stack) {
+        return !LineSchemeSerializer.fromStack(stack).isEmpty()
+                || stack.has(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
     }
 
     /**

@@ -103,11 +103,18 @@ public final class ModPayloads {
                 // Tell the player who pressed the button what happened, privately. The
                 // panel only shows the hint text, so before this a refused dismantle was
                 // completely silent (the button looked broken).
-                var result = menu.revert();
-                String key = result.langKey();
+                var outcome = menu.revert();
+                String key = outcome.result().langKey();
                 if (key != null) {
                     serverPlayer.displayClientMessage(
                             net.minecraft.network.chat.Component.translatable(key), false);
+                }
+                // Fluid ingredients can never be handed back as items; say so instead of
+                // letting the player wonder where the water went.
+                if (outcome.fluidsSkipped() > 0) {
+                    serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                            "dismantler.create_productionline.result.fluids_skipped",
+                            outcome.fluidsSkipped()), false);
                 }
             }
         });

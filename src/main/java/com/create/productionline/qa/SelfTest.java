@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.create.productionline.ProductionLineMod;
+import com.create.productionline.block.entity.DismantlerBlockEntity;
 import com.create.productionline.compat.ClipboardCompat;
 import com.create.productionline.item.LineSchemeItem;
 import com.create.productionline.line.mapper.RecipeDescriptor;
@@ -135,6 +136,7 @@ public final class SelfTest {
             check("Recipe-only reload registers new recipes", () -> recipeOnlyReload(server));
             check("Owned recipes parse for injection", () -> ownedRecipeInjection(server));
             check("GUI layout fits the drawn wells", () -> guiLayoutFits());
+            check("Dismantler decision table, doubling refund, fluid notice", () -> dismantlerRules(server));
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -760,6 +762,124 @@ public final class SelfTest {
                     + " dismantler 2 slots symmetric; computer 3 slots centred");
         }
         return ok;
+    }
+
+    /**
+     * The dismantler's decision table plus the two refund rules that are easy to get
+     * wrong.
+     *
+     * <p>A written scheme carries <em>no materials</em> — authoring a plan costs one
+     * blank carrier and nothing else — so dismantling one erases the plan and hands a
+     * fresh blank scheme back. And a recipe that consumes its own product has to give
+     * that product back too: {@code 1 A + 1 B = 2 A} dismantles into {@code A + B}, not
+     * into {@code B} alone, which is what the doubling recipe installed below proves
+     * for real (items dropped into the world are counted, not assumed). Fluid-form
+     * ingredients can never come back as items, so the count of them is what the chat
+     * line reports.
+     */
+    private static boolean dismantlerRules(MinecraftServer server) throws Exception {
+        ServerLevel level = server.overworld();
+        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(0, 250, 0);
+        var files = new java.util.LinkedHashMap<String, String>();
+        files.put("cpl_test_doubling", """
+                {
+                  "type": "minecraft:crafting_shapeless",
+                  "category": "misc",
+                  "ingredients": [ { "item": "minecraft:iron_ingot" }, { "item": "minecraft:coal" } ],
+                  "result": { "id": "minecraft:iron_ingot", "count": 2 }
+                }
+                """);
+        files.put("cpl_test_fluid", """
+                {
+                  "type": "minecraft:crafting_shapeless",
+                  "category": "misc",
+                  "ingredients": [ { "item": "minecraft:glass" }, { "fluid": "minecraft:water", "amount": 100 } ],
+                  "result": { "id": "minecraft:glass" }
+                }
+                """);
+        ResourceLocation doublingId = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_doubling");
+        ResourceLocation fluidId = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_fluid");
+        try {
+            com.create.productionline.recipegen.CreateRecipePack.installIsolated(server, files);
+            if (server.getRecipeManager().byKey(doublingId).isEmpty()) {
+                System.out.println("   doubling test recipe did not load: " + doublingId);
+                return false;
+            }
+            level.setBlockAndUpdate(pos, com.create.productionline.registry.ModBlocks.DISMANTLER.get()
+                    .defaultBlockState());
+            if (!(level.getBlockEntity(pos) instanceof DismantlerBlockEntity dismantler)) {
+                System.out.println("   could not place a dismantler at " + pos);
+                return false;
+            }
+            var inv = dismantler.getInventory();
+            boolean ok = true;
+
+            // --- the decision table ------------------------------------------------
+            ok &= expectRevert("empty slot", dismantler, DismantlerBlockEntity.RevertResult.NOTHING_HELD);
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, new ItemStack(ModItems.LINE_SCHEME.get()));
+            ok &= expectRevert("blank scheme", dismantler,
+                    DismantlerBlockEntity.RevertResult.SCHEME_ALREADY_BLANK);
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, LineSchemeItem.sampleStack());
+            DismantlerBlockEntity.RevertOutcome erased = dismantler.revert();
+            ItemStack after = inv.getItem(DismantlerBlockEntity.SLOT_ITEM);
+            ok &= layoutExpect("a written scheme is erased back to a blank one",
+                    erased.result() == DismantlerBlockEntity.RevertResult.SCHEME_ERASED
+                            && after.getItem() == ModItems.LINE_SCHEME.get()
+                            && LineSchemeSerializer.fromStack(after).isEmpty());
+            ItemStack mirror = new ItemStack(ModItems.LINE_SCHEME_MIRROR.get());
+            com.create.productionline.item.LineSchemeMirrorItem.write(mirror, writtenStickScheme());
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, mirror);
+            ok &= expectRevert("mirror", dismantler, DismantlerBlockEntity.RevertResult.MIRROR_READ_ONLY);
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()));
+            ok &= expectRevert("intermediate without provenance", dismantler,
+                    DismantlerBlockEntity.RevertResult.NO_PROVENANCE);
+
+            // --- doubling refund (1 iron + 1 coal = 2 iron) ------------------------
+            // The plan needs at least one step: LineScheme.isEmpty() is true for a scheme
+            // with an output but no steps, and an "empty" scheme is ignored on purpose.
+            LineScheme plan = new LineScheme();
+            plan.setRecipeId(doublingId.toString());
+            plan.setOutputItem("minecraft:iron_ingot");
+            plan.addStep("create:deploying", 1).addInput("minecraft:coal");
+            ItemStack written = new ItemStack(ModItems.LINE_SCHEME.get());
+            LineSchemeSerializer.saveToStack(written, plan);
+            inv.setItem(DismantlerBlockEntity.SLOT_SCHEME, written);
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, new ItemStack(Items.IRON_INGOT, 2));
+            DismantlerBlockEntity.RevertOutcome outcome = dismantler.revert();
+            var dropped = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(pos).inflate(2));
+            long iron = dropped.stream().filter(e -> e.getItem().is(Items.IRON_INGOT)).count();
+            long coal = dropped.stream().filter(e -> e.getItem().is(Items.COAL)).count();
+            ok &= layoutExpect("1 A + 1 B = 2 A refunds A and B (result=" + outcome.result()
+                    + ", iron=" + iron + ", coal=" + coal + ")",
+                    outcome.result() == DismantlerBlockEntity.RevertResult.DONE && iron == 1 && coal == 1);
+            dropped.forEach(net.minecraft.world.entity.Entity::discard);
+
+            // --- fluid ingredients are counted, never silently dropped -------------
+            var manager = server.getResourceManager();
+            int fluids = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(manager, fluidId);
+            int none = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(manager, doublingId);
+            ok &= layoutExpect("fluid ingredients counted (fluid recipe=" + fluids + ", item recipe=" + none + ")",
+                    fluids == 1 && none == 0);
+            return ok;
+        } finally {
+            level.removeBlock(pos, false);
+            level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(pos).inflate(2))
+                    .forEach(net.minecraft.world.entity.Entity::discard);
+            com.create.productionline.recipegen.CreateRecipePack.removeIsolated(server);
+        }
+    }
+
+    /** Runs one dismantle and compares the classification. */
+    private static boolean expectRevert(String what, DismantlerBlockEntity dismantler,
+            DismantlerBlockEntity.RevertResult expected) {
+        DismantlerBlockEntity.RevertOutcome outcome = dismantler.revert();
+        if (outcome.result() != expected) {
+            System.out.println("   " + what + ": expected " + expected + ", got " + outcome.result());
+            return false;
+        }
+        return true;
     }
 
     /** One layout assertion; prints the failing rule instead of a bare false. */
