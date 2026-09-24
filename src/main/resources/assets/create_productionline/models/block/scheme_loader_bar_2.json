@@ -545,12 +545,12 @@
 		},
 		{
 			"from": [
-				5,
+				13,
 				3,
 				1
 			],
 			"to": [
-				6,
+				14,
 				11,
 				2
 			],
@@ -558,7 +558,7 @@
 				"angle": 0,
 				"axis": "y",
 				"origin": [
-					5,
+					13,
 					3,
 					1
 				]
@@ -571,7 +571,7 @@
 						2,
 						16
 					],
-					"texture": "#bar2"
+					"texture": "#bar1"
 				},
 				"east": {
 					"uv": [
@@ -580,7 +580,7 @@
 						4,
 						16
 					],
-					"texture": "#bar2"
+					"texture": "#bar1"
 				},
 				"south": {
 					"uv": [
@@ -589,7 +589,7 @@
 						6,
 						16
 					],
-					"texture": "#bar2"
+					"texture": "#bar1"
 				},
 				"west": {
 					"uv": [
@@ -598,7 +598,7 @@
 						8,
 						16
 					],
-					"texture": "#bar2"
+					"texture": "#bar1"
 				},
 				"up": {
 					"uv": [
@@ -607,7 +607,7 @@
 						10,
 						2
 					],
-					"texture": "#bar2"
+					"texture": "#bar1"
 				},
 				"down": {
 					"uv": [
@@ -616,18 +616,18 @@
 						10,
 						4
 					],
-					"texture": "#bar2"
+					"texture": "#bar1"
 				}
 			}
 		},
 		{
 			"from": [
-				3,
+				11,
 				3,
 				1
 			],
 			"to": [
-				4,
+				12,
 				11,
 				2
 			],
@@ -635,7 +635,7 @@
 				"angle": 0,
 				"axis": "y",
 				"origin": [
-					3,
+					11,
 					3,
 					1
 				]
@@ -648,7 +648,7 @@
 						2,
 						16
 					],
-					"texture": "#bar1"
+					"texture": "#bar2"
 				},
 				"east": {
 					"uv": [
@@ -657,7 +657,7 @@
 						4,
 						16
 					],
-					"texture": "#bar1"
+					"texture": "#bar2"
 				},
 				"south": {
 					"uv": [
@@ -666,7 +666,7 @@
 						6,
 						16
 					],
-					"texture": "#bar1"
+					"texture": "#bar2"
 				},
 				"west": {
 					"uv": [
@@ -675,7 +675,7 @@
 						8,
 						16
 					],
-					"texture": "#bar1"
+					"texture": "#bar2"
 				},
 				"up": {
 					"uv": [
@@ -684,7 +684,7 @@
 						10,
 						2
 					],
-					"texture": "#bar1"
+					"texture": "#bar2"
 				},
 				"down": {
 					"uv": [
@@ -693,7 +693,7 @@
 						10,
 						4
 					],
-					"texture": "#bar1"
+					"texture": "#bar2"
 				}
 			}
 		},

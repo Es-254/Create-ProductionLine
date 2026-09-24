@@ -25,6 +25,18 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
+## Unreleased
+
+### Fixed
+
+- **The Scheme Loader's bar grew from the wrong end.** The six strips had been ordered left→right as
+  `bar_1 … bar_6`, which inverts the author's layout: in the Blockbench export the rightmost strip (x=13)
+  already carried `bar_1` and the leftmost (x=3) carried `bar_6` (with one mis-dragged placeholder in
+  between). The bar now fills from the **right**, and each stage keeps the rightmost N strips
+  (`scheme_loader_bar_1` draws x=13, `bar_2` adds x=11, and so on). The fill arithmetic is unchanged:
+  `segments = ceil(count * 6 / 16)`. Spotted in game — the direction is the one thing no headless check
+  could have caught.
+
 ## 0.0.0-dev.6 — 2026-09-25 (beta)
 
 A development snapshot of `main`, published **to GitHub only** — no Modrinth and no CurseForge upload. It
