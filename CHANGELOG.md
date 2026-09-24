@@ -61,7 +61,11 @@ actually published with at the time was `release`.
   refund list dropped any input equal to the product, so `1 A + 1 B = 2 A` consumed `2 A` and returned
   only `B` — eating an `A`. The product now stays in the refund list, which makes the batch a true
   inverse (`2 A -> 1 A + 1 B`) and, as before, never lets a `count > 1` recipe be farmed one item at a
-  time. The self test dismantles a real doubling recipe and counts the dropped items.
+  time. The self test dismantles a real doubling recipe and counts the dropped items. The refund is still
+  a set of **unique materials, one each** rather than one per recipe slot — `2 planks -> 4 sticks` hands
+  back a single plank. That is deliberate and now documented in `docs/usage.md` and `docs/security.md`:
+  what prevents farming is the batch rule (`consume >= count`), not the size of the refund, while an
+  unfinished intermediate keeps counting per deploy step so nothing it absorbed is lost.
 - **Fluid-form ingredients vanished without a word.** A fluid cannot exist as an item, so it can never be
   part of a refund — but the player used to get no hint at all that part of the recipe was not coming
   back. The dismantler now counts the fluid ingredients of the source recipe and says so
