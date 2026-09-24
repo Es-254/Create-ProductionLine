@@ -5,7 +5,7 @@
 	"texture_size": [32, 32],
 	"textures": {
 		"0": "create_productionline:block/production_computer_baseboard",
-		"1": "create_productionline:block/production_computer_shell",
+		"1": "create_productionline:block/production_block_shell",
 		"2": "create_productionline:block/production_computer_board",
 		"3": "create_productionline:block/production_computer_keyboard",
 		"particle": "create_productionline:block/production_computer_baseboard"

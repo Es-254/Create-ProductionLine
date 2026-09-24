@@ -1,6 +1,5 @@
 {
-	"format_version": "1.9.0",
-	"credit": "Made with Blockbench",
+	"parent": "minecraft:block/block",
 	"textures": {
 		"shell": "create_productionline:block/production_block_shell",
 		"baseboard": "create_productionline:block/production_loader_baseboard",
@@ -546,160 +545,6 @@
 		},
 		{
 			"from": [
-				13,
-				3,
-				1
-			],
-			"to": [
-				14,
-				11,
-				2
-			],
-			"rotation": {
-				"angle": 0,
-				"axis": "y",
-				"origin": [
-					13,
-					3,
-					1
-				]
-			},
-			"faces": {
-				"north": {
-					"uv": [
-						0,
-						0,
-						2,
-						16
-					],
-					"texture": "#bar6"
-				},
-				"east": {
-					"uv": [
-						2,
-						0,
-						4,
-						16
-					],
-					"texture": "#bar6"
-				},
-				"south": {
-					"uv": [
-						4,
-						0,
-						6,
-						16
-					],
-					"texture": "#bar6"
-				},
-				"west": {
-					"uv": [
-						6,
-						0,
-						8,
-						16
-					],
-					"texture": "#bar6"
-				},
-				"up": {
-					"uv": [
-						8,
-						0,
-						10,
-						2
-					],
-					"texture": "#bar6"
-				},
-				"down": {
-					"uv": [
-						8,
-						2,
-						10,
-						4
-					],
-					"texture": "#bar6"
-				}
-			}
-		},
-		{
-			"from": [
-				11,
-				3,
-				1
-			],
-			"to": [
-				12,
-				11,
-				2
-			],
-			"rotation": {
-				"angle": 0,
-				"axis": "y",
-				"origin": [
-					11,
-					3,
-					1
-				]
-			},
-			"faces": {
-				"north": {
-					"uv": [
-						0,
-						0,
-						2,
-						16
-					],
-					"texture": "#bar5"
-				},
-				"east": {
-					"uv": [
-						2,
-						0,
-						4,
-						16
-					],
-					"texture": "#bar5"
-				},
-				"south": {
-					"uv": [
-						4,
-						0,
-						6,
-						16
-					],
-					"texture": "#bar5"
-				},
-				"west": {
-					"uv": [
-						6,
-						0,
-						8,
-						16
-					],
-					"texture": "#bar5"
-				},
-				"up": {
-					"uv": [
-						8,
-						0,
-						10,
-						2
-					],
-					"texture": "#bar5"
-				},
-				"down": {
-					"uv": [
-						8,
-						2,
-						10,
-						4
-					],
-					"texture": "#bar5"
-				}
-			}
-		},
-		{
-			"from": [
 				9,
 				3,
 				1
@@ -1083,7 +928,5 @@
 				}
 			}
 		}
-	],
-	"display": {},
-	"parent": "minecraft:block/block"
+	]
 }

@@ -13,6 +13,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import org.jetbrains.annotations.Nullable;
@@ -24,8 +26,27 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SchemeLoaderBlock extends Block implements EntityBlock {
 
+    /**
+     * Loaded-scheme count (0 … {@value SchemeLoaderBlockEntity#SLOT_COUNT}) mirrored
+     * into the block state so the client can pick the bar model: the six front strips
+     * of the 1.0.3 model are drawn by {@code scheme_loader_empty},
+     * {@code scheme_loader_bar_1} … {@code scheme_loader_bar_5} and the full
+     * {@code scheme_loader}, one model per stage. A block model cannot add or drop
+     * elements at runtime, so the count selects the model — the property carries the
+     * number itself and the blockstate file maps it with
+     * {@code segments = ceil(count * 6 / 16)}.
+     */
+    public static final IntegerProperty FILL =
+            IntegerProperty.create("fill", 0, SchemeLoaderBlockEntity.SLOT_COUNT);
+
     public SchemeLoaderBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(FILL, 0));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FILL);
     }
 
     @Nullable

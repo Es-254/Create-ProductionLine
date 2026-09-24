@@ -280,6 +280,19 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
 
     private void syncState() {
         if (level != null) {
+            if (!level.isClientSide) {
+                // The front bar renders how many schemes are loaded, so the block state
+                // has to follow the inventory. Flag 2 = clients only: the property is
+                // purely visual, and redstone still goes through isActive() below.
+                BlockState current = level.getBlockState(getBlockPos());
+                if (current.hasProperty(com.create.productionline.block.SchemeLoaderBlock.FILL)) {
+                    int filled = filledSlots();
+                    if (current.getValue(com.create.productionline.block.SchemeLoaderBlock.FILL) != filled) {
+                        level.setBlock(getBlockPos(),
+                                current.setValue(com.create.productionline.block.SchemeLoaderBlock.FILL, filled), 2);
+                    }
+                }
+            }
             level.updateNeighbourForOutputSignal(getBlockPos(), getBlockState().getBlock());
             BlockState state = level.getBlockState(getBlockPos());
             level.sendBlockUpdated(getBlockPos(), state, state, 3);

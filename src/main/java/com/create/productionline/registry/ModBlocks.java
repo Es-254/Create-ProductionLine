@@ -40,6 +40,10 @@ public final class ModBlocks {
                             .mapColor(MapColor.METAL)
                             .strength(4.0F, 8.0F)
                             .sound(SoundType.METAL)
+                            // Same open-sided chassis as the computer: base plate, top
+                            // plate, four corner pillars and a front panel, so the
+                            // neighbours must not cull their faces against it.
+                            .noOcclusion()
                             .requiresCorrectToolForDrops()));
 
     public static final DeferredBlock<com.create.productionline.block.DismantlerBlock> DISMANTLER =

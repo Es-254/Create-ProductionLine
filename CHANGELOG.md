@@ -25,6 +25,28 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
+## Unreleased
+
+### Added
+
+- **The Scheme Loader's front bar shows how many schemes are loaded.** The redrawn cabinet carries six bar
+  strips on its front; `SchemeLoaderBlock.FILL` (0 … 16) mirrors the loaded-scheme count into the block
+  state, and `scheme_loader_empty` / `scheme_loader_bar_1…5` / `scheme_loader` draw one stage each, so the
+  client paints `ceil(count * 6 / 16)` strips as schemes go in and out. The count comes from the same
+  whitelist the slot check uses (`filledSlots()`), so paper, a mirror or a forged stack never lights the
+  bar. Nothing is broadcast and there is no custom renderer: the property rides the ordinary block-state
+  update (`setBlock(…, 2)`), and the bar follows the inventory the moment a slot changes.
+
+### Changed
+
+- **The Scheme Loader has been redrawn** like the computer: a 14-element Blockbench model — base plate, top
+  plate, four corner pillars, a 256×256 baseboard, a front screen and the six bar strips — replaces the old
+  16×16 four-face cube, and the block declares `noOcclusion` for the same reason (open-sided chassis). The
+  author renamed the shared shell texture to `production_block_shell`, so the computer's model follows that
+  rename, and the four old loader face textures are gone. Two notes for the next export: the screen texture
+  is spelled `loader_sceen`, and the six strips had placeholder textures (`bar_1`, `bar_3`, `bar_3`,
+  `bar_4`, `bar_5`, `bar_6` — `bar_2` unused), so the mapping is now left→right = `bar_1 … bar_6`.
+
 ## 0.0.0-dev.5 — 2026-09-24 (beta)
 
 A development snapshot of `main`, published **to GitHub only** — no Modrinth and no CurseForge upload for
