@@ -1,24 +1,31 @@
-﻿# Releasing / 发布流程
+# Releasing / 发布流程
 
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
 
 > **Current state (verified against this repository + the live APIs, 2026-09-25):**
 >
-> - **`0.0.0-dev.8` is built locally but NOT yet published** (2026-09-25) — it is `dev.6` plus the
->   **loader-bar direction fix** (`3c27582`: the bar grows right→left, `bar_1` paints `x=13`, matching the
->   author's export; `dev.6` shipped the reversed order). Local jar
->   `create_productionline-0.0.0-dev.8.jar`, 248,897 B, `sha256:d29c1baa…`, built with
->   `gradlew build -PdevBuild`; `dev-build.txt` advanced to `9`, so a later cut without an explicit number
->   would be `dev.9`. `main` at `3c27582` is CI-green (Build success). Publication is pending the author's
->   decision — the fix is installed in both test instances for re-verification.
+> - **`1.0.3-snapshot.0.0.2` is the current snapshot** (2026-09-25, alpha, **GitHub only** for now) — the
+>   whole `1.0.3` line so far: the three redrawn machines, the loader's fill bar, the GUI layout pass, the
+>   dismantler's decision table (erase a written scheme, a doubling refund as the true inverse, fluids
+>   named) and the computer's private chat output, plus the build-guide tooltip fix. Local jar
+>   `create_productionline-1.0.3-snapshot.0.0.2.jar`, 261,785 B, `sha256:a1f9bfef…`; the GitHub asset comes
+>   from CI on tag `v1.0.3-snapshot.0.0.2` (`prerelease: true`). **CurseForge and Modrinth still carry
+>   `1.0.3-snapshot.0.0.1`** — this one is deliberately not uploaded there until the author has walked
+>   through it in game, because an uploaded CurseForge file cannot be replaced. `1.0.2` stays the stable
+>   release.
+> - **Local dev builds `0.0.0-dev.8` / `dev.9` / `dev.10` were never published** (2026-09-25): `dev.8` is
+>   the loader-bar direction fix (`3c27582` — the bar grows right→left, `bar_1` paints `x=13`, matching the
+>   author's export, where `dev.6` shipped the reversed order), `dev.9` the GUI alignment + chat output and
+>   `dev.10` the dismantler work. All of it ships inside `1.0.3-snapshot.0.0.2`; `dev-build.txt` stands at
+>   `11`, so the next dev cut is `0.0.0-dev.11`.
 > - **`0.0.0-dev.6` is a dev snapshot published to GitHub only** (2026-09-25) — again **no** Modrinth and no
 >   CurseForge entry. GitHub Release `v0.0.0-dev.6` (`prerelease: true`, asset
 >   `create_productionline-0.0.0-dev.6.jar`, 248,890 B, `sha256:65815583…`, byte-identical to the local
 >   `gradlew build -PdevBuildNumber=6`), and it is the snapshot that carries **all three redrawn machines**
 >   (computer, scheme loader with its fill bar, dismantler) plus the normalised texture names. Its loader
->   bar is the **reversed** one (fixed in `dev.8`); it stays published as-is, since an uploaded jar cannot
->   be replaced and a dev snapshot records the state it was cut from.
+>   bar is the **reversed** one (fixed in `dev.8`, shipped in `1.0.3-snapshot.0.0.2`); it stays published
+>   as-is, since an uploaded jar cannot be replaced and a dev snapshot records the state it was cut from.
 >   Numbering note: the earlier *local* `dev.6` (loader only), `dev.7` (pre-spelling-fix) and `dev.8` builds
 >   were/are unpublished, so `dev.6` names the three-machine state.
 > - **`0.0.0-dev.5` is a dev snapshot published to GitHub only** (2026-09-24) — deliberately **not**
@@ -443,7 +450,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (22 checks, then the server halts)
+# Headless QA self-test on a real server (23 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -454,9 +461,9 @@ Check the self-test log ends with a line matching:
 ```
 
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
-`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:147`), so the acceptance
+`CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:148`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **22 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **23 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
@@ -597,7 +604,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      22 passed; never hard-code the number)
+      23 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x`, `vx.y.z-snapshot.0.0.N` or `v0.0.0-dev.N`); GitHub Release created with the jar attached

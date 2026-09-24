@@ -25,10 +25,26 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
-## Unreleased
+## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
+
+**The second `1.0.3` snapshot: the whole line so far, for an in-game pass before the release cut.**
+`1.0.3-snapshot.0.0.1` carried the recipe-refresh work alone; this one adds everything the line has
+produced since — the three redrawn machines (Production Computer in `0.0.0-dev.5`, Scheme Loader with its
+fill bar and Dismantler in `0.0.0-dev.6`), the normalised texture names, the GUI layout pass, the
+dismantler's decision table and the computer's private chat output. See the `0.0.0-dev.N` sections below
+for the per-build detail. `1.0.2` remains the current stable release; a snapshot is a work in progress
+towards `1.0.3`, not a finished line.
 
 ### Fixed
 
+- **A carrier's build guide was written but never shown.** The Production Computer writes the plan
+  <em>and</em> the `LineBuildGuide` onto the same carrier (paper takes both), but the tooltip returned
+  right after the plan block, so the guide could never be reached on exactly the items it exists for —
+  and the three `guide.*` hint lines were dead text because of it. The tooltip now renders the guide
+  block after the plan and uses those localised build instructions (belt first, one Deployer per material
+  facing down, where the product comes out, and the return belt a repeating line needs), gated so a
+  single-machine plan is not given assembly-line advice it cannot use. The stored `LineBuildGuide` payload
+  is unchanged — it stays the machine-readable record carriers are recognised by.
 - **The Scheme Loader's bar grew from the wrong end.** The six strips had been ordered left→right as
   `bar_1 … bar_6`, which inverts the author's layout: in the Blockbench export the rightmost strip (x=13)
   already carried `bar_1` and the leftmost (x=3) carried `bar_6` (with one mis-dragged placeholder in
@@ -86,11 +102,13 @@ actually published with at the time was `release`.
   pressed **Compute**, never as a broadcast — as chat lines. The list is built once
   (`menu/ComputerStatus`) and used by both the screen and the server, so panel and chat can never drift
   apart. A long plan is no longer truncated away.
-- **Self test grew to 22 checks** (was 20): `GUI layout fits the drawn wells` asserts that every slot
+- **Self test grew to 23 checks** (was 20): `GUI layout fits the drawn wells` asserts that every slot
   grid is centred inside its well and that text starts below the well and stays clear of the button and
-  of the player-inventory groove, and `Dismantler decision table, doubling refund, fluid notice` places a
+  of the player-inventory groove; `Dismantler decision table, doubling refund, fluid notice` places a
   real dismantler, runs a real `1 A + 1 B = 2 A` recipe through it and counts the items that actually
-  dropped.
+  dropped; and `Computer writes plan + guide onto both carriers` drives a real Production Computer and
+  asserts both carriers end up holding the plan <em>and</em> the build guide — the data side of the
+  tooltip fix above.
 
 ## 0.0.0-dev.6 — 2026-09-25 (beta)
 

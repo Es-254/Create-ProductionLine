@@ -137,6 +137,7 @@ public final class SelfTest {
             check("Owned recipes parse for injection", () -> ownedRecipeInjection(server));
             check("GUI layout fits the drawn wells", () -> guiLayoutFits());
             check("Dismantler decision table, doubling refund, fluid notice", () -> dismantlerRules(server));
+            check("Computer writes plan + guide onto both carriers", () -> computerWritesBothCarriers(server));
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -868,6 +869,59 @@ public final class SelfTest {
                     new net.minecraft.world.phys.AABB(pos).inflate(2))
                     .forEach(net.minecraft.world.entity.Entity::discard);
             com.create.productionline.recipegen.CreateRecipePack.removeIsolated(server);
+        }
+    }
+
+    /**
+     * The computer's write path, seen from the data side.
+     *
+     * <p>With a target in slot 0, a blank scheme in slot 1 and paper in slot 2, one compute has
+     * to put <b>both</b> the plan and the build guide onto <b>both</b> carriers — the tooltip
+     * bug this guards against (a carrier that carried the guide but never showed it) was
+     * invisible in the data, so the data is what gets asserted here.
+     */
+    private static boolean computerWritesBothCarriers(MinecraftServer server) throws Exception {
+        ServerLevel level = server.overworld();
+        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(4, 250, 0);
+        try {
+            level.setBlockAndUpdate(pos, com.create.productionline.registry.ModBlocks.PRODUCTION_COMPUTER.get()
+                    .defaultBlockState());
+            if (!(level.getBlockEntity(pos) instanceof com.create.productionline.block.entity
+                    .ProductionComputerBlockEntity computer)) {
+                System.out.println("   could not place a production computer at " + pos);
+                return false;
+            }
+            var inv = computer.getInventory();
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_TARGET,
+                    new ItemStack(Items.IRON_INGOT, 4));
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME,
+                    new ItemStack(ModItems.LINE_SCHEME.get()));
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD,
+                    new ItemStack(Items.PAPER));
+            computer.runCompute();
+            if (computer.getResultCode() != com.create.productionline.block.entity
+                    .ProductionComputerBlockEntity.RESULT_GENERATED) {
+                System.out.println("   compute did not generate anything: result=" + computer.getResultCode()
+                        + " error=" + computer.getLastError());
+                return false;
+            }
+            boolean ok = true;
+            for (int slot : new int[]{com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME,
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD}) {
+                ItemStack carrier = inv.getItem(slot);
+                CompoundTag custom = carrier.getOrDefault(
+                        net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                        net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
+                LineScheme written = LineSchemeSerializer.load(
+                        custom.getCompound(LineScheme.SCHEME_TAG_KEY));
+                boolean hasPlan = !written.isEmpty();
+                boolean hasGuide = custom.getCompound(ClipboardCompat.GUIDE_KEY).getInt("TotalSteps") > 0;
+                ok &= layoutExpect("carrier slot " + slot + " holds plan+guide (plan=" + hasPlan
+                        + ", guide=" + hasGuide + ", item=" + carrier.getItem() + ")", hasPlan && hasGuide);
+            }
+            return ok;
+        } finally {
+            level.removeBlock(pos, false);
         }
     }
 
