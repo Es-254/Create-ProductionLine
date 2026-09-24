@@ -41,14 +41,19 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
         //   0 target item  — anything the player wants produced
         //   1 blank Line Scheme — the computed plan is written here (required carrier)
         //   2 paper — OPTIONAL second carrier; only vanilla paper is accepted
-        addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_TARGET, 44, 20));
-        addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_SCHEME, 80, 20) {
+        // Positions come from GuiLayout, which keeps the three cells centred in the
+        // well drawn in the background.
+        addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_TARGET,
+                GuiLayout.computerSlotX(0), GuiLayout.COMPUTER_SLOT_Y));
+        addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_SCHEME,
+                GuiLayout.computerSlotX(1), GuiLayout.COMPUTER_SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return isBlankScheme(stack);
             }
         });
-        addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_CLIPBOARD, 116, 20) {
+        addSlot(new Slot(computerContainer, ProductionComputerBlockEntity.SLOT_CLIPBOARD,
+                GuiLayout.computerSlotX(2), GuiLayout.COMPUTER_SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return isPaper(stack);

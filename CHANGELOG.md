@@ -36,6 +36,39 @@ actually published with at the time was `release`.
   (`scheme_loader_bar_1` draws x=13, `bar_2` adds x=11, and so on). The fill arithmetic is unchanged:
   `segments = ceil(count * 6 / 16)`. Spotted in game — the direction is the one thing no headless check
   could have caught.
+- **All three GUIs had their contents laid out against the wrong reference.** The backgrounds are
+  hand-drawn and each has a recessed well near the top; the code had been placing cells and text by hand,
+  so: the **Scheme Loader**'s 2×8 grid sat flush left inside its well (an 18 px hole on the right, and the
+  grid 2 px high vertically) with its first status line printed **on** the well's bottom edge; the
+  **Dismantler**'s two slots hugged the ends of their well (no margin at all, 1 px from the top) and its
+  hint text was drawn at y=40, straight **across** the well and both slots; the **Production Computer**'s
+  three slots were 2 px high and its status list could grow to a fifth row **on** the player-inventory
+  groove and the "Inventory" label. Every cell grid is now centred in its well, every text row starts
+  below the well and stops above the groove or the button. The numbers live in one place
+  (`menu/GuiLayout`) that both the menus and the screens read, and the self test asserts the invariants —
+  a layout drift is invisible to every resource check we have and only shows up in game.
+- **A refused dismantle was silent.** The button promised "materials back + mirror" but pressing it with
+  an unmatched item, a plain intermediate, a missing recipe or too few items for one batch did nothing at
+  all, with no clue why. `DismantlerBlockEntity.revert()` now returns a typed result
+  (`RevertResult.DONE` / `NOTHING_HELD` / `NO_PROVENANCE` / `RECIPE_MISSING` / `OUTPUT_MISMATCH` /
+  `NOT_ENOUGH` / `NOT_REFUNDABLE`) and the server answers the player who pressed it, privately, with the
+  matching reason.
+- **The dismantler's hint overstated the scheme slot.** It read "right slot = scheme" while the scheme is
+  optional (a mirror snapshot is synthesised from the recipe when the slot is empty) and did not say where
+  the refunds go — they are dropped beside the machine. Both languages now say the slot is optional and
+  the chat line on success says where the materials landed.
+
+### Added
+
+- **The Production Computer reports its result in the player's chat.** The panel can only show four rows
+  between its button and the inventory groove, so the same status list (product, target output / repeat
+  budget, material budget, plan size, embedded recipe count) is now also sent — privately, to whoever
+  pressed **Compute**, never as a broadcast — as chat lines. The list is built once
+  (`menu/ComputerStatus`) and used by both the screen and the server, so panel and chat can never drift
+  apart. A long plan is no longer truncated away.
+- **Self test grew to 21 checks** (was 20): `GUI layout fits the drawn wells` asserts that every slot grid
+  is centred inside its well, that text starts below the well and stays clear of the button and of the
+  player-inventory groove, and that nothing runs off the panel.
 
 ## 0.0.0-dev.6 — 2026-09-25 (beta)
 

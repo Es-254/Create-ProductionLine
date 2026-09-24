@@ -27,10 +27,12 @@ public class DismantlerMenu extends AbstractContainerMenu {
         super(ModMenuTypes.DISMANTLER.get(), id);
         this.container = container;
         this.be = be;
-        addSlot(new Slot(container, DismantlerBlockEntity.SLOT_ITEM, 44, 24));
+        addSlot(new Slot(container, DismantlerBlockEntity.SLOT_ITEM,
+                GuiLayout.dismantlerItemX(), GuiLayout.dismantlerSlotY()));
         // 槽 1 只接受真正的产线方案(LineSchemeItem)——镜像/纸/剪贴板不允许放入,
         // 与 BlockEntity 的校验保持一致(双保险;权威校验仍在服务端 revert())。
-        addSlot(new Slot(container, DismantlerBlockEntity.SLOT_SCHEME, 116, 24) {
+        addSlot(new Slot(container, DismantlerBlockEntity.SLOT_SCHEME,
+                GuiLayout.dismantlerSchemeX(), GuiLayout.dismantlerSlotY()) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return !stack.isEmpty() && stack.getItem() instanceof com.create.productionline.item.LineSchemeItem;
@@ -47,10 +49,9 @@ public class DismantlerMenu extends AbstractContainerMenu {
         return new DismantlerMenu(id, playerInventory, new SimpleContainer(SLOTS), null);
     }
 
-    public void revert() {
-        if (be != null) {
-            be.revert();
-        }
+    /** Runs the authoritative dismantle on the server and reports what happened. */
+    public DismantlerBlockEntity.RevertResult revert() {
+        return be != null ? be.revert() : DismantlerBlockEntity.RevertResult.NOT_SERVER_SIDE;
     }
 
     public ItemStack getItem() {

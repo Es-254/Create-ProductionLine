@@ -40,7 +40,7 @@ com/create/productionline/
 ├── client/                        ClientSetup / CreateGui / ClientRecipeResolver
 ├── mixin/                         only two Smithing @Accessors (mixin config lists exactly those) / 仅 Smithing 两个 @Accessor
 ├── util/                          Names (#tag localization) / RecipeJsonReader (order- & tag-preserving)
-└── qa/ event/ network/            SelfTest (20 headless checks) / events incl. the /cpl command / payloads
+└── qa/ event/ network/            SelfTest (21 headless checks) / events incl. the /cpl command / payloads
 ```
 
 > 返回 [总体 / Overview](../README.md)

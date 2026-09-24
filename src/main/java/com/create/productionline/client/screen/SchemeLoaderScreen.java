@@ -61,6 +61,14 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
         } else {
             lines.add(Component.translatable("loader.create_productionline.inactive").getString());
         }
+        // Repeat budget (server-derived through the menu's data slot) comes second on
+        // purpose: when a scheme in this cabinet has to run several times, the player
+        // has to prepare the raw materials for every pass, and that line has to
+        // survive even when the panel runs out of rows below.
+        int repeats = this.menu.getRepeatNotice();
+        if (repeats > 1) {
+            lines.add(Component.translatable("loader.create_productionline.repeat_warning", repeats).getString());
+        }
         int filled = 0;
         for (int i = 0; i < com.create.productionline.menu.SchemeLoaderMenu.LOADER_SLOT_COUNT; i++) {
             ItemStack stack = this.menu.getLoaderContainer().getItem(i);
@@ -76,15 +84,10 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
         lines.add(Component.translatable("loader.create_productionline.slots_filled", filled).getString());
         lines.add(Component.translatable("loader.create_productionline.active_recipes",
                 this.menu.getActiveCount()).getString());
-        // Repeat budget (server-derived through the menu's data slot): when a scheme in
-        // this cabinet has to run several times, say so and that the raw materials have
-        // to be prepared for every pass.
-        int repeats = this.menu.getRepeatNotice();
-        if (repeats > 1) {
-            lines.add(Component.translatable("loader.create_productionline.repeat_warning", repeats).getString());
-        }
-        int y = 56;
-        int maxY = 100;
+        // Rows come from GuiLayout: the panel's well ends at y=56 and the player
+        // inventory groove starts at y=99, which leaves room for four 9 px lines.
+        int y = com.create.productionline.menu.GuiLayout.LOADER_TEXT_Y;
+        int maxY = com.create.productionline.menu.GuiLayout.TEXT_MAX_Y;
         for (String line : lines) {
             if (y > maxY) {
                 break;

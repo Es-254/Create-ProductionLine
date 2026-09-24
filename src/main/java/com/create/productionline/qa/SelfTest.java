@@ -13,6 +13,7 @@ import com.create.productionline.line.mapper.RecipeDescriptor;
 import com.create.productionline.line.mapper.ServerRecipeLookup;
 import com.create.productionline.line.scheme.LineScheme;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
+import com.create.productionline.menu.GuiLayout;
 import com.create.productionline.registry.ModItems;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -32,7 +33,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 20 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 21 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -87,6 +88,10 @@ import net.minecraft.world.level.storage.LevelResource;
  *   <li>this pack's payloads round-trip through the server's recipe codec and land
  *       under the id the data pack would give them, while a conditional payload is
  *       refused instead of being loaded unconditionally.</li>
+ *   <li><b>every GUI slot grid and text row fits the well the hand-drawn background
+ *       provides</b> (centred, inside its well, clear of the button and of the
+ *       player-inventory groove) — the one defect class no resource check can see,
+ *       and the reason the loader grid and the dismantler hint are where they are.</li>
  * </ol>
  */
 public final class SelfTest {
@@ -129,6 +134,7 @@ public final class SelfTest {
             check("Plan reports the material budget", () -> planMaterialBudget());
             check("Recipe-only reload registers new recipes", () -> recipeOnlyReload(server));
             check("Owned recipes parse for injection", () -> ownedRecipeInjection(server));
+            check("GUI layout fits the drawn wells", () -> guiLayoutFits());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -665,6 +671,101 @@ public final class SelfTest {
             com.create.productionline.line.scheme.SchemeAnvilMachine.Decision actual) {
         if (actual.action() != expected) {
             System.out.println("   " + what + ": expected " + expected + ", got " + actual.action());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * GUI layout invariants: every slot grid and every text row must fit the well /
+     * band the hand-drawn background provides, and the grids must be centred in it.
+     *
+     * <p>This is the one defect class nothing else in this file can see. The art is
+     * fixed, so a grid that lost its margin, or a hint printed straight across its
+     * own well, looks fine to every resource check and only shows up in game — both
+     * actually happened. Pure arithmetic on {@link GuiLayout}: the numbers there are
+     * the same ones the menus and screens use, so a drift fails here first.
+     */
+    private static boolean guiLayoutFits() {
+        boolean ok = true;
+
+        // Loader: 8 x 2 cells, edge to edge, centred in the well. A cell's frame is
+        // drawn one pixel outside the slot, i.e. it spans [x-1, x+16].
+        int loaderFrameLeft = GuiLayout.loaderSlotX(0) - 1;
+        int loaderFrameRight = GuiLayout.loaderSlotX(GuiLayout.LOADER_COLUMNS - 1) + GuiLayout.SLOT_FRAME - 2;
+        int loaderFrameTop = GuiLayout.loaderSlotY(0) - 1;
+        int loaderFrameBottom = GuiLayout.loaderSlotY(GuiLayout.LOADER_ROWS - 1) + GuiLayout.SLOT_FRAME - 2;
+        ok &= layoutExpect("loader grid inside its well",
+                loaderFrameLeft >= GuiLayout.LOADER_WELL_LEFT && loaderFrameRight <= GuiLayout.LOADER_WELL_RIGHT
+                        && loaderFrameTop >= GuiLayout.LOADER_WELL_TOP
+                        && loaderFrameBottom <= GuiLayout.LOADER_WELL_BOTTOM);
+        ok &= layoutExpect("loader grid centred in its well",
+                loaderFrameLeft - GuiLayout.LOADER_WELL_LEFT
+                        == GuiLayout.LOADER_WELL_RIGHT - loaderFrameRight
+                        && loaderFrameTop - GuiLayout.LOADER_WELL_TOP
+                                == GuiLayout.LOADER_WELL_BOTTOM - loaderFrameBottom);
+        ok &= layoutExpect("loader text below the well, above the groove",
+                GuiLayout.LOADER_TEXT_Y > GuiLayout.LOADER_WELL_BOTTOM
+                        && GuiLayout.LOADER_TEXT_Y + 8 <= GuiLayout.DIVIDER_Y);
+
+        // Dismantler: two cells on the computer's spacing, centred, nothing crossing
+        // the button.
+        int disFrameLeft = GuiLayout.dismantlerItemX() - 1;
+        int disFrameRight = GuiLayout.dismantlerSchemeX() + GuiLayout.SLOT_FRAME - 2;
+        int disFrameTop = GuiLayout.dismantlerSlotY() - 1;
+        int disFrameBottom = disFrameTop + GuiLayout.SLOT_FRAME - 1;
+        ok &= layoutExpect("dismantler slots inside their well",
+                disFrameLeft >= GuiLayout.DISMANTLER_WELL_LEFT
+                        && disFrameRight <= GuiLayout.DISMANTLER_WELL_RIGHT
+                        && disFrameTop >= GuiLayout.DISMANTLER_WELL_TOP
+                        && disFrameBottom <= GuiLayout.DISMANTLER_WELL_BOTTOM);
+        ok &= layoutExpect("dismantler slots symmetric in their well",
+                disFrameLeft - GuiLayout.DISMANTLER_WELL_LEFT
+                        == GuiLayout.DISMANTLER_WELL_RIGHT - disFrameRight
+                        && disFrameTop - GuiLayout.DISMANTLER_WELL_TOP
+                                == GuiLayout.DISMANTLER_WELL_BOTTOM - disFrameBottom);
+        ok &= layoutExpect("dismantler text between well and button",
+                GuiLayout.DISMANTLER_TEXT_Y > GuiLayout.DISMANTLER_WELL_BOTTOM
+                        && GuiLayout.DISMANTLER_TEXT_MAX_Y + 8 <= GuiLayout.DISMANTLER_BUTTON_Y);
+        ok &= layoutExpect("dismantler button above the groove",
+                GuiLayout.DISMANTLER_BUTTON_Y + GuiLayout.DISMANTLER_BUTTON_HEIGHT < GuiLayout.DIVIDER_Y);
+
+        // Computer: three cells, centred, with the button and text below the well.
+        int cpuFrameLeft = GuiLayout.computerSlotX(0) - 1;
+        int cpuFrameRight = GuiLayout.computerSlotX(2) + GuiLayout.SLOT_FRAME - 2;
+        int cpuFrameTop = GuiLayout.COMPUTER_SLOT_Y - 1;
+        int cpuFrameBottom = cpuFrameTop + GuiLayout.SLOT_FRAME - 1;
+        ok &= layoutExpect("computer slots inside their well",
+                cpuFrameLeft >= GuiLayout.COMPUTER_WELL_LEFT && cpuFrameRight <= GuiLayout.COMPUTER_WELL_RIGHT
+                        && cpuFrameTop >= GuiLayout.COMPUTER_WELL_TOP
+                        && cpuFrameBottom <= GuiLayout.COMPUTER_WELL_BOTTOM);
+        ok &= layoutExpect("computer slots centred in their well",
+                cpuFrameLeft - GuiLayout.COMPUTER_WELL_LEFT
+                        == GuiLayout.COMPUTER_WELL_RIGHT - cpuFrameRight
+                        && cpuFrameTop - GuiLayout.COMPUTER_WELL_TOP
+                                == GuiLayout.COMPUTER_WELL_BOTTOM - cpuFrameBottom);
+        ok &= layoutExpect("computer button clear of well and text",
+                GuiLayout.COMPUTER_BUTTON_Y > GuiLayout.COMPUTER_WELL_BOTTOM
+                        && GuiLayout.COMPUTER_TEXT_Y >= GuiLayout.COMPUTER_BUTTON_Y + GuiLayout.COMPUTER_BUTTON_HEIGHT
+                        && GuiLayout.TEXT_MAX_Y + 8 <= GuiLayout.DIVIDER_Y);
+
+        // The player's own grid must not run into the groove or off the panel.
+        ok &= layoutExpect("player inventory below the groove",
+                GuiLayout.PLAYER_SLOTS_Y > GuiLayout.DIVIDER_Y
+                        && GuiLayout.PLAYER_SLOTS_Y + 4 * GuiLayout.SLOT_FRAME - 1
+                                < GuiLayout.PANEL_HEIGHT);
+
+        if (ok) {
+            System.out.println("   loader 8x2 grid centred in the well, text below it;"
+                    + " dismantler 2 slots symmetric; computer 3 slots centred");
+        }
+        return ok;
+    }
+
+    /** One layout assertion; prints the failing rule instead of a bare false. */
+    private static boolean layoutExpect(String what, boolean condition) {
+        if (!condition) {
+            System.out.println("   layout rule broken: " + what);
             return false;
         }
         return true;

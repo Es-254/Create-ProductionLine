@@ -35,6 +35,46 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
     public static final int SLOT_ITEM = 0;
     public static final int SLOT_SCHEME = 1;
 
+    /**
+     * Outcome of a dismantle attempt. The GUI's button claims "materials back +
+     * mirror", so a refusal has to say <em>why</em> instead of doing nothing —
+     * every value except {@link #DONE} and {@link #NOT_SERVER_SIDE} carries the
+     * translation key of the line sent to the player who pressed the button.
+     */
+    public enum RevertResult {
+        /** Consumed, materials refunded, mirror produced. */
+        DONE("dismantler.create_productionline.result.done"),
+        /** Slot 0 was empty. */
+        NOTHING_HELD("dismantler.create_productionline.result.nothing_held"),
+        /** Slot 0 held something this machine cannot dismantle (no provenance). */
+        NO_PROVENANCE("dismantler.create_productionline.result.no_provenance"),
+        /** The recipe behind the item is gone / unknown, so nothing can be refunded safely. */
+        RECIPE_MISSING("dismantler.create_productionline.result.recipe_missing"),
+        /** The item is not the product the plan describes. */
+        OUTPUT_MISMATCH("dismantler.create_productionline.result.output_mismatch"),
+        /** Fewer items than one inverse batch of the recipe. */
+        NOT_ENOUGH("dismantler.create_productionline.result.not_enough"),
+        /** Nothing in the plan could be turned back into an item. */
+        NOT_REFUNDABLE("dismantler.create_productionline.result.not_refundable"),
+        /** Client-side copy of the block entity: unreachable from the GUI payload path. */
+        NOT_SERVER_SIDE(null);
+
+        private final String langKey;
+
+        RevertResult(String langKey) {
+            this.langKey = langKey;
+        }
+
+        /** Player-facing message key, or {@code null} when there is nothing to say. */
+        public String langKey() {
+            return langKey;
+        }
+
+        public boolean ok() {
+            return this == DONE;
+        }
+    }
+
     private final ModContainer inventory = new ModContainer(this, 2, (s) -> setChanged());
 
     public DismantlerBlockEntity(BlockPos pos, BlockState state) {
@@ -60,16 +100,17 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
      * The Line Scheme in slot 1 is now <b>optional</b>: when present it supplies the mirror's
      * plan text, otherwise a mirror snapshot is synthesized from the recipe that was parsed.
      *
-     * @return {@code true} when the item was consumed and materials (plus a mirror) were
-     *         produced; {@code false} when nothing was consumed and nothing was produced.
+     * @return {@link RevertResult#DONE} when the item was consumed and materials
+     *         (plus a mirror) were produced; any other value names the refusal, and
+     *         nothing was consumed or produced.
      */
-    public boolean revert() {
+    public RevertResult revert() {
         if (!(level instanceof ServerLevel serverLevel)) {
-            return false;
+            return RevertResult.NOT_SERVER_SIDE;
         }
         ItemStack slotZero = inventory.getItem(SLOT_ITEM);
         if (slotZero.isEmpty()) {
-            return false;
+            return RevertResult.NOTHING_HELD;
         }
         // Slot 1 (Line Scheme) is optional: genuine schemes supply the mirror text, mirrors /
         // paper / clipboard carriers are ignored (they must not act as authoritative input).
@@ -92,13 +133,13 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             // --- unfinished intermediate: refund what it already absorbed -------------
             var assembly = slotZero.get(com.simibubi.create.AllDataComponents.SEQUENCED_ASSEMBLY);
             if (assembly == null) {
-                return false; // a plain intermediate carries no provenance
+                return RevertResult.NO_PROVENANCE; // a plain intermediate carries no provenance
             }
             com.create.productionline.util.RecipeJsonReader.SequenceParts parts =
                     com.create.productionline.util.RecipeJsonReader.sequenceParts(
                             manager, assembly.id());
             if (parts == null) {
-                return false; // recipe gone / not a sequence recipe -> nothing to refund safely
+                return RevertResult.RECIPE_MISSING; // recipe gone / not a sequence recipe
             }
             if (parts.base() != null) {
                 toRestore.add(parts.base());
@@ -108,7 +149,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
                 toRestore.add(parts.stepMaterials().get(i)); // multiplicity is intentional
             }
             if (toRestore.isEmpty()) {
-                return false;
+                return RevertResult.NOT_REFUNDABLE;
             }
             if (mirrorScheme == null) {
                 mirrorScheme = synthesizeSequenceMirror(parts);
@@ -119,12 +160,12 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             com.create.productionline.line.mapper.RecipeDescriptor desc =
                     com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
             if (desc == null || desc.outputs().isEmpty()) {
-                return false;
+                return RevertResult.RECIPE_MISSING;
             }
             String authoritativeOutput = desc.outputs().get(0);
             ResourceLocation slotKey = BuiltInRegistries.ITEM.getKey(slotZero.getItem());
             if (slotKey == null || !slotKey.toString().equals(authoritativeOutput)) {
-                return false;
+                return RevertResult.OUTPUT_MISMATCH;
             }
             for (String in : desc.uniqueInputs()) {
                 if (!in.equals(authoritativeOutput)) {
@@ -132,7 +173,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
                 }
             }
             if (toRestore.isEmpty()) {
-                return false;
+                return RevertResult.NOT_REFUNDABLE;
             }
             // The refund is the inverse of the recipe, so a recipe yielding `count` items is
             // only dismantled in batches of `count`; the live recipe wins over the JSON text.
@@ -143,7 +184,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             }
             consume = Math.max(1, Math.max(jsonCount, desc.outputCount()));
             if (slotZero.getCount() < consume) {
-                return false; // not enough products for one full inverse batch
+                return RevertResult.NOT_ENOUGH; // not enough products for one full inverse batch
             }
             if (mirrorScheme == null) {
                 mirrorScheme = synthesizeDescriptorMirror(desc);
@@ -160,7 +201,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             }
         }
         if (refunds.isEmpty()) {
-            return false;
+            return RevertResult.NOT_REFUNDABLE;
         }
 
         BlockPos pos = getBlockPos();
@@ -187,7 +228,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             net.minecraft.world.level.block.Block.popResource(serverLevel, pos, mirror);
         }
         setChanged();
-        return true;
+        return RevertResult.DONE;
     }
 
     /**

@@ -43,12 +43,14 @@ public class SchemeLoaderMenu extends AbstractContainerMenu {
 
     private void addLoaderSlots() {
         // 2 rows of 8 (16 slots); only genuine Line Scheme items may be inserted
-        // (see ClipboardCompat.isLoaderCarrier — anti-injection).
+        // (see ClipboardCompat.isLoaderCarrier — anti-injection). The grid is
+        // centred inside the well drawn in the background (GuiLayout): 8 x 18 px
+        // cells fill 144 of the well's 162 px, i.e. 9 px of margin on either side.
         for (int index = 0; index < LOADER_SLOT_COUNT; index++) {
             int col = index % 8;
             int row = index / 8;
-            int x = 8 + col * 18;
-            int y = 17 + row * 18;
+            int x = GuiLayout.loaderSlotX(col);
+            int y = GuiLayout.loaderSlotY(row);
             addSlot(new Slot(loaderContainer, index, x, y) {
                 @Override
                 public boolean mayPlace(ItemStack stack) {

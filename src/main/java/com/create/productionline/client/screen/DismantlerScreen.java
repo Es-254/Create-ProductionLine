@@ -21,12 +21,12 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
 
     public DismantlerScreen(DismantlerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 196;
+        this.imageWidth = com.create.productionline.menu.GuiLayout.PANEL_WIDTH;
+        this.imageHeight = com.create.productionline.menu.GuiLayout.PANEL_HEIGHT;
         this.titleLabelX = 8;
         this.titleLabelY = 6;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 102;
+        this.inventoryLabelY = com.create.productionline.menu.GuiLayout.INVENTORY_LABEL_Y;
     }
 
     @Override
@@ -37,7 +37,10 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.create_productionline.dismantle"),
                 b -> ModPayloads.sendDismantleRequest())
-                .bounds(left + (this.imageWidth - 70) / 2, top + 78, 70, 16)
+                .bounds(left + (this.imageWidth - com.create.productionline.menu.GuiLayout.DISMANTLER_BUTTON_WIDTH) / 2,
+                        top + com.create.productionline.menu.GuiLayout.DISMANTLER_BUTTON_Y,
+                        com.create.productionline.menu.GuiLayout.DISMANTLER_BUTTON_WIDTH,
+                        com.create.productionline.menu.GuiLayout.DISMANTLER_BUTTON_HEIGHT)
                 .build());
     }
 
@@ -62,8 +65,10 @@ public class DismantlerScreen extends AbstractContainerScreen<DismantlerMenu> {
         guiGraphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, 0x404040, false);
         guiGraphics.drawString(this.font, Component.translatable("container.inventory"),
                 this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
-        int y = 40;
-        int maxY = 76;
+        // Starts under the drawn well and stops above the button (GuiLayout): the
+        // hint used to be printed at y=40, straight across the well and the slots.
+        int y = com.create.productionline.menu.GuiLayout.DISMANTLER_TEXT_Y;
+        int maxY = com.create.productionline.menu.GuiLayout.DISMANTLER_TEXT_MAX_Y;
         for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font,
                 Component.translatable("dismantler.create_productionline.hint").getString(), 160)) {
             if (y > maxY) {

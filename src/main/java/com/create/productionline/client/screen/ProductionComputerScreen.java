@@ -1,23 +1,17 @@
 package com.create.productionline.client.screen;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import com.create.productionline.block.entity.ProductionComputerBlockEntity;
-import com.create.productionline.line.scheme.LineScheme;
-import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.menu.ProductionComputerMenu;
 import com.create.productionline.network.ModPayloads;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 
 /**
  * Production Computer screen.
@@ -26,23 +20,27 @@ import net.minecraft.world.item.ItemStack;
  * cells always match the real slots. Computation only runs when the player
  * presses the "Compute" button (explicit trigger), and the status area reports
  * the target item / step totals instead of raw facility spam.
+ *
+ * <p>Positions come from {@link com.create.productionline.menu.GuiLayout}, and
+ * the very same status list is also sent to the player's chat by the server (see
+ * {@code ModPayloads#handleCompute}) — the panel is short, chat is not.
  */
 public class ProductionComputerScreen extends AbstractContainerScreen<ProductionComputerMenu> {
 
     private static final ResourceLocation BACKGROUND =
             ResourceLocation.fromNamespaceAndPath("create_productionline", "textures/gui/production_computer.png");
 
-    private static final int BUTTON_W = 60;
-    private static final int BUTTON_H = 16;
+    private static final int BUTTON_W = com.create.productionline.menu.GuiLayout.COMPUTER_BUTTON_WIDTH;
+    private static final int BUTTON_H = com.create.productionline.menu.GuiLayout.COMPUTER_BUTTON_HEIGHT;
 
     public ProductionComputerScreen(ProductionComputerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 196;
+        this.imageWidth = com.create.productionline.menu.GuiLayout.PANEL_WIDTH;
+        this.imageHeight = com.create.productionline.menu.GuiLayout.PANEL_HEIGHT;
         this.titleLabelX = 8;
         this.titleLabelY = 6;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 102;
+        this.inventoryLabelY = com.create.productionline.menu.GuiLayout.INVENTORY_LABEL_Y;
     }
 
     @Override
@@ -51,7 +49,7 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
         int left = (this.width - this.imageWidth) / 2;
         int top = (this.height - this.imageHeight) / 2;
         int bx = left + (this.imageWidth - BUTTON_W) / 2;
-        int by = top + 46;
+        int by = top + com.create.productionline.menu.GuiLayout.COMPUTER_BUTTON_Y;
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.create_productionline.compute"),
                 b -> sendCompute())
@@ -97,14 +95,18 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
         guiGraphics.drawString(this.font, Component.translatable("container.inventory"),
                 this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
 
-        List<String> lines = statusLines();
-        int y = 64;
-        int maxY = 100;
-        for (String line : lines) {
+        // The panel shows what fits between the button and the player-inventory
+        // groove; the same list goes to the player's chat in full (see
+        // ModPayloads#handleCompute), so a long plan is never truncated away.
+        List<Component> lines = statusLines();
+        int y = com.create.productionline.menu.GuiLayout.COMPUTER_TEXT_Y;
+        int maxY = com.create.productionline.menu.GuiLayout.TEXT_MAX_Y;
+        for (Component line : lines) {
             if (y > maxY) {
                 break;
             }
-            for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font, line, 160)) {
+            for (String wrapped : com.create.productionline.client.CreateGui.wrap(this.font,
+                    line.getString(), 160)) {
                 if (y > maxY) {
                     break;
                 }
@@ -114,80 +116,10 @@ public class ProductionComputerScreen extends AbstractContainerScreen<Production
         }
     }
 
-    private List<String> statusLines() {
-        int code = this.menu.getResultCode();
-        List<String> out = new ArrayList<>();
-        switch (code) {
-            case ProductionComputerBlockEntity.RESULT_GENERATED -> {
-                LineScheme scheme = LineSchemeSerializer.fromStack(this.menu.getSchemeItem());
-                if (scheme.isEmpty()) {
-                    scheme = LineSchemeSerializer.fromStack(this.menu.getClipboardItem());
-                }
-                if (scheme.isEmpty()) {
-                    out.add(Component.translatable("screen.create_productionline.computer.generated").getString());
-                } else {
-                    String name = displayName(scheme.getOutputItem());
-                    out.add(Component.translatable("screen.create_productionline.computer.product", name).getString());
-                    out.add(Component.translatable("screen.create_productionline.computer.plan_size",
-                            scheme.getSteps().size(), scheme.totalFacilityCount()).getString());
-                    out.add(Component.translatable("screen.create_productionline.computer.embedded",
-                            scheme.getCreateRecipes().size()).getString());
-                    // Target output / repeat budget: how often the line has to run for
-                    // the stack the player put into the target slot.
-                    if (scheme.repeats()) {
-                        out.add(Component.translatable("screen.create_productionline.computer.repeat",
-                                scheme.getTargetOutputCount(), scheme.getRepeatCount()).getString());
-                        out.add(Component.translatable("screen.create_productionline.computer.material_budget",
-                                scheme.materialsPerPass(), scheme.getRepeatCount(),
-                                scheme.materialBudget()).getString());
-                    } else {
-                        out.add(Component.translatable("screen.create_productionline.computer.target_output",
-                                scheme.getTargetOutputCount()).getString());
-                    }
-                    // No topology preview here on purpose: the plan chain belongs to the
-                    // item tooltip (see ScreenTopology); the computer only reports totals.
-                }
-            }
-            case ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE ->
-                    out.add(Component.translatable("screen.create_productionline.computer.not_convertible").getString());
-            case ProductionComputerBlockEntity.RESULT_NO_SCHEME ->
-                    out.add(Component.translatable("screen.create_productionline.computer.no_scheme").getString());
-            case ProductionComputerBlockEntity.RESULT_NO_RECIPE -> {
-                switch (this.menu.getLastErrorCode()) {
-                    case ProductionComputerBlockEntity.ERROR_NO_RECIPE_PRODUCING ->
-                            out.add(Component.translatable(
-                                    "screen.create_productionline.computer.no_recipe_found").getString());
-                    case ProductionComputerBlockEntity.ERROR_NO_USABLE_OUTPUT ->
-                            out.add(Component.translatable(
-                                    "screen.create_productionline.computer.no_usable_output").getString());
-                    case ProductionComputerBlockEntity.ERROR_NO_REGISTRY_ID ->
-                            out.add(Component.translatable(
-                                    "screen.create_productionline.computer.no_registry_id").getString());
-                    default -> {
-                        // 0 / 4: nothing more specific to say
-                    }
-                }
-                out.add(Component.translatable("screen.create_productionline.computer.cannot_map").getString());
-            }
-            case ProductionComputerBlockEntity.RESULT_NO_TARGET ->
-                    out.add(Component.translatable("screen.create_productionline.computer.no_target").getString());
-            default ->
-                    out.add(Component.translatable("screen.create_productionline.computer.empty").getString());
-        }
-        return out;
+    private List<Component> statusLines() {
+        return com.create.productionline.menu.ComputerStatus.lines(this.menu.getResultCode(),
+                this.menu.getLastErrorCode(), this.menu.getSchemeItem(), this.menu.getClipboardItem());
     }
-
-    private static String displayName(String itemId) {
-        ResourceLocation key = ResourceLocation.tryParse(itemId);
-        if (key != null) {
-            var item = BuiltInRegistries.ITEM.get(key);
-            if (item != null) {
-                return item.getName(new net.minecraft.world.item.ItemStack(item)).getString();
-            }
-        }
-        return itemId;
-    }
-
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);

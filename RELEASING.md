@@ -443,7 +443,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (20 checks, then the server halts)
+# Headless QA self-test on a real server (21 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -456,13 +456,13 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:139`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **20 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **21 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
 duration-capable types` / `Loader accepts written schemes only` / `Self-referential recipes are skipped`
-landed by release 1.0.1, with the anvil state table, the material budget and the two recipe-refresh cases
-afterwards). If the number grows, only the snapshot mentions in
+landed by release 1.0.1, with the anvil state table, the material budget, the two recipe-refresh cases and
+`GUI layout fits the drawn wells` afterwards). If the number grows, only the snapshot mentions in
 this file, `docs/qa.md` and `CHANGELOG.md` need touching — never the criterion.
 
 ```powershell
@@ -597,7 +597,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      20 passed; never hard-code the number)
+      21 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x`, `vx.y.z-snapshot.0.0.N` or `v0.0.0-dev.N`); GitHub Release created with the jar attached
