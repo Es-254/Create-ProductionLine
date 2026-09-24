@@ -46,6 +46,15 @@ actually published with at the time was `release`.
   rename, and the four old loader face textures are gone. Two notes for the next export: the screen texture
   is spelled `loader_sceen`, and the six strips had placeholder textures (`bar_1`, `bar_3`, `bar_3`,
   `bar_4`, `bar_5`, `bar_6` — `bar_2` unused), so the mapping is now left→right = `bar_1 … bar_6`.
+- **The Dismantler has been redrawn** — the third and last machine: 18 elements (base and top plates, four
+  corner pillars, an inner baseboard, three stepped bars, four holders, a button and a rod) over twelve part
+  textures (mostly 16×16, the baseboard 64×64) plus the shared shell. Same repairs, plus one this export
+  added: it left the `block/` prefix off **entirely** (`production_block_shell`, not
+  `block/production_block_shell`), which resolves to `minecraft:` just the same. `minecraft:block/block` is
+  back as the parent, the block takes `noOcclusion` like its two siblings, and the four old face textures
+  are gone. Because its parts map a whole face onto a 1 px strip of a 16×16 texture, the install samples
+  every face's pixels: 108 faces, none transparent, colours matching the parts (holders 120, stepped bars
+  180/85, button pure red, shell pale yellow).
 
 ## 0.0.0-dev.5 — 2026-09-24 (beta)
 

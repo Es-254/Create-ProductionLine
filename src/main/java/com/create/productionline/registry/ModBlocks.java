@@ -52,6 +52,9 @@ public final class ModBlocks {
                             .mapColor(MapColor.METAL)
                             .strength(4.0F, 8.0F)
                             .sound(SoundType.METAL)
+                            // Third machine with the same open-sided chassis: the
+                            // neighbours must not cull their faces against it.
+                            .noOcclusion()
                             .requiresCorrectToolForDrops()));
 
     static {
