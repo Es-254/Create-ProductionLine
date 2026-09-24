@@ -5,13 +5,22 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-25):**
 >
+> - **`0.0.0-dev.8` is built locally but NOT yet published** (2026-09-25) — it is `dev.6` plus the
+>   **loader-bar direction fix** (`3c27582`: the bar grows right→left, `bar_1` paints `x=13`, matching the
+>   author's export; `dev.6` shipped the reversed order). Local jar
+>   `create_productionline-0.0.0-dev.8.jar`, 248,897 B, `sha256:d29c1baa…`, built with
+>   `gradlew build -PdevBuild`; `dev-build.txt` advanced to `9`, so a later cut without an explicit number
+>   would be `dev.9`. `main` at `3c27582` is CI-green (Build success). Publication is pending the author's
+>   decision — the fix is installed in both test instances for re-verification.
 > - **`0.0.0-dev.6` is a dev snapshot published to GitHub only** (2026-09-25) — again **no** Modrinth and no
 >   CurseForge entry. GitHub Release `v0.0.0-dev.6` (`prerelease: true`, asset
 >   `create_productionline-0.0.0-dev.6.jar`, 248,890 B, `sha256:65815583…`, byte-identical to the local
 >   `gradlew build -PdevBuildNumber=6`), and it is the snapshot that carries **all three redrawn machines**
->   (computer, scheme loader with its fill bar, dismantler) plus the normalised texture names.
->   Numbering note: the earlier *local* `dev.6` (loader only) and `dev.7` builds were never published, so
->   `dev.6` names this state; `dev-build.txt` already stands at `8`, i.e. the next dev cut is `dev.8`.
+>   (computer, scheme loader with its fill bar, dismantler) plus the normalised texture names. Its loader
+>   bar is the **reversed** one (fixed in `dev.8`); it stays published as-is, since an uploaded jar cannot
+>   be replaced and a dev snapshot records the state it was cut from.
+>   Numbering note: the earlier *local* `dev.6` (loader only), `dev.7` (pre-spelling-fix) and `dev.8` builds
+>   were/are unpublished, so `dev.6` names the three-machine state.
 > - **`0.0.0-dev.5` is a dev snapshot published to GitHub only** (2026-09-24) — deliberately **not**
 >   uploaded to Modrinth or CurseForge (their newest entries are still the `1.0.3-snapshot.0.0.1` ones).
 >   GitHub Release `v0.0.0-dev.5` (`prerelease: true`, asset `create_productionline-0.0.0-dev.5.jar`,
