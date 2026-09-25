@@ -30,6 +30,8 @@ public final class LineScheme {
     private String baseMaterial = "";
     private final List<Step> steps = new ArrayList<>();
     private final List<CreateRecipeEntry> createRecipes = new ArrayList<>();
+    /** Materials the line applies in USE mode instead of consuming (see {@link #getToolMaterials()}). */
+    private final List<String> toolMaterials = new ArrayList<>();
     /**
      * The output count the player asked for (the target slot's stack size). The
      * installed recipe still produces one craft per pass — this is the number the
@@ -255,6 +257,27 @@ public final class LineScheme {
             }
         }
         return false;
+    }
+
+    /**
+     * Materials the line <em>uses</em> rather than consumes: a Deployer holding one of these
+     * applies it in USE mode, so it stays on the line while the line keeps running. Filled by
+     * {@code SchemeRoles} from the source recipe's own roles (a smithing recipe's base is the
+     * equipment being upgraded, which is what a Deployer uses here) — the plan's own steps
+     * cannot tell a consumed material from a used one.
+     */
+    public List<String> getToolMaterials() {
+        return Collections.unmodifiableList(toolMaterials);
+    }
+
+    public void addToolMaterial(String material) {
+        if (material != null && !material.isBlank() && !toolMaterials.contains(material)) {
+            toolMaterials.add(material);
+        }
+    }
+
+    public boolean isToolMaterial(String material) {
+        return material != null && toolMaterials.contains(material);
     }
 
     /**

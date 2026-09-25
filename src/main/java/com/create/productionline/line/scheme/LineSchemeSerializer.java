@@ -29,6 +29,7 @@ public final class LineSchemeSerializer {
     private static final String KEY_OUTPUTS = "Outputs";
 
     private static final String KEY_CREATE_RECIPES = "CreateRecipes";
+    private static final String KEY_TOOL_MATERIALS = "ToolMaterials";
     private static final String CR_NAME = "Name";
     private static final String CR_JSON = "Json";
     private static final String KEY_TARGET_OUTPUT_COUNT = "TargetOutputCount";
@@ -81,6 +82,15 @@ public final class LineSchemeSerializer {
             recipesTag.add(entryTag);
         }
         tag.put(KEY_CREATE_RECIPES, recipesTag);
+        // Materials the line uses rather than consumes (a smithing recipe's base equipment).
+        // Absent in older schemes, which simply means "nothing is a tool".
+        ListTag toolsTag = new ListTag();
+        for (String material : scheme.getToolMaterials()) {
+            toolsTag.add(net.minecraft.nbt.StringTag.valueOf(material));
+        }
+        if (!toolsTag.isEmpty()) {
+            tag.put(KEY_TOOL_MATERIALS, toolsTag);
+        }
         return tag;
     }
 
@@ -134,6 +144,12 @@ public final class LineSchemeSerializer {
                 if (!name.isBlank() && !json.isBlank()) {
                     scheme.addCreateRecipe(name, json);
                 }
+            }
+        }
+        if (tag.contains(KEY_TOOL_MATERIALS, Tag.TAG_LIST)) {
+            ListTag toolsTag = tag.getList(KEY_TOOL_MATERIALS, Tag.TAG_STRING);
+            for (int i = 0; i < toolsTag.size(); i++) {
+                scheme.addToolMaterial(toolsTag.getString(i));
             }
         }
         migrate(scheme);

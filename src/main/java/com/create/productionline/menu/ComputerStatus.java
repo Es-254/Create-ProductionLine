@@ -47,6 +47,13 @@ public final class ComputerStatus {
                 } else {
                     out.add(Component.translatable("screen.create_productionline.computer.product",
                             displayName(scheme.getOutputItem())));
+                    if (scheme.recyclesProduct()) {
+                        // The product is one of its own inputs: the line is incremental, which is
+                        // what lets it run from a single seed item — and what the numbers alone
+                        // do not say.
+                        out.add(Component.translatable(
+                                "item.create_productionline.line_scheme.self_reference"));
+                    }
                     if (scheme.repeats()) {
                         out.add(Component.translatable("screen.create_productionline.computer.repeat",
                                 scheme.getTargetOutputCount(), scheme.getRepeatCount()));

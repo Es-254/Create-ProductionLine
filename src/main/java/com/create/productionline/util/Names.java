@@ -33,6 +33,15 @@ public final class Names {
     }
 
     /**
+     * Suffix appended to a material a Deployer applies in USE mode, i.e. one the line does
+     * not consume ("钻石剑（不消耗）"). Localized, because it is read inside a plan chain.
+     */
+    public static String materialRoleSuffix() {
+        return net.minecraft.network.chat.Component
+                .translatable("item.create_productionline.line_scheme.not_consumed").getString();
+    }
+
+    /**
      * Display name of a tag reference like {@code "#c:ingots/steel"}: resolve the
      * tag's first registered member and show its (localized) item name, so the
      * plan reads "钢锭" instead of an english tag path. Falls back to the tag

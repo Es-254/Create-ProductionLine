@@ -710,6 +710,8 @@ public final class SelfTest {
         ok &= layoutExpect("loader text below the well, above the groove",
                 GuiLayout.LOADER_TEXT_Y > GuiLayout.LOADER_WELL_BOTTOM
                         && GuiLayout.LOADER_TEXT_Y + 8 <= GuiLayout.DIVIDER_Y);
+        ok &= layoutExpect("loader title clears the well",
+                GuiLayout.LOADER_TITLE_Y + 8 <= GuiLayout.LOADER_WELL_TOP - 1);
 
         // Dismantler: two cells on the computer's spacing, centred, nothing crossing
         // the button.
@@ -798,8 +800,26 @@ public final class SelfTest {
                   "result": { "id": "minecraft:glass" }
                 }
                 """);
+        // A real sequenced assembly, so an intermediate can be built with real provenance.
+        files.put("cpl_test_sequence", """
+                {
+                  "type": "create:sequenced_assembly",
+                  "ingredient": { "item": "minecraft:iron_ingot" },
+                  "loops": 1,
+                  "results": [ { "id": "minecraft:gold_ingot" } ],
+                  "sequence": [
+                    {
+                      "type": "create:deploying",
+                      "ingredients": [ { "item": "minecraft:iron_ingot" }, { "item": "minecraft:coal" } ],
+                      "results": [ { "id": "minecraft:iron_ingot" } ]
+                    }
+                  ],
+                  "transitional_item": { "id": "minecraft:iron_ingot" }
+                }
+                """);
         ResourceLocation doublingId = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_doubling");
         ResourceLocation fluidId = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_fluid");
+        ResourceLocation sequenceId = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_sequence");
         try {
             com.create.productionline.recipegen.CreateRecipePack.installIsolated(server, files);
             if (server.getRecipeManager().byKey(doublingId).isEmpty()) {
@@ -855,6 +875,33 @@ public final class SelfTest {
                     + ", iron=" + iron + ", coal=" + coal + ")",
                     outcome.result() == DismantlerBlockEntity.RevertResult.DONE && iron == 1 && coal == 1);
             dropped.forEach(net.minecraft.world.entity.Entity::discard);
+
+            // --- a Create-native intermediate is dismantled by its COMPONENT ---------
+            // Provenance lives on the SEQUENCED_ASSEMBLY component, not on our own item: keying
+            // the branch on Generic Intermediate alone sent every Create-native transitional item
+            // down the finished-product path, where it could only answer "no recipe for it" — the
+            // reported "cannot dismantle intermediates at all".
+            if (server.getRecipeManager().byKey(sequenceId).isEmpty()) {
+                System.out.println("   sequence test recipe did not load: " + sequenceId);
+                return false;
+            }
+            inv.setItem(DismantlerBlockEntity.SLOT_SCHEME, ItemStack.EMPTY);
+            ItemStack carried = new ItemStack(Items.IRON_INGOT);
+            carried.set(com.simibubi.create.AllDataComponents.SEQUENCED_ASSEMBLY,
+                    new com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe.SequencedAssembly(
+                            sequenceId, 1, 0f));
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, carried);
+            DismantlerBlockEntity.RevertOutcome fromIntermediate = dismantler.revert();
+            var refunded = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(pos).inflate(2));
+            long baseBack = refunded.stream().filter(e -> e.getItem().is(Items.IRON_INGOT)).count();
+            long stepBack = refunded.stream().filter(e -> e.getItem().is(Items.COAL)).count();
+            ok &= layoutExpect("a component-bearing intermediate refunds base + applied steps"
+                    + " (result=" + fromIntermediate.result() + ", iron=" + baseBack + ", coal=" + stepBack + ")",
+                    fromIntermediate.result() == DismantlerBlockEntity.RevertResult.DONE
+                            && baseBack == 1 && stepBack == 1);
+            refunded.forEach(net.minecraft.world.entity.Entity::discard);
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, ItemStack.EMPTY);
 
             // --- fluid ingredients are counted, never silently dropped -------------
             var manager = server.getResourceManager();

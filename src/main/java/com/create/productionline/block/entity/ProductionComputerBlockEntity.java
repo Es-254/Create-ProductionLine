@@ -79,6 +79,13 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     private com.create.productionline.line.mapper.RecipeDescriptor hintFallback = null;
 
     /**
+     * Who pressed [Compute], by UUID, so the outcome can be reported back once the
+     * queued run has finished (see {@link #runCompute()}). Transient by design: it is
+     * never saved, and it is cleared whether or not the player could be resolved.
+     */
+    private java.util.UUID notifyPlayer = null;
+
+    /**
      * True while the computer itself writes the computed plan onto the carrier slots.
      * Those writes also fire {@link #onSlotChanged(int)}; without this guard the
      * fresh "generated" status would be wiped immediately.
@@ -122,9 +129,13 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      * <p>{@code recipeId} is verified server-side against the live
      * {@code RecipeManager}; {@code categoryId}/{@code inputs}/{@code outputId} are
      * kept only as a display fallback and can never produce an installable recipe.
+     *
+     * <p>The compute itself is queued for the next tick, so the requester is stored
+     * (by UUID, resolved when the run finishes) and told the outcome then: reading the
+     * result code right after this call would always see {@code RESULT_EMPTY}.
      */
-    public void computeProvided(String targetId, String recipeId, String categoryId,
-            java.util.List<String> inputs, String outputId) {
+    public void computeProvided(net.minecraft.server.level.ServerPlayer requester, String targetId, String recipeId,
+            String categoryId, java.util.List<String> inputs, String outputId) {
         if (level != null && !level.isClientSide) {
             ProductionLineMod.LOGGER.info("CPL compute hint from client: recipe={} target={} cat={} inputs={} out={}",
                     recipeId, targetId, categoryId, inputs, outputId);
@@ -134,6 +145,7 @@ public class ProductionComputerBlockEntity extends BlockEntity {
                     categoryId == null ? "" : categoryId,
                     inputs == null ? java.util.List.of() : inputs,
                     outputId == null || outputId.isBlank() ? java.util.List.of() : java.util.List.of(outputId));
+            this.notifyPlayer = requester == null ? null : requester.getUUID();
             computeQueued = true;
             setChanged();
         }
@@ -146,6 +158,28 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     }
 
     public void runCompute() {
+        runComputeInternal();
+        // Only now is the result code final: the run is queued for the next tick after
+        // the button press, so this is the first moment the requester can be told what
+        // actually happened (before, the chat could only ever show "how to use me").
+        if (level instanceof ServerLevel serverLevel) {
+            java.util.UUID waiting = this.notifyPlayer;
+            this.notifyPlayer = null;
+            if (waiting != null) {
+                net.minecraft.server.level.ServerPlayer player =
+                        serverLevel.getServer().getPlayerList().getPlayer(waiting);
+                if (player != null) {
+                    for (net.minecraft.network.chat.Component line : com.create.productionline.menu.ComputerStatus
+                            .lines(resultCode, lastErrorCode, inventory.getItem(SLOT_SCHEME),
+                                    inventory.getItem(SLOT_CLIPBOARD))) {
+                        player.displayClientMessage(line, false);
+                    }
+                }
+            }
+        }
+    }
+
+    private void runComputeInternal() {
         if (level == null || level.isClientSide || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -344,6 +378,12 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         for (com.create.productionline.line.scheme.LineScheme.CreateRecipeEntry e : derived) {
             scheme.addCreateRecipe(e.getFileName(), e.getJson());
         }
+
+        // Record the roles the source recipe gives its own materials before anything is written:
+        // a smithing recipe's base is equipment that a Deployer uses rather than consumes, and a
+        // plan's steps cannot express that difference on their own.
+        com.create.productionline.line.mapper.SchemeRoles.markToolMaterials(
+                level == null ? null : level.getServer(), scheme);
 
         writingCarriers = true;
         try {

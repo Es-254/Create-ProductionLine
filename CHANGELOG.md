@@ -25,6 +25,46 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
+## Unreleased
+
+### Fixed
+
+- **Intermediates could not be dismantled at all.** The intermediate branch keyed on *our* item
+  (`Generic Intermediate`), so every Create-native transitional item — whose provenance is the
+  `SEQUENCED_ASSEMBLY` component on the item itself — fell through to the finished-product path, where it
+  could only ever answer "no recipe for it". The branch now keys on the **component**, which is what
+  actually records provenance: anything carrying it is refunded from the sequence recipe it names (base +
+  the steps that already ran), while our own item *without* the component is still refused as "no
+  processing record". A refusal now also names the recipe it could not find.
+  `RecipeJsonReader.sequenceParts` was hardened at the same time: an alternatives array resolves to its
+  first usable entry, and when a recipe writes no `ingredient` at all the base is taken from the first
+  sequence step's `ingredients[0]` — that slot *is* the item entering the line.
+- **The compute result never reached the player's chat.** The run is queued for the next tick after the
+  button press, so reading the status in the same tick always saw `RESULT_EMPTY` and sent the "how to use
+  me" line instead of the outcome. The computer now remembers who asked (by UUID) and reports the real
+  status — product, incremental marker, target output, material budget, plan size, embedded recipes —
+  once the run has finished.
+- **A dismantle's materials landed on the floor.** They now go into the inventory of the player who
+  pressed **Dismantle** (anything that does not fit falls at their feet); only the no-player path — the
+  self test, scripted use — still pops them at the block.
+- **A scheme that cannot avoid referencing itself did not say so.** `1A + 1B = 2A` and friends are
+  incremental lines: they run from a single seed item, which the numbers alone never explained. The
+  scheme tooltip and the computer's chat/panel now state it —
+  `该物品无法避免自引用，已转换为增量配方`.
+- **A material the line merely *uses* read as one it consumes.** A Deployer holding an item applies it in
+  USE mode, so a smithing recipe's `base` (the equipment being upgraded — the diamond sword on its way to
+  netherite) stays on the line and is never consumed, yet the plan chain listed it like any other input.
+  The computer now records those materials on the scheme (`SchemeRoles`, taken from the source recipe's
+  own roles) and the chain marks them `（不消耗）`. The steps alone cannot express that difference, and
+  nothing else knows the recipe's roles once the plan has been written.
+- **The Scheme Loader's title was pressed by its own panel.** That background's well starts at y=13 (the
+  other two start lower) and a glyph is 8 px tall: at y=6 the title's bottom row sat exactly on the
+  well's top edge. The title moved up one row and the self test now asserts the clearance.
+- **The build-guide block is gone from the tooltip**, by request: its hand-written hint lines were generic
+  boilerplate ("belt first, one Deployer per material…") that said nothing about the plan at hand. The
+  `LineBuildGuide` payload is still written — it is what makes a plain item a carrier — it is simply not
+  rendered, and its four now-unused language keys were removed.
+
 ## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
 
 **The second `1.0.3` snapshot: the whole line so far, for an in-game pass before the release cut.**

@@ -56,6 +56,13 @@ public final class GuiLayout {
     public static final int LOADER_COLUMNS = 8;
     public static final int LOADER_ROWS = 2;
 
+    /**
+     * Title baseline. This panel's well starts at y=13 while the other two start lower, so it
+     * needs one row more clearance: a glyph is 8 px tall and at y=6 its bottom row landed
+     * exactly on the well's top edge — the "the box presses on the title" seen in game.
+     */
+    public static final int LOADER_TITLE_Y = 5;
+
     /** Status text: 6 px under the well, i.e. clear of its bottom highlight row. */
     public static final int LOADER_TEXT_Y = LOADER_WELL_BOTTOM + 6;
 

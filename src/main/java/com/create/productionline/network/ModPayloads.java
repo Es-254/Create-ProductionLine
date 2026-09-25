@@ -100,14 +100,22 @@ public final class ModPayloads {
                 if (!menu.stillValid(serverPlayer)) {
                     return;
                 }
-                // Tell the player who pressed the button what happened, privately. The
-                // panel only shows the hint text, so before this a refused dismantle was
-                // completely silent (the button looked broken).
-                var outcome = menu.revert();
+                // Tell the player who pressed the button what happened, privately, and hand
+                // them the refund: the panel only shows the hint text, so before this a
+                // refused dismantle was completely silent (the button looked broken).
+                var outcome = menu.revert(serverPlayer);
                 String key = outcome.result().langKey();
                 if (key != null) {
-                    serverPlayer.displayClientMessage(
-                            net.minecraft.network.chat.Component.translatable(key), false);
+                    // A refusal that knows what it is about names it (which recipe was gone),
+                    // so the player is not left guessing between several items.
+                    boolean detailed = !outcome.detail().isBlank()
+                            && outcome.result() == com.create.productionline.block.entity
+                                    .DismantlerBlockEntity.RevertResult.RECIPE_MISSING;
+                    serverPlayer.displayClientMessage(detailed
+                            ? net.minecraft.network.chat.Component.translatable(
+                                    "dismantler.create_productionline.result.recipe_missing_detail",
+                                    outcome.detail())
+                            : net.minecraft.network.chat.Component.translatable(key), false);
                 }
                 // Fluid ingredients can never be handed back as items; say so instead of
                 // letting the player wonder where the water went.
@@ -132,16 +140,12 @@ public final class ModPayloads {
                 if (!menu.stillValid(serverPlayer)) {
                     return;
                 }
-                menu.computeProvided(payload.targetId(), payload.recipeId(), payload.categoryId(),
+                // The run is queued for the next tick, so the block entity reports the
+                // outcome to this player when it finishes (see
+                // ProductionComputerBlockEntity#runCompute). Reading the status here would
+                // always see RESULT_EMPTY and send the "how to use me" line instead.
+                menu.computeProvided(serverPlayer, payload.targetId(), payload.recipeId(), payload.categoryId(),
                         payload.inputs(), payload.outputId());
-                // Same list the panel draws, sent to the player who asked for it: the
-                // compute result is worth reading after the GUI is closed, and the panel
-                // can only show four rows. Private to whoever pressed [Compute].
-                for (net.minecraft.network.chat.Component line : com.create.productionline.menu.ComputerStatus
-                        .lines(menu.getResultCode(), menu.getLastErrorCode(), menu.getSchemeItem(),
-                                menu.getClipboardItem())) {
-                    serverPlayer.displayClientMessage(line, false);
-                }
             }
         });
     }

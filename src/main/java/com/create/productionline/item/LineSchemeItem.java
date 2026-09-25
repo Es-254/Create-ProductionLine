@@ -88,6 +88,12 @@ public class LineSchemeItem extends Item {
                     : "item.create_productionline.line_scheme.repeat_restart",
                     scheme.getRepeatCount(), scheme.getTargetOutputCount())
                     .withStyle(ChatFormatting.AQUA));
+        } else if (scheme.recyclesProduct()) {
+            // One pass, no repeat — and still incremental, because the product is one of the
+            // line's own inputs. That is what makes it runnable from a single seed, and it is
+            // precisely what the numbers alone do not say.
+            tooltip.add(Component.translatable("item.create_productionline.line_scheme.self_reference")
+                    .withStyle(ChatFormatting.AQUA));
         }
     }
 

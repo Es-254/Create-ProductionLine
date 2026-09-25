@@ -90,11 +90,18 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
      * @param fluidsSkipped fluid-form ingredients the source recipe also used: a fluid
      *                      cannot exist as an item, so it is never part of the refund and
      *                      the player has to be told rather than left guessing
+     * @param detail        the id a refusal is about (the sequence recipe that is gone, the
+     *                      plan that resolved to nothing), so the message can name it instead
+     *                      of leaving the player to guess which of several items was the problem
      */
-    public record RevertOutcome(RevertResult result, int fluidsSkipped) {
+    public record RevertOutcome(RevertResult result, int fluidsSkipped, String detail) {
 
         static RevertOutcome refusal(RevertResult result) {
-            return new RevertOutcome(result, 0);
+            return new RevertOutcome(result, 0, "");
+        }
+
+        static RevertOutcome refusal(RevertResult result, String detail) {
+            return new RevertOutcome(result, 0, detail == null ? "" : detail);
         }
     }
 
@@ -138,6 +145,19 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
      *         when something happened, otherwise the refusal and nothing was consumed.
      */
     public RevertOutcome revert() {
+        return revert(null);
+    }
+
+    /**
+     * Same as {@link #revert()}, but hands the refund to {@code player} instead of
+     * dropping it on the floor.
+     *
+     * <p>A dismantle is an interaction the player just asked for, so the materials go
+     * straight into their inventory (anything that does not fit falls at their feet);
+     * only the no-player path — the self test, scripted use — still pops them at the
+     * block.
+     */
+    public RevertOutcome revert(net.minecraft.world.entity.player.Player player) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return RevertOutcome.refusal(RevertResult.NOT_SERVER_SIDE);
         }
@@ -154,7 +174,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             }
             inventory.setItem(SLOT_ITEM, new ItemStack(ModItems.LINE_SCHEME.get()));
             setChanged();
-            return new RevertOutcome(RevertResult.SCHEME_ERASED, 0);
+            return new RevertOutcome(RevertResult.SCHEME_ERASED, 0, "");
         }
         if (slotZero.getItem() == ModItems.LINE_SCHEME_MIRROR.get()) {
             return RevertOutcome.refusal(RevertResult.MIRROR_READ_ONLY);
@@ -177,17 +197,23 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
         int fluidsSkipped = 0;
         LineScheme mirrorScheme = scheme;
 
-        if (slotZero.getItem() == ModItems.GENERIC_INTERMEDIATE.get()) {
+        // The provenance is the SEQUENCED_ASSEMBLY component, NOT the item: Create's own
+        // sequenced assembly carries it on the transitional item itself, and our lines put
+        // it on the Generic Intermediate. Keying this on OUR item alone sent every
+        // Create-native intermediate down the finished-product path, where it could only
+        // ever answer "no recipe for it" (that is the "cannot dismantle intermediates"
+        // report: two kinds of intermediate, neither of them ours).
+        var assembly = slotZero.get(com.simibubi.create.AllDataComponents.SEQUENCED_ASSEMBLY);
+        if (assembly != null) {
             // --- unfinished intermediate: refund what it already absorbed -------------
-            var assembly = slotZero.get(com.simibubi.create.AllDataComponents.SEQUENCED_ASSEMBLY);
-            if (assembly == null) {
-                return RevertOutcome.refusal(RevertResult.NO_PROVENANCE); // no provenance
-            }
             com.create.productionline.util.RecipeJsonReader.SequenceParts parts =
                     com.create.productionline.util.RecipeJsonReader.sequenceParts(
                             manager, assembly.id());
             if (parts == null) {
-                return RevertOutcome.refusal(RevertResult.RECIPE_MISSING);
+                // The recipe that gives this item its provenance is gone (the scheme that
+                // generated it left the loader) or unreadable: say which one it was.
+                return RevertOutcome.refusal(RevertResult.RECIPE_MISSING,
+                        assembly.id() == null ? "" : assembly.id().toString());
             }
             fluidsSkipped = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(
                     manager, assembly.id());
@@ -205,12 +231,18 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
                 mirrorScheme = synthesizeSequenceMirror(parts);
             }
         } else {
+            if (slotZero.getItem() == ModItems.GENERIC_INTERMEDIATE.get()) {
+                // Our own intermediate with no component at all: nothing records what it
+                // absorbed, so there is nothing to give back.
+                return RevertOutcome.refusal(RevertResult.NO_PROVENANCE);
+            }
             // --- finished product: inverse of one full craft -------------------------
             String recipeId = scheme != null ? scheme.getRecipeId() : null;
             com.create.productionline.line.mapper.RecipeDescriptor desc =
                     com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
             if (desc == null || desc.outputs().isEmpty()) {
-                return RevertOutcome.refusal(RevertResult.RECIPE_MISSING);
+                return RevertOutcome.refusal(RevertResult.RECIPE_MISSING,
+                        recipeId == null ? "" : recipeId);
             }
             String authoritativeOutput = desc.outputs().get(0);
             ResourceLocation slotKey = BuiltInRegistries.ITEM.getKey(slotZero.getItem());
@@ -267,21 +299,38 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             inventory.setItem(SLOT_ITEM, ItemStack.EMPTY);
         }
         for (net.minecraft.world.item.Item item : refunds) {
-            net.minecraft.world.level.block.Block.popResource(serverLevel, pos, new ItemStack(item));
+            giveTo(player, serverLevel, pos, new ItemStack(item));
         }
         ItemStack mirror = new ItemStack(ModItems.LINE_SCHEME_MIRROR.get());
         if (mirrorScheme != null) {
             com.create.productionline.item.LineSchemeMirrorItem.write(mirror, mirrorScheme);
         }
         // If slot 0 is now empty the mirror goes back into it; otherwise (a stack remained)
-        // pop it so the mirror never silently overwrites leftover items.
+        // it goes to the player, or pops at the block when there is no player.
         if (inventory.getItem(SLOT_ITEM).isEmpty()) {
             inventory.setItem(SLOT_ITEM, mirror);
         } else {
-            net.minecraft.world.level.block.Block.popResource(serverLevel, pos, mirror);
+            giveTo(player, serverLevel, pos, mirror);
         }
         setChanged();
-        return new RevertOutcome(RevertResult.DONE, fluidsSkipped);
+        return new RevertOutcome(RevertResult.DONE, fluidsSkipped, "");
+    }
+
+    /**
+     * Hands one stack to the player who asked for the dismantle — inventory first, then
+     * their feet — and falls back to popping it at the block when there is no player
+     * (self test / scripted use).
+     */
+    private static void giveTo(net.minecraft.world.entity.player.Player player, ServerLevel level,
+            BlockPos pos, ItemStack stack) {
+        if (player != null && player.getInventory().add(stack)) {
+            return;
+        }
+        if (player != null) {
+            player.drop(stack, false);
+            return;
+        }
+        net.minecraft.world.level.block.Block.popResource(level, pos, stack);
     }
 
     /**

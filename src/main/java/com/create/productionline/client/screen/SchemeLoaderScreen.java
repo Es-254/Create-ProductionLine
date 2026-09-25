@@ -25,12 +25,15 @@ public class SchemeLoaderScreen extends AbstractContainerScreen<SchemeLoaderMenu
 
     public SchemeLoaderScreen(SchemeLoaderMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 196;
+        this.imageWidth = com.create.productionline.menu.GuiLayout.PANEL_WIDTH;
+        this.imageHeight = com.create.productionline.menu.GuiLayout.PANEL_HEIGHT;
         this.titleLabelX = 8;
-        this.titleLabelY = 6;
+        // 5, not 6: this panel's well starts at y=13 (the other two start lower), and a glyph
+        // is 8 px tall — at y=6 the title's bottom row sat on the well's top edge, which is the
+        // "the box presses on the title" seen in game.
+        this.titleLabelY = com.create.productionline.menu.GuiLayout.LOADER_TITLE_Y;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 102;
+        this.inventoryLabelY = com.create.productionline.menu.GuiLayout.INVENTORY_LABEL_Y;
     }
 
     @Override

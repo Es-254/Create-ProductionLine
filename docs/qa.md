@@ -1,4 +1,4 @@
-﻿# 无头自检 / QA
+# 无头自检 / QA
 
 > [← 总体 / Overview](../README.md) · 相关： [构建与安装](build.md) · [依赖](dependencies.md) · [配方转换](conversion.md) · [兼容性与边界](compatibility.md)
 

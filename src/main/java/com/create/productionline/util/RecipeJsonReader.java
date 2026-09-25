@@ -96,6 +96,18 @@ public final class RecipeJsonReader {
 
     private static String ingredientItem(JsonElement el) {
         try {
+            if (el.isJsonArray()) {
+                // An alternatives list ("any of these"): the first resolvable entry is the
+                // best single answer, and returning null here used to lose the base material
+                // of every recipe that writes one.
+                for (JsonElement sub : el.getAsJsonArray()) {
+                    String id = ingredientItem(sub);
+                    if (id != null) {
+                        return id;
+                    }
+                }
+                return null;
+            }
             if (el.isJsonObject()) {
                 var o = el.getAsJsonObject();
                 if (o.has("item")) {
@@ -307,7 +319,15 @@ public final class RecipeJsonReader {
     public record SequenceParts(String base, List<String> stepMaterials, String resultItem) {
     }
 
-    /** Parses a sequenced-assembly recipe JSON, or {@code null} when it is not one. */
+    /**
+     * Parses a sequenced-assembly recipe JSON, or {@code null} when it is not one.
+     *
+     * <p>The base material comes from the recipe's own {@code ingredient} when it is a
+     * single item/tag, and otherwise from the first sequence step's {@code ingredients[0]}
+     * — that slot IS the item entering the line, so it names the base even when the
+     * recipe writes its base as an alternatives array (which the plain item reader
+     * cannot resolve).
+     */
     public static SequenceParts sequenceParts(ResourceManager manager, ResourceLocation recipeId) {
         JsonObject obj = readRecipeJson(manager, recipeId);
         if (obj == null || !obj.has("sequence") || !obj.get("sequence").isJsonArray()) {
@@ -329,6 +349,9 @@ public final class RecipeJsonReader {
             var arr = step.getAsJsonArray("ingredients");
             // ingredients[0] is the current item (base / transitional), [1] the added material
             if (arr.size() >= 2) {
+                if (base == null) {
+                    base = normalizeMaterial(ingredientItem(arr.get(0)));
+                }
                 String added = normalizeMaterial(ingredientItem(arr.get(1)));
                 if (added != null) {
                     materials.add(added);

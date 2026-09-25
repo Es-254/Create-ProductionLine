@@ -38,7 +38,8 @@ public final class SchemeTopology {
             }
             stations.add(new Station(step.getFacilityType(), new ArrayList<>(step.getInputs())));
         }
-        List<String> out = new ArrayList<>(lines(scheme.getBaseMaterial(), stations, scheme.getOutputItem()));
+        List<String> out = new ArrayList<>(lines(scheme.getBaseMaterial(), stations, scheme.getOutputItem(),
+                scheme.getToolMaterials()));
         // The repeat instruction closes the chain: one pass through the stations above
         // yields one craft, so a bigger target means running the line again.
         if (scheme.repeats()) {
@@ -56,12 +57,26 @@ public final class SchemeTopology {
 
     /** Wrapped topology lines; empty when there is nothing to show. */
     public static List<String> lines(String baseMaterial, List<Station> stations, String outputItem) {
-        String chain = chain(baseMaterial, stations, outputItem);
+        return lines(baseMaterial, stations, outputItem, List.of());
+    }
+
+    /**
+     * Wrapped topology lines, with {@code toolMaterials} marked as used rather than consumed
+     * (see {@link LineScheme#getToolMaterials()}).
+     */
+    public static List<String> lines(String baseMaterial, List<Station> stations, String outputItem,
+            java.util.Collection<String> toolMaterials) {
+        String chain = chain(baseMaterial, stations, outputItem, toolMaterials);
         return chain.isBlank() ? List.of() : TextWrap.wrapIndented(chain, "  ");
     }
 
     /** The raw, unwrapped chain string (used by tests/debug). */
     public static String chain(String baseMaterial, List<Station> stations, String outputItem) {
+        return chain(baseMaterial, stations, outputItem, List.of());
+    }
+
+    public static String chain(String baseMaterial, List<Station> stations, String outputItem,
+            java.util.Collection<String> toolMaterials) {
         List<String> parts = new ArrayList<>();
         String base = baseMaterial == null ? "" : baseMaterial.trim();
         if (!base.isBlank()) {
@@ -78,6 +93,11 @@ public final class SchemeTopology {
                             continue; // never repeat the head material
                         }
                         String name = Names.cap(Names.nameOfItem(in));
+                        if (toolMaterials != null && toolMaterials.contains(in)) {
+                            // Applied in USE mode: it stays on the line, so it must not read as
+                            // a material the player has to keep feeding.
+                            name = name + Names.materialRoleSuffix();
+                        }
                         if (!shown.contains(name)) {
                             shown.add(name);
                         }

@@ -51,8 +51,13 @@ public class DismantlerMenu extends AbstractContainerMenu {
 
     /** Runs the authoritative dismantle on the server and reports what happened. */
     public DismantlerBlockEntity.RevertOutcome revert() {
-        return be != null ? be.revert() : new DismantlerBlockEntity.RevertOutcome(
-                DismantlerBlockEntity.RevertResult.NOT_SERVER_SIDE, 0);
+        return revert(null);
+    }
+
+    /** Same, but the refund goes to {@code player} (see the block entity's javadoc). */
+    public DismantlerBlockEntity.RevertOutcome revert(net.minecraft.world.entity.player.Player player) {
+        return be != null ? be.revert(player) : new DismantlerBlockEntity.RevertOutcome(
+                DismantlerBlockEntity.RevertResult.NOT_SERVER_SIDE, 0, "");
     }
 
     public ItemStack getItem() {

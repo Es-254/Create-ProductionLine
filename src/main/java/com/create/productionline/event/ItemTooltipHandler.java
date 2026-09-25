@@ -2,7 +2,6 @@ package com.create.productionline.event;
 
 import java.util.List;
 
-import com.create.productionline.compat.ClipboardCompat;
 import com.create.productionline.item.LineSchemeItem;
 import com.create.productionline.item.LineSchemeMirrorItem;
 import com.create.productionline.line.scheme.LineScheme;
@@ -57,56 +56,13 @@ public final class ItemTooltipHandler {
                 for (String line : com.create.productionline.util.SchemeTopology.lines(scheme)) {
                     tooltip.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
                 }
-                // The computer writes the plan AND the build guide onto the same carrier, so
-                // both belong on this tooltip: returning here (as this did) made the guide
-                // unreachable for exactly the items it is written to.
-                if (custom.contains(ClipboardCompat.GUIDE_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
-                    addBuildGuide(tooltip, scheme);
-                }
+                // No build-guide block on purpose: the hand-written hint lines it used to
+                // print ("belt first, one Deployer per material…") are generic boilerplate
+                // the author asked to be dropped. The LineBuildGuide payload is still
+                // written — it is what makes a plain item a carrier
+                // (ClipboardCompat.isCarrier) — it is simply not rendered.
                 return;
-            }
-        }
-        if (custom.contains(ClipboardCompat.GUIDE_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
-            // A guide whose plan was erased still says how the line is built.
-            addBuildGuide(tooltip, null);
-        }
-    }
-
-    /**
-     * The "how to build it" block.
-     *
-     * <p>Deliberately not a re-print of the stored {@code LineBuildGuide} steps: those are the
-     * raw English ids the clipboard payload carries, and the plan chain above already names
-     * the same stations in the player's language. What the chain cannot say is how to <em>set
-     * the line up</em> — belt first, one Deployer per material facing down, where the product
-     * comes out, and that a repeating line needs its own return belt. Those lines are the
-     * {@code guide.*} keys, and they only appear when they apply, so a flat single-machine
-     * plan does not get assembly-line instructions it has no use for.
-     */
-    private static void addBuildGuide(List<Component> tooltip, LineScheme scheme) {
-        boolean deployer = scheme == null || scheme.getSteps().stream().anyMatch(
-                step -> step.getFacilityType() != null && step.getFacilityType().contains("deploy"));
-        boolean repeats = scheme != null && scheme.repeats();
-        if (!deployer && !repeats) {
-            return; // the plan chain already says everything there is to say
-        }
-        tooltip.add(Component.translatable("item.create_productionline.guide.title")
-                .withStyle(ChatFormatting.AQUA));
-        if (deployer) {
-            for (String hint : new String[]{"item.create_productionline.guide.howto",
-                    "item.create_productionline.guide.deployer"}) {
-                for (String wrapped : com.create.productionline.util.TextWrap.wrapIndented(
-                        "  " + Component.translatable(hint).getString(), "  ")) {
-                    tooltip.add(Component.literal(wrapped).withStyle(ChatFormatting.GRAY));
-                }
-            }
-        }
-        if (repeats) {
-            for (String wrapped : com.create.productionline.util.TextWrap.wrapIndented(
-                    "  " + Component.translatable("item.create_productionline.guide.count").getString(), "  ")) {
-                tooltip.add(Component.literal(wrapped).withStyle(ChatFormatting.GRAY));
             }
         }
     }
 }
-

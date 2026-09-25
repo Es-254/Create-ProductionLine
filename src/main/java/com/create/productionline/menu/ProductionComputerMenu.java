@@ -81,11 +81,14 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
      * Applies a client-resolved recipe hint. Nothing here is trusted: the block
      * entity re-resolves {@code recipeId} against the server's live
      * {@code RecipeManager} and verifies it produces the item in the target slot.
+     *
+     * <p>{@code requester} is who to report the outcome to: the run itself is queued
+     * for the next tick, so the status cannot be read (or sent) here.
      */
-    public void computeProvided(String targetId, String recipeId, String categoryId,
-            java.util.List<String> inputs, String outputId) {
+    public void computeProvided(net.minecraft.server.level.ServerPlayer requester, String targetId, String recipeId,
+            String categoryId, java.util.List<String> inputs, String outputId) {
         if (computer != null) {
-            computer.computeProvided(targetId, recipeId, categoryId, inputs, outputId);
+            computer.computeProvided(requester, targetId, recipeId, categoryId, inputs, outputId);
         }
     }
 
