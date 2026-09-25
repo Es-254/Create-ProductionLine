@@ -12,7 +12,10 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   accumulated in `## Unreleased` is now the `## [1.0.3]` section (Ponder tutorials, dismantler
 >   decisions, the compute reply in chat, retired recipes, the build-guide removal). The Scheme Loader
 >   bar work (`dev.28` … `dev.32`: a Flywheel visual, then a renderer-only variant) was **rolled back at
->   the author's request**; `dev.33`/`dev.34` are that reverted tree.
+>   the author's request**; `dev.33`/`dev.34` are that reverted tree. CurseForge file
+>   **`8975380`** (release type *release*, 290,613 B, uploaded 2026-09-26 with
+>   `gradlew -PpublishMods publishCurseForge` — HTTP 200 on the first attempt; the token lives in
+>   `~/.gradle/gradle.properties` as `curseforge_token` and is never committed).
 > - **`0.0.0-dev.25` … `dev.27` are published** (2026-09-26, GitHub only, `prerelease: true`): the last
 >   Ponder corrections (interpolated item motion, the signal shown on the machine, the button cue
 >   pointing at the button, one cue vocabulary across both entries). `dev.28` … `dev.34` were local
