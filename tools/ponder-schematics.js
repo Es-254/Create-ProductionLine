@@ -70,6 +70,7 @@ const tag = (id, name, payloadBuf) => {
   return Buffer.concat([Buffer.from([id]), len, nameBuf, payloadBuf]);
 };
 const pInt = (v) => { const b = Buffer.alloc(4); b.writeInt32BE(v); return b; };
+const pFloat = (v) => { const b = Buffer.alloc(4); b.writeFloatBE(v); return b; };
 const pStr = (v) => { const s = Buffer.from(v, 'utf8'); const l = Buffer.alloc(2); l.writeUInt16BE(s.length); return Buffer.concat([l, s]); };
 // rule 1 above: list of int, never an int array
 const pIntList = (arr) => {
@@ -94,7 +95,25 @@ const pByte = (v) => Buffer.from([v & 0xff]);
  */
 const BELT_SPEED = 32;
 
-function beltNbt(index, length, head) {
+/**
+ * One item riding the belt, in the exact shape BeltInventory.write / TransportedItemStack.serializeNBT
+ * use: `Pos` is the position along the belt in blocks (a segment's centre is index + 0.5), `Locked` keeps
+ * the item where it is while the line runs — the same state Create uses for an item a Deployer is in the
+ * middle of working on — and `InDirection` is the side it entered from (west, for a belt facing east).
+ */
+const beltItem = (pos, id) => pCompound([
+  tag(10, 'Item', pCompound([tag(8, 'id', pStr(id)), tag(3, 'count', pInt(1))])),
+  tag(5, 'Pos', pFloat(pos)),
+  tag(5, 'PrevPos', pFloat(pos)),
+  tag(5, 'Offset', pFloat(0)),
+  tag(5, 'PrevOffset', pFloat(0)),
+  tag(3, 'InSegment', pInt(Math.floor(pos))),
+  tag(3, 'Angle', pInt(0)),
+  tag(3, 'InDirection', pInt(4)),
+  tag(1, 'Locked', pByte(1)),
+]);
+
+function beltNbt(index, length, head, items) {
   const entries = [
     tag(8, 'id', pStr('create:belt')),
     tag(3, 'Index', pInt(index)),
@@ -109,8 +128,8 @@ function beltNbt(index, length, head) {
   ];
   if (index === 0) {
     entries.push(tag(10, 'Inventory', pCompound([
-      tag(9, 'Items', pList(10, [])),
-      tag(1, 'PositiveOrder', pByte(0)),
+      tag(9, 'Items', pList(10, items || [])),
+      tag(1, 'PositiveOrder', pByte(1)),
     ])));
   }
   return pCompound(entries);
@@ -164,13 +183,27 @@ function buildSchematic(props) {
 // --- the three scenes -----------------------------------------------------------------------
 const MACHINE = (name, extra) => Object.assign({ Name: name, pos: [2, 1, 2] }, extra || {});
 // A straight belt line, spelled the way Create's own schematics spell it (start -> middle -> end), each
-// segment carrying the block-entity NBT that makes it a real belt (see beltNbt).
+// segment carrying the block-entity NBT that makes it a real belt (see beltNbt). `items` goes onto the
+// controller's inventory and is what the line is carrying.
 const BELT_LENGTH = 5;
-const belt = (x, z, part) => ({
+const belt = (x, z, part, items) => ({
   Name: 'create:belt', pos: [x, 1, z],
   Properties: { casing: 'false', part, facing: 'east', slope: 'horizontal' },
-  nbt: beltNbt(x, BELT_LENGTH, [0, 1, z]),
+  nbt: beltNbt(x, BELT_LENGTH, [0, 1, z], items),
 });
+
+/**
+ * What the closing picture's belt carries: the base under the first Deployer, an unfinished intermediate
+ * half way along, and the finished product under the second. Baking them in is deliberate — the runtime
+ * `createItemOnBelt` route never produced a visible item here, while a belt's own inventory is plain NBT
+ * that loads with the schematic — and it is exactly the picture the narration describes ("基底/中间产物/
+ * 产物 on the belt").
+ */
+const BELT_ITEMS = [
+  beltItem(0.5, 'minecraft:iron_ore'),
+  beltItem(2.5, 'create_productionline:generic_intermediate'),
+  beltItem(4.5, 'minecraft:iron_ingot'),
+];
 const deployer = (x, y, z) => ({
   Name: 'create:deployer', pos: [x, y, z],
   Properties: { facing: 'down', axis_along_first: 'false' },
@@ -221,7 +254,7 @@ const schematics = {
     dust(3, 2),
     { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'true' } },
     motor(),
-    belt(0, 1, 'start'), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
+    belt(0, 1, 'start', BELT_ITEMS), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
     deployer(0, DEPLOYER_Y, 1), deployer(4, DEPLOYER_Y, 1),
   ],
 

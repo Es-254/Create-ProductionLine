@@ -145,6 +145,15 @@ actually published with at the time was `release`.
   coordinates are world coordinates here, so the controller link is exact rather than stale like Create's
   authored-in-world values), and the belt also carries its speed, so the line is running the moment it
   appears.
+- **The items now ride the belt's own inventory, which is what finally shows them.** Runtime insertion
+  never produced a visible item in game — even with the controller hook and the full block-entity NBT in
+  place — so the belt's inventory is filled by the schematic instead: the **base** (iron ore) under the
+  first Deployer, an unfinished **Generic Intermediate** half way along, and the finished **product** under
+  the second. That is the inventory shape `BeltInventory.write` / `TransportedItemStack.serializeNBT` use
+  (`Pos` in belt blocks, `Locked` to hold an item in place — the state Create itself uses for an item a
+  Deployer is working on), so the three items simply load with the structure, and the scene does nothing
+  more than run the line and let the two Deployers reach down. It is also exactly the picture the narration
+  describes: base, intermediate and product on the belt.
 
 ### Added
 
