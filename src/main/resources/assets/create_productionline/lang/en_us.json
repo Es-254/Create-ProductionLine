@@ -63,5 +63,22 @@
   "item.create_productionline.line_scheme.repeat_restart": "Repeat from scratch %s time(s) -> target output %s",
   "screen.create_productionline.computer.material_budget": "Material budget: %s per pass x %s passes = %s",
   "commands.create_productionline.reload.recipes": "Reloaded %s recipes in %s ms",
-  "commands.create_productionline.reload.failed": "Reload failed: %s"
+  "commands.create_productionline.reload.failed": "Reload failed: %s",
+  "create_productionline.ponder.production_line.header": "Writing a Line Scheme",
+  "create_productionline.ponder.production_line.text_1": "Turn any recipe into a production line plan",
+  "create_productionline.ponder.production_line.text_2": "Slot 1 takes the item to produce, slot 2 a blank Line Scheme",
+  "create_productionline.ponder.production_line.text_3": "Slot 3 may hold paper: it stays readable as a manual after the scheme is loaded",
+  "create_productionline.ponder.production_line.text_4": "Press Compute: the server derives it from its live recipes and writes the scheme",
+  "create_productionline.ponder.production_line.text_5": "The scheme names the product, the base and the whole chain; a self-referencing recipe is marked incremental",
+  "create_productionline.ponder.production_line.text_6": "Loading the scheme",
+  "create_productionline.ponder.production_line.text_7": "Put the written scheme into any slot of a Scheme Loader",
+  "create_productionline.ponder.production_line.text_8": "It takes effect at once: only the recipes refresh, the server does not reload",
+  "create_productionline.ponder.production_line.text_9": "The bar on its side shows how much of it is in use",
+  "create_productionline.ponder.production_line.text_10": "While recipes are active the cabinet emits a redstone signal",
+  "create_productionline.ponder.production_line.text_11": "Build the line it describes: base onto the belt first, one Deployer per added material facing down",
+  "create_productionline.ponder.dismantler.header": "Dismantling what you do not need",
+  "create_productionline.ponder.dismantler.text_1": "The left slot takes a finished product, or an unfinished intermediate",
+  "create_productionline.ponder.dismantler.text_2": "Dismantling hands the materials back and leaves a read-only mirror",
+  "create_productionline.ponder.dismantler.text_3": "Dismantling a written scheme leaves a mirror and hands back a blank one",
+  "create_productionline.ponder.dismantler.text_4": "An unfinished intermediate gives back only what has been assembled so far"
 }

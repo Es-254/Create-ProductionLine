@@ -162,17 +162,43 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             return RevertOutcome.refusal(RevertResult.NOT_SERVER_SIDE);
         }
         ItemStack slotZero = inventory.getItem(SLOT_ITEM);
-        if (slotZero.isEmpty()) {
+        // A scheme holds no materials: the plan on it was computed for free (the computer
+        // only writes onto the carrier), so "dismantling" one is erasing it. One item in, one
+        // blank item back in the same slot, plus a mirror of what was erased — into the other
+        // slot when that is free, so the machine still hands something back to read.
+        //
+        // A written scheme counts in EITHER slot: the left slot is the obvious place, but a
+        // scheme sitting alone on the right (with nothing to explain) is the same request, and
+        // the scene the author scripted puts it there. This has to be decided BEFORE the
+        // "nothing in the left slot" refusal, or that refusal swallows the right-slot case —
+        // which is exactly what the self test caught.
+        int schemeSlot = -1;
+        if (slotZero.getItem() == ModItems.LINE_SCHEME.get()) {
+            schemeSlot = SLOT_ITEM;
+        } else if (slotZero.isEmpty()
+                && inventory.getItem(SLOT_SCHEME).getItem() == ModItems.LINE_SCHEME.get()) {
+            schemeSlot = SLOT_SCHEME;
+        }
+        if (schemeSlot < 0 && slotZero.isEmpty()) {
             return RevertOutcome.refusal(RevertResult.NOTHING_HELD);
         }
-        // A scheme holds no materials: the plan on it was computed for free (the computer
-        // only writes onto the carrier), so "dismantling" one is erasing it. One item in,
-        // one blank item back, in the same slot.
-        if (slotZero.getItem() == ModItems.LINE_SCHEME.get()) {
-            if (!schemeCarriesContent(slotZero)) {
+        if (schemeSlot >= 0) {
+            ItemStack carrier = inventory.getItem(schemeSlot);
+            if (!schemeCarriesContent(carrier)) {
                 return RevertOutcome.refusal(RevertResult.SCHEME_ALREADY_BLANK);
             }
-            inventory.setItem(SLOT_ITEM, new ItemStack(ModItems.LINE_SCHEME.get()));
+            LineScheme erased = LineSchemeSerializer.fromStack(carrier);
+            inventory.setItem(schemeSlot, new ItemStack(ModItems.LINE_SCHEME.get()));
+            ItemStack mirror = new ItemStack(ModItems.LINE_SCHEME_MIRROR.get());
+            if (!erased.isEmpty()) {
+                com.create.productionline.item.LineSchemeMirrorItem.write(mirror, erased);
+            }
+            int other = schemeSlot == SLOT_ITEM ? SLOT_SCHEME : SLOT_ITEM;
+            if (inventory.getItem(other).isEmpty()) {
+                inventory.setItem(other, mirror);
+            } else {
+                giveTo(player, serverLevel, getBlockPos(), mirror);
+            }
             setChanged();
             return new RevertOutcome(RevertResult.SCHEME_ERASED, 0, "");
         }

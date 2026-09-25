@@ -847,6 +847,24 @@ public final class SelfTest {
                     erased.result() == DismantlerBlockEntity.RevertResult.SCHEME_ERASED
                             && after.getItem() == ModItems.LINE_SCHEME.get()
                             && LineSchemeSerializer.fromStack(after).isEmpty());
+            // The erase also hands back a mirror of what was on the scheme (the author's scene
+            // shows it), into the other slot when that is free.
+            ok &= layoutExpect("erasing a scheme leaves a mirror in the other slot",
+                    inv.getItem(DismantlerBlockEntity.SLOT_SCHEME).getItem() == ModItems.LINE_SCHEME_MIRROR.get());
+
+            // A written scheme alone on the RIGHT is the same request (the scene puts it there).
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, ItemStack.EMPTY);
+            inv.setItem(DismantlerBlockEntity.SLOT_SCHEME, LineSchemeItem.sampleStack());
+            DismantlerBlockEntity.RevertOutcome fromRight = dismantler.revert();
+            ok &= layoutExpect("a written scheme on the right is erased too",
+                    fromRight.result() == DismantlerBlockEntity.RevertResult.SCHEME_ERASED
+                            && inv.getItem(DismantlerBlockEntity.SLOT_SCHEME).getItem() == ModItems.LINE_SCHEME.get()
+                            && !inv.getItem(DismantlerBlockEntity.SLOT_SCHEME).has(
+                                    com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get())
+                            && inv.getItem(DismantlerBlockEntity.SLOT_ITEM).getItem()
+                                    == ModItems.LINE_SCHEME_MIRROR.get());
+            inv.setItem(DismantlerBlockEntity.SLOT_ITEM, ItemStack.EMPTY);
+            inv.setItem(DismantlerBlockEntity.SLOT_SCHEME, ItemStack.EMPTY);
             ItemStack mirror = new ItemStack(ModItems.LINE_SCHEME_MIRROR.get());
             com.create.productionline.item.LineSchemeMirrorItem.write(mirror, writtenStickScheme());
             inv.setItem(DismantlerBlockEntity.SLOT_ITEM, mirror);
