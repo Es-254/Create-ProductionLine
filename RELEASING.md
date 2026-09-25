@@ -5,29 +5,39 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-25):**
 >
-> - **`1.0.3-snapshot.0.0.2` is the current snapshot** (2026-09-25, alpha, **GitHub only** for now) — the
->   whole `1.0.3` line so far: the three redrawn machines, the loader's fill bar, the GUI layout pass, the
->   dismantler's decision table (erase a written scheme, a doubling refund as the true inverse, fluids
->   named) and the computer's private chat output, plus the build-guide tooltip fix. Local jar
->   `create_productionline-1.0.3-snapshot.0.0.2.jar`, 261,785 B, `sha256:a1f9bfef…`; the GitHub asset comes
->   from CI on tag `v1.0.3-snapshot.0.0.2` (`prerelease: true`). **CurseForge and Modrinth still carry
->   `1.0.3-snapshot.0.0.1`** — this one is deliberately not uploaded there until the author has walked
->   through it in game, because an uploaded CurseForge file cannot be replaced. `1.0.2` stays the stable
->   release.
-> - **Local dev builds `0.0.0-dev.8` / `dev.9` / `dev.10` were never published** (2026-09-25): `dev.8` is
->   the loader-bar direction fix (`3c27582` — the bar grows right→left, `bar_1` paints `x=13`, matching the
->   author's export, where `dev.6` shipped the reversed order), `dev.9` the GUI alignment + chat output and
->   `dev.10` the dismantler work. All of it ships inside `1.0.3-snapshot.0.0.2`; `dev-build.txt` stands at
->   `11`, so the next dev cut is `0.0.0-dev.11`.
+> - **`0.0.0-dev.7` … `dev.13` were published retroactively** (2026-09-25, GitHub only, each
+>   `prerelease: true`). They had accumulated locally while work went on; every tag was placed on the
+>   commit that reproduces its jar **byte-for-byte** (rebuilt from the commit with
+>   `-PdevBuildNumber=N` and compared by sha256 before tagging), and every published asset digest was
+>   checked against the local jar afterwards. Tag → commit → sha256 prefix:
+>   `dev.7`=`7e1f846`=`fc006e28…` (dismantler art, pre-spelling-fix), `dev.8`=`267394c`=`d29c1baa…`
+>   (bar direction), `dev.9`=`92f2d58`=`da484ab2…` (GUI layout + chat output), `dev.10`=`becb2ae`=
+>   `610396ff…` (dismantler decision table), `dev.11`=`86270fc`=`c0f47310…` (component-based
+>   intermediates, compute reply, refunds to the inventory), `dev.12`=`00be949`=`b7417af9…` (retired
+>   recipes), `dev.13`=`57997d1`=`e806b770…` (Ponder, first cut — **known defect: its schematics are
+>   missing, so its scenes show an empty world**).
+>   Their Release bodies are **hand-written**, not CHANGELOG sections: those commits predate the
+>   sections, so CI wrote its placeholder and the body was patched through the API afterwards. That is a
+>   deliberate, recorded exception to "the body is the matching CHANGELOG section".
+> - **`0.0.0-dev.14` is built locally and NOT published** (2026-09-25) — the Ponder schematic + tag fix,
+>   `create_productionline-0.0.0-dev.14.jar`, 283,701 B, `sha256:d81c4035…`; `dev-build.txt` stands at
+>   `15`, so the next dev cut is `0.0.0-dev.15`. It is the build the author has yet to watch in game.
+> - **`1.0.3-snapshot.0.0.2` is the newest public snapshot** (2026-09-25, alpha, GitHub **and**
+>   CurseForge): the whole `1.0.3` line up to the build-guide tooltip fix. Local jar
+>   `create_productionline-1.0.3-snapshot.0.0.2.jar`, 261,785 B, `sha256:a1f9bfef…`; GitHub asset from CI
+>   on tag `v1.0.3-snapshot.0.0.2`, CurseForge file **`8969678`** (release type `alpha`). Modrinth still
+>   carries `1.0.3-snapshot.0.0.1` only. **Everything after it is local or dev-tagged** — the
+>   intermediate/refund/chat fixes, the retired-recipe archive and the Ponder work are not on any public
+>   snapshot yet. `1.0.2` stays the stable release.
 > - **`0.0.0-dev.6` is a dev snapshot published to GitHub only** (2026-09-25) — again **no** Modrinth and no
 >   CurseForge entry. GitHub Release `v0.0.0-dev.6` (`prerelease: true`, asset
 >   `create_productionline-0.0.0-dev.6.jar`, 248,890 B, `sha256:65815583…`, byte-identical to the local
 >   `gradlew build -PdevBuildNumber=6`), and it is the snapshot that carries **all three redrawn machines**
 >   (computer, scheme loader with its fill bar, dismantler) plus the normalised texture names. Its loader
->   bar is the **reversed** one (fixed in `dev.8`, shipped in `1.0.3-snapshot.0.0.2`); it stays published
->   as-is, since an uploaded jar cannot be replaced and a dev snapshot records the state it was cut from.
->   Numbering note: the earlier *local* `dev.6` (loader only), `dev.7` (pre-spelling-fix) and `dev.8` builds
->   were/are unpublished, so `dev.6` names the three-machine state.
+>   bar is the **reversed** one (fixed in `dev.8`); it stays published as-is, since an uploaded jar cannot
+>   be replaced and a dev snapshot records the state it was cut from.
+>   Numbering note: dev numbers count *builds*, not commits, so `dev.7` (the dismantler art, cut before
+>   the spelling normalisation) predates `dev.6` in content while carrying the higher number.
 > - **`0.0.0-dev.5` is a dev snapshot published to GitHub only** (2026-09-24) — deliberately **not**
 >   uploaded to Modrinth or CurseForge (their newest entries are still the `1.0.3-snapshot.0.0.1` ones).
 >   GitHub Release `v0.0.0-dev.5` (`prerelease: true`, asset `create_productionline-0.0.0-dev.5.jar`,
