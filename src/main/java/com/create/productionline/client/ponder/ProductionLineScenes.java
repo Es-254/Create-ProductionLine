@@ -257,8 +257,10 @@ public final class ProductionLineScenes {
         scene.addInstruction(s -> panel.setStack(0, writtenScheme));
         scene.idle(76);
 
-        // 2 — it takes effect at once, and the bar lights up
-        scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 1), false);
+        // 2 — it takes effect at once, and the bar lights up. The bar is renderer-drawn
+        // since 1.0.3 (the block state no longer carries the count), so the scene drives
+        // the block entity the same way the server does.
+        setBar(scene, util, machine, 1);
         scene.effects().indicateSuccess(machine);
         scene.overlay().showText(80)
                 .attachKeyFrame()
@@ -270,7 +272,7 @@ public final class ProductionLineScenes {
 
         // 3 — more schemes, more of the bar
         scene.addInstruction(s -> panel.setSlotHighlighted(1));
-        scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 3), false);
+        setBar(scene, util, machine, 3);
         scene.overlay().showText(80)
                 .attachKeyFrame()
                 .text("The bar on its side shows how much of the cabinet is in use")
@@ -460,6 +462,22 @@ public final class ProductionLineScenes {
         inventory.putBoolean("PositiveOrder", true);
         return inventory;
     }
+
+    /**
+     * Lights {@code filled} of the loader's bar strips.
+     *
+     * <p>The front bar is drawn by a renderer since 1.0.3 — the block state no longer carries
+     * the count — so the scene writes block entity data, the same {@code Filled} key the
+     * server syncs to clients, and the block entity renderer shows it. Ponder renders block
+     * entity renderers but runs no Flywheel visuals, which is exactly why the bar is still
+     * visible here.
+     */
+    private static void setBar(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene, SceneBuildingUtil util,
+            net.minecraft.core.BlockPos machine, int filled) {
+        scene.world().modifyBlockEntityNBT(util.select().position(machine), SchemeLoaderBlockEntity.class,
+                nbt -> nbt.putInt("Filled", filled), true);
+    }
+
     /** A written scheme, built the way the computer builds one —so its steps and tooltip are real. */
     static ItemStack writtenScheme() {
         ItemStack stack = new ItemStack(ModItems.LINE_SCHEME.get());

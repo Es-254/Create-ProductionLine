@@ -14,9 +14,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **snapshot (alpha)**: `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha` — work in progress towards
   `x.y.z`. `1.0.3-snapshot.0.0.1` is the first.
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
-  always published as `beta`. **`0.0.0-dev.5` … `dev.24` are all published on GitHub** (each a
+  always published as `beta`. **`0.0.0-dev.5` … `dev.27` are all published on GitHub** (each a
   pre-release with the jar CI rebuilt from its tag; every asset digest verified against the local build).
-  The next dev cut is `0.0.0-dev.25`.
+  The next dev cut is `0.0.0-dev.28`.
 
 The four jars of the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) predate this policy: they
 were published with channel `release` back then, and they are recorded below as the development snapshots
@@ -238,6 +238,24 @@ actually published with at the time was `release`.
   `create_productionline.ponder.<sceneId>.header` / `.text_<n>` — numbered by the order the scene shows
   them. A panel in the corner shows the machine half of the matching GUI with the items the scene places
   in it.
+
+### Changed
+
+- **The Scheme Loader's front bar is drawn by a renderer now instead of being baked into the block model** —
+  the Flywheel step. The loaded-scheme count used to live in the block state (`fill`, 0 … 16) and selected one
+  of six stage models, so every scheme put into or taken out of the cabinet re-meshed the chunk section and
+  shipped a block update, and the bar could only ever show six discrete pictures. The six strips of the 1.0.3
+  model are single-element models now (`scheme_loader_strip_1` … `_6`), split out of the very stage models that
+  were already there by the new `tools/loader-bar-strips.js` — **the art is the author's, extracted, not
+  redrawn** — and they are drawn by `SchemeLoaderVisual` (Flywheel, one instance per strip, batched with
+  everything else Flywheel draws) or, wherever Flywheel is not visualizing the level, by
+  `SchemeLoaderRenderer` (the vanilla block entity renderer, which is also **the path Ponder uses**, so the
+  loader chapter keeps showing the bar filling up). The count travels as block entity data
+  (`Filled` in the update tag) instead of a block state property, so loading a scheme costs one small packet
+  rather than a chunk section re-mesh. Every `fill` variant still resolves to the bar-less
+  `scheme_loader_empty` model, so worlds that stored the property keep a valid model, but nothing writes it any
+  more. The self test gained a 25th check: the six strips have to add up to exactly the bar elements the block
+  model used to bake.
 
 ## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
 

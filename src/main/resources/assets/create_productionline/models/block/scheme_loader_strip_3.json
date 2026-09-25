@@ -1,0 +1,94 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "shell": "create_productionline:block/production_block_shell",
+    "baseboard": "create_productionline:block/production_loader_baseboard",
+    "screen": "create_productionline:block/loader_screen",
+    "particle": "create_productionline:block/production_block_shell",
+    "bar1": "create_productionline:block/loader_bar_1",
+    "bar2": "create_productionline:block/loader_bar_2",
+    "bar3": "create_productionline:block/loader_bar_3",
+    "bar4": "create_productionline:block/loader_bar_4",
+    "bar5": "create_productionline:block/loader_bar_5",
+    "bar6": "create_productionline:block/loader_bar_6"
+  },
+  "elements": [
+    {
+      "from": [
+        9,
+        3,
+        1
+      ],
+      "to": [
+        10,
+        11,
+        2
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          9,
+          3,
+          1
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            2,
+            16
+          ],
+          "texture": "#bar3"
+        },
+        "east": {
+          "uv": [
+            2,
+            0,
+            4,
+            16
+          ],
+          "texture": "#bar3"
+        },
+        "south": {
+          "uv": [
+            4,
+            0,
+            6,
+            16
+          ],
+          "texture": "#bar3"
+        },
+        "west": {
+          "uv": [
+            6,
+            0,
+            8,
+            16
+          ],
+          "texture": "#bar3"
+        },
+        "up": {
+          "uv": [
+            8,
+            0,
+            10,
+            2
+          ],
+          "texture": "#bar3"
+        },
+        "down": {
+          "uv": [
+            8,
+            2,
+            10,
+            4
+          ],
+          "texture": "#bar3"
+        }
+      }
+    }
+  ]
+}

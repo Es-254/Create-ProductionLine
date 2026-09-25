@@ -27,14 +27,19 @@ import org.jetbrains.annotations.Nullable;
 public class SchemeLoaderBlock extends Block implements EntityBlock {
 
     /**
-     * Loaded-scheme count (0 … {@value SchemeLoaderBlockEntity#SLOT_COUNT}) mirrored
-     * into the block state so the client can pick the bar model: the six front strips
-     * of the 1.0.3 model are drawn by {@code scheme_loader_empty},
-     * {@code scheme_loader_bar_1} … {@code scheme_loader_bar_5} and the full
-     * {@code scheme_loader}, one model per stage. A block model cannot add or drop
-     * elements at runtime, so the count selects the model — the property carries the
-     * number itself and the blockstate file maps it with
-     * {@code segments = ceil(count * 6 / 16)}.
+     * Loaded-scheme count (0 … {@value SchemeLoaderBlockEntity#SLOT_COUNT}) as the
+     * block state carried it up to 1.0.2: six stage models
+     * ({@code scheme_loader_empty}, {@code scheme_loader_bar_1} … {@code scheme_loader_bar_5},
+     * {@code scheme_loader}) were selected through this property, so every scheme put
+     * into the cabinet re-meshed the chunk section and sent a block update.
+     *
+     * <p><b>Nothing writes this property any more.</b> The bar is drawn by a renderer
+     * now — {@code SchemeLoaderRenderer} (which is also what Ponder uses) and the
+     * Flywheel visual {@code SchemeLoaderVisual} — reading the count from the block
+     * entity ({@link SchemeLoaderBlockEntity#getRenderSegments()}), and every value of
+     * this property maps to the bar-less {@code scheme_loader_empty} model. The
+     * property and its variants are kept so that worlds which stored {@code fill=N}
+     * still resolve to a valid model instead of falling back to the missing model.
      */
     public static final IntegerProperty FILL =
             IntegerProperty.create("fill", 0, SchemeLoaderBlockEntity.SLOT_COUNT);

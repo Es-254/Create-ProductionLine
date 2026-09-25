@@ -34,6 +34,26 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
 
     public static final int SLOT_COUNT = 16;
 
+    /**
+     * Strips the front bar has. Six stage models used to be baked into the block
+     * model ({@code scheme_loader_empty} … {@code scheme_loader}, one per stage);
+     * they were split into six single-strip models so a renderer can light them
+     * one by one ({@code tools/loader-bar-strips.js}).
+     */
+    public static final int BAR_SEGMENTS = 6;
+
+    /**
+     * Loaded-scheme count as the client's renderer sees it: 0 … {@value #SLOT_COUNT}.
+     *
+     * <p>This is the ONLY thing the bar needs, and it travels as block entity data
+     * ({@link #getUpdateTag}) instead of as a block state property. The state used
+     * to carry it ({@code SchemeLoaderBlock.FILL}), which made every scheme put into
+     * or taken out of the cabinet re-mesh the chunk section and ship a block update.
+     * The property is still registered and still resolves to a valid model for the
+     * sake of worlds that stored it, but nothing writes it any more.
+     */
+    private int renderFilled = 0;
+
     private final ModContainer inventory = new ModContainer(this, SLOT_COUNT, this::onSlotChanged);
     private boolean active = false;
     private int activeCount = 0;
@@ -278,26 +298,57 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
         return count;
     }
 
+    /** Number of bar strips a loaded-scheme count lights up; {@code ceil(count * 6 / 16)}. */
+    public static int segmentsFor(int filled) {
+        int clamped = Math.max(0, Math.min(SLOT_COUNT, filled));
+        return (clamped * BAR_SEGMENTS + SLOT_COUNT - 1) / SLOT_COUNT;
+    }
+
+    /** Loaded-scheme count the renderer should show: 0 … {@value #SLOT_COUNT}. */
+    public int getRenderFilled() {
+        return renderFilled;
+    }
+
+    /** Lit strips of the front bar, 0 … {@value #BAR_SEGMENTS}. */
+    public int getRenderSegments() {
+        return segmentsFor(renderFilled);
+    }
+
     private void syncState() {
         if (level != null) {
             if (!level.isClientSide) {
-                // The front bar renders how many schemes are loaded, so the block state
-                // has to follow the inventory. Flag 2 = clients only: the property is
-                // purely visual, and redstone still goes through isActive() below.
-                BlockState current = level.getBlockState(getBlockPos());
-                if (current.hasProperty(com.create.productionline.block.SchemeLoaderBlock.FILL)) {
-                    int filled = filledSlots();
-                    if (current.getValue(com.create.productionline.block.SchemeLoaderBlock.FILL) != filled) {
-                        level.setBlock(getBlockPos(),
-                                current.setValue(com.create.productionline.block.SchemeLoaderBlock.FILL, filled), 2);
-                    }
+                // The bar renders how many schemes are loaded, and that count now travels
+                // as block entity data: the block state stays untouched, so filling the
+                // cabinet costs one small packet instead of a chunk section re-mesh.
+                int filled = filledSlots();
+                if (filled != renderFilled) {
+                    renderFilled = filled;
+                    level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 2);
                 }
+                level.updateNeighbourForOutputSignal(getBlockPos(), getBlockState().getBlock());
             }
-            level.updateNeighbourForOutputSignal(getBlockPos(), getBlockState().getBlock());
-            BlockState state = level.getBlockState(getBlockPos());
-            level.sendBlockUpdated(getBlockPos(), state, state, 3);
         }
         setChanged();
+    }
+
+    /**
+     * Data sent to clients that can see this cabinet (and used for the client's copy
+     * of the block entity when a chunk is loaded). Deliberately tiny: the slots
+     * themselves are synced by the menu, and the renderer only needs the two values
+     * in here.
+     */
+    @Override
+    public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider provider) {
+        CompoundTag tag = new CompoundTag();
+        tag.putBoolean("ClientSync", true);
+        tag.putInt("Filled", filledSlots());
+        tag.putBoolean("Active", active);
+        return tag;
+    }
+
+    @Override
+    public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
 
     public ModContainer getInventory() {
@@ -366,8 +417,17 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
                 list.add(ItemStack.parseOptional(provider, items.getCompound(i)));
             }
             inventory.loadFrom(list);
+            // Only a real save (world load, /clone, contraption move) asks for the
+            // contribution to be re-installed. A client sync carries no Items and must
+            // not queue one — the client's copy would otherwise try to rebuild the pack.
+            pendingReconcile = true; // re-install after restart while schemes are still inside
         }
         active = tag.getBoolean("Active");
+        if (tag.contains("Filled", Tag.TAG_INT)) {
+            // Server save: absent (the count is derived, see renderFilled). Client sync
+            // and ponder scenes: this is the count the bar renders.
+            renderFilled = Math.max(0, Math.min(SLOT_COUNT, tag.getInt("Filled")));
+        }
         if (tag.contains("RegisteredKey", Tag.TAG_STRING)) {
             String storedKey = tag.getString("RegisteredKey");
             if (!storedKey.isBlank()) {
@@ -377,6 +437,5 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
                 registeredKey = storedKey;
             }
         }
-        pendingReconcile = true; // re-install after restart while schemes are still inside
     }
 }
