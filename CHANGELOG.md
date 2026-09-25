@@ -145,15 +145,30 @@ actually published with at the time was `release`.
   coordinates are world coordinates here, so the controller link is exact rather than stale like Create's
   authored-in-world values), and the belt also carries its speed, so the line is running the moment it
   appears.
-- **The items now ride the belt's own inventory, which is what finally shows them.** Runtime insertion
-  never produced a visible item in game — even with the controller hook and the full block-entity NBT in
-  place — so the belt's inventory is filled by the schematic instead: the **base** (iron ore) under the
-  first Deployer, an unfinished **Generic Intermediate** half way along, and the finished **product** under
-  the second. That is the inventory shape `BeltInventory.write` / `TransportedItemStack.serializeNBT` use
-  (`Pos` in belt blocks, `Locked` to hold an item in place — the state Create itself uses for an item a
-  Deployer is working on), so the three items simply load with the structure, and the scene does nothing
-  more than run the line and let the two Deployers reach down. It is also exactly the picture the narration
-  describes: base, intermediate and product on the belt.
+- **The items ride the belt's own inventory, because runtime insertion never showed one.** Even with the
+  controller hook and the full block-entity NBT in place, `createItemOnBelt` produced no visible item in
+  game — the belt's inventory is the shape that works: `BeltInventory.write` /
+  `TransportedItemStack.serializeNBT` (`Item`, `Pos` in belt cells, `Offset`, `InSegment`, `InDirection`,
+  `Locked`), which the scene drives directly (see the next entry) and which the schematic can also carry,
+  `Locked` being exactly the state Create uses for an item a Deployer is working on.
+- **The closing line is now the whole process, and it runs the right way round.** Three corrections the
+  author gave from the game, all of them right: an east-facing belt carries items east only at a
+  **negative** speed (`getDirectionAwareBeltMovementSpeed` negates the movement on the x axis, which is why
+  Create's own `compacting.nbt` ships `facing:east` with `Speed:-32`), the picture and the sample scheme
+  take **raw iron** rather than ore (`minecraft:iron_ingot_from_blasting_raw_iron`), and the two Deployers
+  belong on the **second and fourth cells** of the five-cell belt. The scene drives the belt's own
+  `Inventory` NBT (`BlockEntityDataInstruction` saves, applies and reloads the block entity, so a rewrite
+  takes effect at once): raw iron is fed in and held, released for a cell, held under the first Deployer —
+  which turns it into a Generic Intermediate — carried two cells to the second, turned into the product,
+  and taken off the end with a dropped item beside it. Positions are written explicitly rather than
+  estimated from belt speed, and `Locked` holds an item under a hand.
+- **The wire would not light up, because a redstone wire recomputes itself.** `RedStoneWireBlock`
+  recalculates its strength in `onPlace` as well as on neighbour changes, and the ponder world has no
+  redstone source: baking `power=15` into the schematic did not survive placement, and setting it at
+  runtime was undone by the lamp's own state change notifying the wire back. The step now lights the
+  **lamp first** — that update reaches a wire still sitting at 0, which does not care — and raises the
+  wire's strength afterwards, with no neighbour left to change it, so the wire keeps its 15 and re-bakes
+  bright.
 
 ### Added
 
