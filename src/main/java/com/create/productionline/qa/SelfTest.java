@@ -42,7 +42,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 25 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 24 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -108,11 +108,6 @@ import net.minecraft.world.level.storage.LevelResource;
  *       shows, hides or modifies, and that position is inside the box those blocks
  *       span</b> — Ponder drops anything outside it without a log line, which is how
  *       the machines stayed invisible on a plate-only schematic.</li>
- *   <li><b>the Scheme Loader's front bar is renderer-driven</b>: every {@code fill}
- *       variant resolves to the bar-less model (the count travels as block entity data,
- *       so nothing re-meshes for it), the six strip models the renderer reads exist, and
- *       together they reproduce exactly the bar elements of the full model — the art the
- *       author drew, split instead of redrawn.</li>
  * </ol>
  */
 public final class SelfTest {
@@ -159,7 +154,6 @@ public final class SelfTest {
             check("Dismantler decision table, doubling refund, fluid notice", () -> dismantlerRules(server));
             check("Computer writes plan + guide onto both carriers", () -> computerWritesBothCarriers(server));
             check("Ponder schematics hold every block their scene touches", () -> ponderSchematicCoverage());
-            check("Loader bar is renderer-driven and adds up to the old model", () -> loaderBarIsRendererDriven());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -1456,122 +1450,6 @@ public final class SelfTest {
             }
             return NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
         }
-    }
-
-    /**
-     * The Scheme Loader's front bar is drawn by a renderer since 1.0.3 instead of being
-     * baked into the block model, so three things have to hold together: every {@code fill}
-     * variant resolves to the bar-less model (nothing re-meshes for the count any more), the
-     * six strip models the renderer reads exist, the strips add up to exactly the bar the
-     * block model used to bake — the machine has to keep looking the same — and each strip is
-     * animated around its own cube's bottom centre, so a strip that moves in the art cannot
-     * end up growing from somewhere else.
-     */
-    private static boolean loaderBarIsRendererDriven() throws Exception {
-        com.google.gson.JsonObject variants = readJson(
-                "/assets/create_productionline/blockstates/scheme_loader.json").getAsJsonObject("variants");
-        for (int fill = 0; fill <= 16; fill++) {
-            String key = "fill=" + fill;
-            if (!variants.has(key)) {
-                return note("scheme_loader blockstate is missing " + key);
-            }
-            String model = variants.getAsJsonObject(key).get("model").getAsString();
-            if (!model.endsWith("scheme_loader_empty")) {
-                return note("fill=" + fill + " still bakes " + model
-                        + " — the bar must not be part of the block model any more");
-            }
-        }
-
-        java.util.Set<String> bar = new java.util.LinkedHashSet<>();
-        for (com.google.gson.JsonElement element : readJson(
-                "/assets/create_productionline/models/block/scheme_loader.json").getAsJsonArray("elements")) {
-            bar.add(canonicalJson(element));
-        }
-        for (com.google.gson.JsonElement element : readJson(
-                "/assets/create_productionline/models/block/scheme_loader_empty.json").getAsJsonArray("elements")) {
-            bar.remove(canonicalJson(element));
-        }
-        if (bar.size() != 6) {
-            return note("the full loader model carries " + bar.size() + " bar elements, expected 6");
-        }
-
-        java.util.Set<String> strips = new java.util.LinkedHashSet<>();
-        for (int strip = 1; strip <= 6; strip++) {
-            com.google.gson.JsonArray elements = readJson(
-                    "/assets/create_productionline/models/block/scheme_loader_strip_" + strip + ".json")
-                    .getAsJsonArray("elements");
-            if (elements == null || elements.size() != 1) {
-                return note("scheme_loader_strip_" + strip + " must hold exactly one element");
-            }
-            String element = canonicalJson(elements.get(0));
-            if (!strips.add(element)) {
-                return note("scheme_loader_strip_" + strip + " duplicates another strip");
-            }
-            if (!bar.contains(element)) {
-                return note("scheme_loader_strip_" + strip + " is not one of the bar elements of the full model");
-            }
-            // The grow-in animation scales each strip about its bottom centre, and that point
-            // is a constant in the block entity: it has to be re-derived from the model here,
-            // or a strip moved in the art would grow from somewhere else.
-            com.google.gson.JsonObject cube = elements.get(0).getAsJsonObject();
-            com.google.gson.JsonArray from = cube.getAsJsonArray("from");
-            com.google.gson.JsonArray to = cube.getAsJsonArray("to");
-            float[] pivot = com.create.productionline.block.entity.SchemeLoaderBlockEntity
-                    .barStripPivot(strip - 1);
-            float bottomCentreX = (from.get(0).getAsFloat() + to.get(0).getAsFloat()) / 2.0F;
-            float bottomY = from.get(1).getAsFloat();
-            float bottomCentreZ = (from.get(2).getAsFloat() + to.get(2).getAsFloat()) / 2.0F;
-            if (Math.abs(pivot[0] - bottomCentreX) > 0.001F || Math.abs(pivot[1] - bottomY) > 0.001F
-                    || Math.abs(pivot[2] - bottomCentreZ) > 0.001F) {
-                return note("strip " + strip + " is animated around " + java.util.Arrays.toString(pivot)
-                        + " but its cube's bottom centre is (" + bottomCentreX + ", " + bottomY + ", "
-                        + bottomCentreZ + ")");
-            }
-        }
-        if (!strips.equals(bar)) {
-            return note("the six strips do not cover the bar the block model used to bake");
-        }
-        return true;
-    }
-
-    /** Reads a JSON resource straight out of the mod's own resources. */
-    private static com.google.gson.JsonObject readJson(String path) throws Exception {
-        try (InputStream in = SelfTest.class.getResourceAsStream(path)) {
-            if (in == null) {
-                throw new IllegalStateException("missing resource " + path);
-            }
-            return com.google.gson.JsonParser
-                    .parseString(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8))
-                    .getAsJsonObject();
-        }
-    }
-
-    /**
-     * Key-sorted form of a JSON value, so two copies of the same cuboid compare equal
-     * ({@code tools/loader-bar-strips.js} writes the strips in this order, the stage models
-     * are hand-written and keep theirs).
-     */
-    private static String canonicalJson(com.google.gson.JsonElement element) {
-        if (element.isJsonObject()) {
-            java.util.TreeMap<String, com.google.gson.JsonElement> sorted = new java.util.TreeMap<>();
-            element.getAsJsonObject().entrySet().forEach(entry -> sorted.put(entry.getKey(), entry.getValue()));
-            StringBuilder json = new StringBuilder("{");
-            sorted.forEach((key, value) -> json.append('"').append(key).append("\":").append(canonicalJson(value))
-                    .append(','));
-            return json.append('}').toString();
-        }
-        if (element.isJsonArray()) {
-            StringBuilder json = new StringBuilder("[");
-            element.getAsJsonArray().forEach(child -> json.append(canonicalJson(child)).append(','));
-            return json.append(']').toString();
-        }
-        return element.toString();
-    }
-
-    /** Prints the reason a check failed (the summary line stays a single "[FAIL] <name>"). */
-    private static boolean note(String message) {
-        System.out.println("   " + message);
-        return false;
     }
 
     public interface Check {

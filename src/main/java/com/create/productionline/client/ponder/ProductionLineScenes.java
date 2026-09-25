@@ -257,8 +257,7 @@ public final class ProductionLineScenes {
         scene.addInstruction(s -> panel.setStack(0, writtenScheme));
         scene.idle(76);
 
-        // 2 — it takes effect at once, and the bar lights up. The count still travels in the block
-        // state (the renderer reads it from there), so the scene writes it exactly like the server.
+        // 2 — it takes effect at once, and the bar lights up
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 1), false);
         scene.effects().indicateSuccess(machine);
         scene.overlay().showText(80)
@@ -461,7 +460,6 @@ public final class ProductionLineScenes {
         inventory.putBoolean("PositiveOrder", true);
         return inventory;
     }
-
     /** A written scheme, built the way the computer builds one —so its steps and tooltip are real. */
     static ItemStack writtenScheme() {
         ItemStack stack = new ItemStack(ModItems.LINE_SCHEME.get());

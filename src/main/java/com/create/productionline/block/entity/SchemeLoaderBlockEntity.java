@@ -34,46 +34,6 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
 
     public static final int SLOT_COUNT = 16;
 
-    /**
-     * Strips the front bar has. Six stage models used to be baked into the block
-     * model ({@code scheme_loader_empty} … {@code scheme_loader}, one per stage);
-     * they were split into six single-strip models so a renderer can light them
-     * one by one ({@code tools/loader-bar-strips.js}).
-     */
-    public static final int BAR_SEGMENTS = 6;
-
-    /**
-     * Bottom centre of each strip cube in model pixels — the point a strip grows from
-     * (and shrinks back to) when the loaded-scheme count changes. Read from
-     * {@code scheme_loader_strip_1 … _6} rather than hand-measured: the self test
-     * re-derives every entry from those models, so the animation follows the art if the
-     * strips are ever moved.
-     */
-    private static final float[][] BAR_STRIP_PIVOTS = {
-            { 13.5F, 3.0F, 1.5F },
-            { 11.5F, 3.0F, 1.5F },
-            { 9.5F, 3.0F, 1.5F },
-            { 7.5F, 3.0F, 1.5F },
-            { 5.5F, 3.0F, 1.5F },
-            { 3.5F, 3.0F, 1.5F },
-    };
-
-    /** Ticks one strip takes to grow in or shrink out. */
-    public static final float BAR_ANIM_TICKS = 5.0F;
-
-    /**
-     * Loaded-scheme count as it reaches the client: through the block state
-     * ({@code SchemeLoaderBlock.FILL}), which is what the renderers read. The state does NOT
-     * select a bar model any more — every value maps to the bar-less
-     * {@code scheme_loader_empty} — the renderer draws the strips.
-     *
-     * <p>Bar animation (client only, never saved): how many strips are drawn right now,
-     * which eases towards {@link #getRenderSegments()} instead of jumping.
-     */
-    private float barAnimated = -1.0F;
-    /** Client clock of the previous animation step, 0 while the animation has not started. */
-    private long barAnimatedAt = 0L;
-
     private final ModContainer inventory = new ModContainer(this, SLOT_COUNT, this::onSlotChanged);
     private boolean active = false;
     private int activeCount = 0;
@@ -318,71 +278,12 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
         return count;
     }
 
-    /** Number of bar strips a loaded-scheme count lights up; {@code ceil(count * 6 / 16)}. */
-    public static int segmentsFor(int filled) {
-        int clamped = Math.max(0, Math.min(SLOT_COUNT, filled));
-        return (clamped * BAR_SEGMENTS + SLOT_COUNT - 1) / SLOT_COUNT;
-    }
-
-    /**
-     * Lit strips the cabinet's block state asks for, 0 … {@value #BAR_SEGMENTS}.
-     *
-     * <p>Read from the state rather than from a field of our own: the block state property is
-     * the one carrier that provably reaches the client (it is what the working 1.0.2 build
-     * used), and the renderer only needs the number, not a model.
-     */
-    public int getRenderSegments() {
-        BlockState state = getBlockState();
-        return state.hasProperty(com.create.productionline.block.SchemeLoaderBlock.FILL)
-                ? segmentsFor(state.getValue(com.create.productionline.block.SchemeLoaderBlock.FILL))
-                : 0;
-    }
-
-    /** Bottom centre of a strip cube in model pixels; {@code strip} counts from 0. */
-    public static float[] barStripPivot(int strip) {
-        return BAR_STRIP_PIVOTS[strip];
-    }
-
-    /**
-     * Lit strips to draw this frame, easing towards {@link #getRenderSegments()} so a strip
-     * grows in (and shrinks back out) instead of popping — the reason the bar is drawn by a
-     * renderer at all, a block model cannot do this.
-     *
-     * <p>Client side only, and called once per frame by whichever renderer draws the bar;
-     * it advances the animation by the time since the previous call, so the motion is
-     * frame-rate independent. The first call after a chunk load snaps to the target — a
-     * machine that was already full when it came into view must not fill up again.
-     */
-    public float advanceBarAnimation() {
-        long now = net.minecraft.Util.getMillis();
-        int target = getRenderSegments();
-        if (barAnimated < 0.0F || barAnimatedAt == 0L) {
-            barAnimated = target;
-            barAnimatedAt = now;
-            return barAnimated;
-        }
-        // One strip per BAR_ANIM_TICKS; a machine that was off screen for a while (or a
-        // lag spike) simply finishes the motion in one step.
-        float step = (now - barAnimatedAt) / 50.0F / BAR_ANIM_TICKS;
-        barAnimatedAt = now;
-        if (barAnimated != target) {
-            float remaining = target - barAnimated;
-            barAnimated = Math.abs(remaining) <= step ? target
-                    : barAnimated + Math.signum(remaining) * step;
-        }
-        return barAnimated;
-    }
-
     private void syncState() {
         if (level != null) {
             if (!level.isClientSide) {
-                // The front bar renders how many schemes are loaded, so the block state has to
-                // follow the inventory. Flag 2 = clients only: the property is purely visual,
-                // redstone still goes through isActive() below. The state no longer picks a bar
-                // MODEL (every value maps to the bar-less scheme_loader_empty) — it is the
-                // carrier the renderer reads the count from, and it is the carrier the working
-                // 1.0.2 build already used. A block entity data packet was tried for this and
-                // left the bar dark, so it is deliberately back on the proven path.
+                // The front bar renders how many schemes are loaded, so the block state
+                // has to follow the inventory. Flag 2 = clients only: the property is
+                // purely visual, and redstone still goes through isActive() below.
                 BlockState current = level.getBlockState(getBlockPos());
                 if (current.hasProperty(com.create.productionline.block.SchemeLoaderBlock.FILL)) {
                     int filled = filledSlots();
@@ -391,8 +292,10 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
                                 current.setValue(com.create.productionline.block.SchemeLoaderBlock.FILL, filled), 2);
                     }
                 }
-                level.updateNeighbourForOutputSignal(getBlockPos(), getBlockState().getBlock());
             }
+            level.updateNeighbourForOutputSignal(getBlockPos(), getBlockState().getBlock());
+            BlockState state = level.getBlockState(getBlockPos());
+            level.sendBlockUpdated(getBlockPos(), state, state, 3);
         }
         setChanged();
     }

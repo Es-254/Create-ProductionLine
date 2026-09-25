@@ -16,7 +16,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
   always published as `beta`. **`0.0.0-dev.5` … `dev.27` are all published on GitHub** (each a
   pre-release with the jar CI rebuilt from its tag; every asset digest verified against the local build).
-  The next dev cut is `0.0.0-dev.28`.
+  The next cut is `0.0.0-dev.33`: `dev.28` … `dev.32` were local builds of the Scheme Loader bar work
+  (a Flywheel visual for the bar, then a renderer-only variant), which was **rolled back at the author's
+  request** — the bar is a block model again, exactly as in `dev.27`.
 
 The four jars of the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) predate this policy: they
 were published with channel `release` back then, and they are recorded below as the development snapshots
@@ -238,35 +240,6 @@ actually published with at the time was `release`.
   `create_productionline.ponder.<sceneId>.header` / `.text_<n>` — numbered by the order the scene shows
   them. A panel in the corner shows the machine half of the matching GUI with the items the scene places
   in it.
-
-### Changed
-
-- **The Scheme Loader's front bar is drawn by a renderer now instead of being baked into the block model** —
-  the Flywheel step. The loaded-scheme count used to live in the block state (`fill`, 0 … 16) and selected one
-  of six stage models, so every scheme put into or taken out of the cabinet re-meshed the chunk section and
-  shipped a block update, and the bar could only ever show six discrete pictures. The six strips of the 1.0.3
-  model are single-element models now (`scheme_loader_strip_1` … `_6`), split out of the very stage models that
-  were already there by the new `tools/loader-bar-strips.js` — **the art is the author's, extracted, not
-  redrawn** — and they are drawn by `SchemeLoaderVisual` (Flywheel, one instance per strip, batched with
-  everything else Flywheel draws) or, wherever Flywheel is not visualizing the level, by
-  `SchemeLoaderRenderer` (the vanilla block entity renderer, which is also **the path Ponder uses**, so the
-  loader chapter keeps showing the bar filling up). The count still travels in the **block state** — that is
-  the carrier the working 1.0.2 build used, and the renderer reads it from there — but the state no longer
-  *selects* a bar model: all seventeen `fill` variants resolve to the bar-less `scheme_loader_empty`, so the
-  chunk mesh never contains a bar and only the renderer draws one. Costing one block update (and its section
-  re-mesh) per scheme put in or taken out is the price of that; routing the count through block entity data
-  instead was tried first and left the bar **completely dark** (the count never reached the client), so it was
-  reverted. Two lines in `logs/latest.log` now say which half is at fault if a bar is ever dark again —
-  `Scheme Loader bar: all 6 strip models baked` at startup and `... first draw through the ... — 6 strip(s),
-  count N` on the first draw. The self test gained a 25th check: the six strips have to add up to exactly the
-  bar elements the block model used to bake, and each strip's animation pivot has to match its own cube.
-- **The bar rises instead of switching pictures.** Now that a renderer owns it, the count eases towards the
-  loaded-scheme count over five ticks per strip, and the strip being lit is drawn part way grown — from its own
-  cube's bottom edge, so it rises out of the bar rather than inflating in place (`5 ticks × 6 strips` = 1.5 s
-  for a whole cabinet, and taking a scheme out shrinks it back down). Both renderers share the pivot and the
-  curve, so the motion is identical in the game (Flywheel) and in Ponder (the vanilla path). The strips'
-  bottom centres are constants in the block entity and the self test re-derives them from the strip models, so
-  a strip moved in the art cannot end up growing from somewhere else.
 
 ## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
 
