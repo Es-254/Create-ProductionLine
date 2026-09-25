@@ -97,6 +97,14 @@ actually published with at the time was `release`.
   test's new 24th check asserts the invariant from both sides: each scene's schematic holds the expected
   block at every position that scene shows, hides or modifies, and that position lies inside the box the
   schematic's blocks span.
+- **The closing picture was a still life.** The belt-and-Deployers panel showed the shape of a line but
+  nothing ran: no power source, no motion. Ponder does run Create's kinetics — `setKineticSpeed` writes the
+  speed onto the kinetic block entities of a selection, which is how Create's own scenes start a belt
+  (`DeployerScenes` does `setKineticSpeed(select().layer(1), -32F)`) — so the loader schematic now carries a
+  **Creative Motor** beside the belt's first pulley (at (0,1,0) facing south, the axis a belt travelling
+  along x is turned by), and the scene sets the speed on the motor and the belt, drops the base item onto
+  the running belt and lets each Deployer reach down onto it and retract again, with a success flash. The
+  line reads as a powered line now, not as a diagram of one.
 
 ### Added
 

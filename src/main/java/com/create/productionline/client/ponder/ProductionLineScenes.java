@@ -241,24 +241,41 @@ public final class ProductionLineScenes {
     }
 
     /**
-     * The closing picture: a belt with the base on it and two Deployers facing down over it — the
-     * shape every derived plan has. A picture, not a simulated line: Ponder scenes cannot run Create's
-     * kinetics. Both the belt and the Deployers come from the loader schematic (one row in front of
-     * the cabinet, so the preview never has to share a position with it) and are only revealed here.
+     * The closing picture: a belt fed by a Creative Motor, with the base item travelling along it and
+     * one Deployer per added material reaching down onto it — the shape every derived plan has. It is a
+     * running line, not a still life: the schematic carries the motor next to the belt's first pulley,
+     * and the scene calls {@code setKineticSpeed} on exactly those cells, which is how Create's own
+     * scenes start a belt ({@code DeployerScenes} does {@code setKineticSpeed(select().layer(1), -32F)}).
+     * Everything here comes from the loader schematic, one row in front of the cabinet so the preview
+     * never has to share a position with it, and is only revealed at this step.
      */
     private static void buildLinePreview(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util) {
-        scene.world().showSection(util.select().fromTo(0, 1, PREVIEW_ROW_Z, 4, 1, PREVIEW_ROW_Z), Direction.DOWN);
+        // The power train and the belt it drives: motor at (0, 1, 0), belt along z = 1.
+        var line = util.select().position(0, 1, PREVIEW_ROW_Z - 1)
+                .add(util.select().fromTo(0, 1, PREVIEW_ROW_Z, 4, 1, PREVIEW_ROW_Z));
+        var deployers = util.select().fromTo(1, 2, PREVIEW_ROW_Z, 3, 2, PREVIEW_ROW_Z);
+
+        scene.world().showSection(line, Direction.DOWN);
+        scene.idle(5);
+        scene.world().setKineticSpeed(line, 32.0F);
         scene.idle(10);
         scene.world().createItemOnBelt(util.grid().at(0, 1, PREVIEW_ROW_Z), Direction.EAST,
                 new ItemStack(Items.IRON_INGOT));
-        scene.idle(20);
+        scene.idle(15);
 
-        scene.world().showSection(util.select().fromTo(1, 2, PREVIEW_ROW_Z, 3, 2, PREVIEW_ROW_Z), Direction.UP);
+        scene.world().showSection(deployers, Direction.UP);
+        scene.idle(5);
+        scene.world().setKineticSpeed(deployers, -32.0F);
         scene.idle(10);
         for (int x = 1; x <= 3; x += 2) {
-            scene.world().moveDeployer(util.grid().at(x, 2, PREVIEW_ROW_Z), 1f, 10);
-            scene.idle(15);
+            BlockPos deployer = util.grid().at(x, 2, PREVIEW_ROW_Z);
+            scene.world().moveDeployer(deployer, 1f, 25);
+            scene.idle(12);
+            scene.effects().indicateSuccess(deployer);
+            scene.idle(14);
+            scene.world().moveDeployer(deployer, -1f, 25);
+            scene.idle(10);
         }
     }
 
