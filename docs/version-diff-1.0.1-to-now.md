@@ -9,12 +9,12 @@
 ## 这份文件回答什么 / What this page is
 
 **EN** — Everything that happened between the last stable release **`1.0.1`** and the working tree as it
-stands now: the 13 jars sitting in `build/libs`, the git tag (if any) each one corresponds to, and what
+stands now: the 14 jars sitting in `build/libs`, the git tag (if any) each one corresponds to, and what
 changed in each one relative to `1.0.1`. `1.0.1` is the baseline because it is the last cut that is a
 **finished release**; `1.0.2` was promoted to a release after it, and everything since then is either a
 snapshot (`1.0.3-snapshot.*`) or a dev build (`0.0.0-dev.N`).
 
-**中文** — 这里记录**上一个正式版 `1.0.1`** 到当前工作区之间的全部变化：`build/libs` 里那 13 个 jar 分别
+**中文** — 这里记录**上一个正式版 `1.0.1`** 到当前工作区之间的全部变化：`build/libs` 里那 14 个 jar 分别
 对应哪个 git tag、以及每一个相对 `1.0.1` 改了什么。以 `1.0.1` 为基准，是因为它是**最后一个"已完成"的正式版**；
 它之后的 `1.0.2` 是当天由 beta 晋升的正式版，再往后要么是快照（`1.0.3-snapshot.*`），要么是开发构建
 （`0.0.0-dev.N`）。
@@ -41,11 +41,11 @@ retroactively, `dev.14` is the one build that is neither.
 **破拆机决策表：拆方案、倍增退款改真逆运算、流体告知**（dev.10）、**按组件识别中间产物＋"仅使用不消耗"标记**（dev.11）、
 **退役配方而非删除**（dev.12）、以及 **Ponder 场景**（dev.13/dev.14，仍在工作区，CHANGELOG 尚未收录）。
 源码现在是 62 个文件 / 10,231 行、自检 23 项。`1.0.3` **仍未收线**：`mod_version` 停在 `1.0.3-snapshot.0.0.2`；
-最新两个包都只在本机——`dev.13` 已补打 tag 并补发，`dev.14` 是唯一既没 tag 也没发的那一版。
+最新两个包都只在本机——`dev.13` 已补打 tag 并补发；`dev.14` 与 `dev.15` 既没 tag 也没发（前者缺 Ponder 结构文件，后者的结构文件格式已修正）。
 
-## 二、13 个本地 jar ↔ 提交 / tag 对照 / The 13 local jars, mapped
+## 二、14 个本地 jar ↔ 提交 / tag 对照 / The 14 local jars, mapped
 
-`build/libs` 里现有 13 个 jar（数字均为本机实测 / all numbers measured on this machine）：
+`build/libs` 里现有 14 个 jar（数字均为本机实测 / all numbers measured on this machine）：
 
 | # | jar（`build/libs/`） | 字节 / B | `sha256`（前 8 位） | 对应提交 / commit | tag | 发布 / published |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -61,7 +61,8 @@ retroactively, `dev.14` is the one build that is neither.
 | 10 | `create_productionline-0.0.0-dev.12.jar` | 266,636 | `b7417af9…` | `00be949`（`v0.0.0-dev.12`） | `v0.0.0-dev.12` | 已补发（2026-09-25，仅 GitHub） |
 | 11 | `create_productionline-1.0.3-snapshot.0.0.2.jar` | 261,785 | `a1f9bfef…` | `318ac5e`（`v1.0.3-snapshot.0.0.2`） | `v1.0.3-snapshot.0.0.2` | 已发（2026-09-25）：GitHub pre-release + CurseForge `8969678`（alpha）；Modrinth 仍只有 `snapshot.0.0.1`。与线上资产逐字节一致 |
 | 12 | `create_productionline-0.0.0-dev.13.jar` | 281,600 | `e806b770…` | `57997d1`（`v0.0.0-dev.13`） | `v0.0.0-dev.13` | 已补发（2026-09-25，仅 GitHub）；该版**缺 Ponder 结构文件**，场景会显示空世界 |
-| 13 | `create_productionline-0.0.0-dev.14.jar` | 283,701 | `d81c4035…` | `0169c68`（`HEAD`） | **无** | **未发**：Ponder 结构文件＋tag 分组的修复版，也是作者还没实机看过的那一版 |
+| 13 | `create_productionline-0.0.0-dev.14.jar` | 283,701 | `d81c4035…` | `0169c68` | **无** | **未发**：Ponder 结构文件＋tag 分组的修复版，也是作者还没实机看过的那一版 |
+| 14 | `create_productionline-0.0.0-dev.15.jar` | 283,907 | `5a840591…` | `1c4a1a3`（`HEAD`） | **无** | **未发**：修正 Ponder 结构文件的 NBT 标签类型（`size`/`pos` 必须是 `list<int>`，写成 `int[]` 会被读成空结构）＋ 开场改用 Create 惯用法 |
 
 > **EN** — Rows 12 and 13 are an inference from the jars' own contents and the tag message, not from a build
 > log (no build log ties a dev counter to a commit): the `dev.13` jar lacks the three ponder `.nbt` assets and
