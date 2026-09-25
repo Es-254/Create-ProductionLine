@@ -10,19 +10,24 @@ import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
  * The dismantler's own scene: it runs the opposite way to the rest of the mod, so it is not part of
- * the line story (the author's call). Four narrated steps plus one silent one, matching the table:
- * a product, a written scheme, and finally an unfinished intermediate.
+ * the line story (the author's call) and is registered as a single-scene entry of its own. Four
+ * narrated steps plus one silent one, matching the table: a product, a written scheme, and finally
+ * an unfinished intermediate.
  */
 public final class DismantlerScenes {
 
     private static final ResourceLocation DISMANTLER_GUI = ResourceLocation.fromNamespaceAndPath(
             "create_productionline", "textures/gui/dismantler.png");
+
+    /** The screens' title label y for this panel (its well starts at y=21, like the computer's). */
+    private static final int TITLE_Y = 6;
 
     private DismantlerScenes() {
     }
@@ -43,14 +48,20 @@ public final class DismantlerScenes {
         scene.idle(10);
         BlockPos machine = util.grid().at(2, 1, 2);
         scene.world().setBlock(machine, ModBlocks.DISMANTLER.get().defaultBlockState(), false);
-        scene.world().showSection(util.select().position(machine), Direction.DOWN);
+        // Independent section: the block is placed here, so it is not in the schematic's backup and
+        // a plain showSection would have nothing to reveal (the machine never appeared without this).
+        scene.world().showIndependentSection(util.select().position(machine), Direction.DOWN);
         scene.idle(15);
         scene.special().movePointOfInterest(machine);
 
         MachineGuiElement panel = new MachineGuiElement(DISMANTLER_GUI,
                 new int[]{GuiLayout.dismantlerItemX(), GuiLayout.dismantlerSchemeX()},
                 new int[]{GuiLayout.dismantlerSlotY(), GuiLayout.dismantlerSlotY()},
-                false);
+                ModBlocks.DISMANTLER.get().getName(), TITLE_Y, false)
+                .withButton((GuiLayout.PANEL_WIDTH - GuiLayout.DISMANTLER_BUTTON_WIDTH) / 2,
+                        GuiLayout.DISMANTLER_BUTTON_Y, GuiLayout.DISMANTLER_BUTTON_WIDTH,
+                        GuiLayout.DISMANTLER_BUTTON_HEIGHT,
+                        Component.translatable("gui.create_productionline.dismantle"));
         scene.addInstruction(s -> s.addElement(panel));
 
         ItemStack product = new ItemStack(Items.IRON_BLOCK);

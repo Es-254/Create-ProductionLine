@@ -64,6 +64,26 @@ actually published with at the time was `release`.
   boilerplate ("belt first, one Deployer per material…") that said nothing about the plan at hand. The
   `LineBuildGuide` payload is still written — it is what makes a plain item a carrier — it is simply not
   rendered, and its four now-unused language keys were removed.
+- **Three machines never appeared in their own Ponder scenes.** The scenes place their machine with
+  `setBlock` and then revealed it with `showSection`, but a section shows what the *structure schematic's
+  backup* holds — a block the scene placed at runtime is not in it, so the base plate appeared and the
+  machine did not. Create's own scenes reveal runtime-placed blocks with `showIndependentSection`; the
+  computer, the Dismantler, and the Scheme Loader scene's machine, lamp, belt row and two Deployers now do
+  the same (and the loader hides them again through the returned section links).
+- **The Ponder panel was blank, and showed the half a scene has no use for.** Only the background texture
+  was drawn — but the backgrounds are just a border, a well and a groove: the slot frames, the title and
+  the button are drawn *in code* by the screens, so the overlay read as an empty grey box. It also blitted
+  all 176x196 px, including the player-inventory half that a Ponder scene has no inventory for. The panel
+  now stops at the groove and draws what the screens draw into that half: one Create-style cell frame per
+  slot (at `slot - 1`, as the screens do it), the stacks, the panel title, and the button — same position,
+  same size, same vanilla button sprite as the real widget.
+- **A and D switched nothing in a Ponder scene.** Chapter keys *are* the arrow buttons' shortcuts
+  (`Options.keyLeft` / `keyRight`, i.e. A and D by default), and those buttons only exist for a component
+  with more than one scene — `PonderChapter` itself is a stub in this Ponder version (`getTitle()` returns
+  an empty constant and `PonderUI`'s chapter field is only ever `null`). With one storyboard per machine
+  there were three single-scene entries, hence no arrows and no chapter keys. The Production Computer and
+  the Scheme Loader are now both registered for both items, so they are one entry with two chapters
+  (writing the plan / loading it) that A and D page through; the Dismantler stays its own entry.
 
 ### Added
 
@@ -74,6 +94,18 @@ actually published with at the time was `release`.
   files to `<world>/cpl_retired/` (outside `datapacks/`, so nothing loads them again) and the reader falls
   back to that folder when the live pack no longer has the recipe. Intermediates orphaned *before* this
   change stay unrecoverable unless their scheme is put back once, which regenerates the file.
+- **Ponder tutorials for the three machines** (the ponder key — `W` by default — on a machine). The
+  Production Computer and the Scheme Loader are the two chapters of one entry, writing a plan and then
+  loading it, and the Dismantler is an entry of its own; all three sit in the `machines` tag in the ponder
+  index. Each scene carries its own structure schematic at `assets/create_productionline/ponder/<id>.nbt`,
+  which is what draws the checkered base plate — a scene without one logs "Ponder schematic missing" and
+  renders an empty world. Those files are gzip-compressed vanilla structure NBT, and `size` plus every
+  block's `pos` have to be a `TAG_List` of `TAG_Int`: written as `TAG_Int_Array` they load as an empty
+  structure **with no error at all**, which is what left both earlier attempts blank. The narration is the
+  author's own wording, one `showText` per row of his table, in
+  `create_productionline.ponder.<sceneId>.header` / `.text_<n>` — numbered by the order the scene shows
+  them. A panel in the corner shows the machine half of the matching GUI with the items the scene places
+  in it.
 
 ## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
 

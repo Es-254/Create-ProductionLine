@@ -13,14 +13,20 @@ import net.minecraft.world.level.ItemLike;
 /**
  * Registers this mod's Ponder scenes and their grouping.
  *
- * <p><b>Three scenes, one tag.</b> The author asked for the machines to be cut into chapters with
- * the built-in mechanism, and the dismantler kept separate. Ponder's {@code PonderChapter} cannot do
- * that in this version: {@code getTitle()} returns a constant empty string and {@code PonderUI}'s
- * chapter field is only ever assigned {@code null} — nothing in Ponder or Create ever calls
- * {@code PonderChapter.of} or {@code PonderChapterRegistry.addStoriesToChapter}. The grouping that
- * <em>does</em> work is {@link net.createmod.ponder.api.registration.PonderTag}: it is what Create
- * itself uses for its ponder index, and what the index screen lists scenes under. So each machine
- * gets its own scene, and the tag is the chapter that holds them.
+ * <p><b>Chapters are scene lists.</b> Ponder's {@code PonderChapter} type is dead code in this
+ * version — {@code getTitle()} returns a constant empty string and {@code PonderUI}'s chapter field
+ * is only ever assigned {@code null} — so the grouping that actually works is the one Ponder itself
+ * uses: every storyboard registered for the <em>same component</em> becomes a scene of that
+ * component's entry, and the entry's scenes are the chapters the arrow buttons switch between.
+ * Those buttons carry the left/right key shortcuts, which are {@code Options.keyLeft/keyRight} —
+ * strafe left/right, A and D by default. A component with a single scene has no arrows and no
+ * chapter keys, which is why registering one storyboard per machine produced three one-scene
+ * entries that A and D could not move through.
+ *
+ * <p>So the computer and the cabinet are two chapters of one entry: both storyboards are registered
+ * for both items, and either machine's ponder screen opens on chapter 1 and can page to chapter 2.
+ * The dismantler runs the other way, so it stays its own single-scene entry (the author's call).
+ * {@link #MACHINES_TAG} still groups all three, because the ponder index lists entries by tag.
  *
  * <p>Every scene needs a structure schematic at {@code assets/create_productionline/ponder/
  * <sceneId>.nbt} — without it Ponder logs "Ponder schematic missing" and the scene renders an empty
@@ -37,10 +43,10 @@ public class ProductionLinePonderPlugin implements PonderPlugin {
     public static final String COMPUTER_SCENE = "production_computer";
     /** Chapter 2: the cabinet loads it. */
     public static final String LOADER_SCENE = "scheme_loader";
-    /** The dismantler runs the other way, so it is its own scene (the author's call). */
+    /** The dismantler runs the other way, so it is its own entry (the author's call). */
     public static final String DISMANTLER_SCENE = "dismantler";
 
-    /** The tag (chapter) all three machines sit in. */
+    /** The tag that groups all three machines in the ponder index. */
     public static final ResourceLocation MACHINES_TAG = ResourceLocation.fromNamespaceAndPath(
             ProductionLineMod.MODID, "machines");
 
@@ -53,9 +59,10 @@ public class ProductionLinePonderPlugin implements PonderPlugin {
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         PonderSceneRegistrationHelper<ItemLike> scenes =
                 helper.withKeyFunction(item -> BuiltInRegistries.ITEM.getKey(item.asItem()));
-        scenes.forComponents(ModBlocks.PRODUCTION_COMPUTER.get())
-                .addStoryBoard(COMPUTER_SCENE, ProductionLineScenes::productionComputer);
-        scenes.forComponents(ModBlocks.SCHEME_LOADER.get())
+        // Both storyboards for both items: that is what makes the pair one entry with two chapters,
+        // i.e. what gives the ponder screen its arrows and its A/D shortcuts.
+        scenes.forComponents(ModBlocks.PRODUCTION_COMPUTER.get(), ModBlocks.SCHEME_LOADER.get())
+                .addStoryBoard(COMPUTER_SCENE, ProductionLineScenes::productionComputer)
                 .addStoryBoard(LOADER_SCENE, ProductionLineScenes::schemeLoader);
         scenes.forComponents(ModBlocks.DISMANTLER.get())
                 .addStoryBoard(DISMANTLER_SCENE, DismantlerScenes::dismantler);

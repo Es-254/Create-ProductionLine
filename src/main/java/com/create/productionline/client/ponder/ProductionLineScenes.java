@@ -13,24 +13,32 @@ import com.create.productionline.registry.ModItems;
 
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
+import net.createmod.ponder.api.element.ElementLink;
+import net.createmod.ponder.api.element.WorldSectionElement;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
- * The line story, as two scenes the author's table describes as chapters: the computer writes a
- * plan, the cabinet puts it to work. They are separate scenes (each with its own header and its own
- * schematic) because Ponder's chapter type is a stub in this version — see
- * {@link ProductionLinePonderPlugin} — while scenes are grouped into the ponder index by tags,
- * which is the built-in mechanism that actually works.
+ * The line story, as the two chapters the author's table describes: the computer writes a plan, the
+ * cabinet puts it to work. Both storyboards are registered for both machines by
+ * {@link ProductionLinePonderPlugin}, so they are one entry with two chapters and the ponder screen
+ * offers A/D to move between them.
  *
  * <p>Each scene carries its own structure schematic ({@code assets/create_productionline/ponder/
  * <id>.nbt}): a scene without one logs "Ponder schematic missing" and renders an empty world, which
- * is exactly what happened before these files existed.
+ * is exactly what happened before these files existed. The schematic holds the base plate only —
+ * every machine block is placed by the scene itself.
+ *
+ * <p>That is also why those blocks are revealed with {@code showIndependentSection} rather than
+ * {@code showSection}: {@code showSection} reveals what the schematic's backup contains, and a block
+ * that the scene placed at runtime is not in it. Create's own scenes use independent sections for
+ * exactly this, and without one the machine simply never appeared on the plate.
  *
  * <p>Text elements are numbered by the order they are shown — {@code text_1}, {@code text_2}, … — so
  * the order of {@code showText} calls here is the order of the narration table.
@@ -41,6 +49,9 @@ public final class ProductionLineScenes {
             "create_productionline", "textures/gui/production_computer.png");
     private static final ResourceLocation LOADER_GUI = ResourceLocation.fromNamespaceAndPath(
             "create_productionline", "textures/gui/scheme_loader.png");
+
+    /** The screens' title label y for the panels whose well starts at y=17. */
+    private static final int TITLE_Y = 6;
 
     private ProductionLineScenes() {
     }
@@ -59,25 +70,24 @@ public final class ProductionLineScenes {
         ItemStack writtenScheme = writtenScheme();
 
         scene.configureBasePlate(0, 0, 5);
-
-
         scene.scaleSceneView(0.9F);
 
-
         // The base plate is the schematic's layer 0; revealing it that way is what Create's own scenes do.
-
-
         scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         scene.world().setBlock(machine, ModBlocks.PRODUCTION_COMPUTER.get().defaultBlockState(), false);
-        scene.world().showSection(util.select().position(machine), Direction.DOWN);
+        scene.world().showIndependentSection(util.select().position(machine), Direction.DOWN);
         scene.idle(15);
         scene.special().movePointOfInterest(machine);
 
         MachineGuiElement panel = new MachineGuiElement(COMPUTER_GUI,
                 new int[]{GuiLayout.computerSlotX(0), GuiLayout.computerSlotX(1), GuiLayout.computerSlotX(2)},
                 new int[]{GuiLayout.COMPUTER_SLOT_Y, GuiLayout.COMPUTER_SLOT_Y, GuiLayout.COMPUTER_SLOT_Y},
-                false);
+                ModBlocks.PRODUCTION_COMPUTER.get().getName(), TITLE_Y, false)
+                .withButton((GuiLayout.PANEL_WIDTH - GuiLayout.COMPUTER_BUTTON_WIDTH) / 2,
+                        GuiLayout.COMPUTER_BUTTON_Y, GuiLayout.COMPUTER_BUTTON_WIDTH,
+                        GuiLayout.COMPUTER_BUTTON_HEIGHT,
+                        Component.translatable("gui.create_productionline.compute"));
         scene.addInstruction(s -> s.addElement(panel));
 
         // 1 — what the machine is for
@@ -153,22 +163,19 @@ public final class ProductionLineScenes {
         }
 
         scene.configureBasePlate(0, 0, 5);
-
-
         scene.scaleSceneView(0.9F);
 
-
         // The base plate is the schematic's layer 0; revealing it that way is what Create's own scenes do.
-
-
         scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         scene.world().setBlock(machine, ModBlocks.SCHEME_LOADER.get().defaultBlockState(), false);
-        scene.world().showSection(util.select().position(machine), Direction.DOWN);
+        ElementLink<WorldSectionElement> machineLink =
+                scene.world().showIndependentSection(util.select().position(machine), Direction.DOWN);
         scene.idle(15);
         scene.special().movePointOfInterest(machine);
 
-        MachineGuiElement panel = new MachineGuiElement(LOADER_GUI, loaderSlotsX, loaderSlotsY, false);
+        MachineGuiElement panel = new MachineGuiElement(LOADER_GUI, loaderSlotsX, loaderSlotsY,
+                ModBlocks.SCHEME_LOADER.get().getName(), GuiLayout.LOADER_TITLE_Y, false);
         scene.addInstruction(s -> s.addElement(panel));
 
         // 1 — the scheme goes in
@@ -207,7 +214,8 @@ public final class ProductionLineScenes {
 
         // 4 — redstone while recipes are active
         scene.world().setBlock(lamp, net.minecraft.world.level.block.Blocks.REDSTONE_LAMP.defaultBlockState(), false);
-        scene.world().showSection(util.select().position(lamp), Direction.EAST);
+        ElementLink<WorldSectionElement> lampLink =
+                scene.world().showIndependentSection(util.select().position(lamp), Direction.EAST);
         scene.overlay().showText(70)
                 .attachKeyFrame()
                 .text("While recipes are active the cabinet emits a redstone signal")
@@ -218,8 +226,8 @@ public final class ProductionLineScenes {
         scene.addInstruction(s -> panel.setVisible(false));
 
         // 5 — the line the plan describes
-        scene.world().hideSection(util.select().position(lamp), Direction.UP);
-        scene.world().hideSection(util.select().position(machine), Direction.UP);
+        scene.world().hideIndependentSection(lampLink, Direction.UP);
+        scene.world().hideIndependentSection(machineLink, Direction.UP);
         scene.idle(10);
         buildLinePreview(scene, util);
         scene.overlay().showText(100)
@@ -235,7 +243,8 @@ public final class ProductionLineScenes {
     /**
      * The closing picture: a belt with the base on it and two Deployers facing down over it — the
      * shape every derived plan has. A picture, not a simulated line: Ponder scenes cannot run
-     * Create's kinetics.
+     * Create's kinetics. Every block here is placed by the scene, so all of it arrives as independent
+     * sections.
      */
     private static void buildLinePreview(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util) {
@@ -243,7 +252,7 @@ public final class ProductionLineScenes {
             scene.world().setBlock(util.grid().at(x, 1, 2),
                     com.simibubi.create.AllBlocks.BELT.get().defaultBlockState(), false);
         }
-        scene.world().showSection(util.select().fromTo(0, 1, 2, 4, 1, 2), Direction.DOWN);
+        scene.world().showIndependentSection(util.select().fromTo(0, 1, 2, 4, 1, 2), Direction.DOWN);
         scene.idle(10);
         scene.world().createItemOnBelt(util.grid().at(0, 1, 2), Direction.EAST, new ItemStack(Items.IRON_INGOT));
         scene.idle(20);
@@ -256,7 +265,7 @@ public final class ProductionLineScenes {
                     false);
             deployers.add(pos);
         }
-        scene.world().showSection(util.select().fromTo(1, 2, 2, 3, 2, 2), Direction.UP);
+        scene.world().showIndependentSection(util.select().fromTo(1, 2, 2, 3, 2, 2), Direction.UP);
         scene.idle(10);
         for (BlockPos pos : deployers) {
             scene.world().moveDeployer(pos, 1f, 10);
