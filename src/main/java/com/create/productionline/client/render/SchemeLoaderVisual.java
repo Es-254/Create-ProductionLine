@@ -40,6 +40,9 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
     /** Animated strip count already applied; -1 forces the first update to apply. */
     private float applied = -1.0F;
 
+    /** Built once: {@code planTick} is asked for every tick, so it must not allocate. */
+    private final Plan<TickableVisual.Context> tickPlan = SimplePlan.<TickableVisual.Context>of(this::tick);
+
     public SchemeLoaderVisual(VisualizationContext context, SchemeLoaderBlockEntity blockEntity, float partialTick) {
         super(context, blockEntity, partialTick);
         if (!LoaderBar.available()) {
@@ -61,7 +64,7 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
 
     @Override
     public Plan<TickableVisual.Context> planTick() {
-        return SimplePlan.<TickableVisual.Context>of(this::tick);
+        return tickPlan;
     }
 
     private void tick() {
@@ -87,6 +90,9 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
      * segment instead of switching pictures.
      */
     private void apply(float segments) {
+        if (applied < 0.0F) {
+            LoaderBar.logFirstDraw("Flywheel visual", segments);
+        }
         if (segments == applied) {
             return;
         }

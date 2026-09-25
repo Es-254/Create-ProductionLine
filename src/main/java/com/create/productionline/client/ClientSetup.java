@@ -20,8 +20,10 @@ public final class ClientSetup {
         modEventBus.addListener(ClientSetup::onClientSetup);
         modEventBus.addListener(ClientSetup::onRegisterRenderers);
         // The bar strip models are referenced by no blockstate, so Minecraft would never
-        // bake them: they are registered explicitly (see LoaderBar).
+        // bake them: they are registered explicitly, and their presence in the baked set is
+        // logged once (see LoaderBar).
         modEventBus.addListener(com.create.productionline.client.render.LoaderBar::registerAdditional);
+        modEventBus.addListener(com.create.productionline.client.render.LoaderBar::logBaked);
     }
 
     private static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {

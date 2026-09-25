@@ -71,6 +71,26 @@ public final class LoaderBar {
     }
 
     /**
+     * Says once, at startup, whether the six strip models really made it into the baked model
+     * set. Without this line a bar that stays dark is a guessing game: the models being absent
+     * and the count never arriving look exactly the same in game.
+     */
+    public static void logBaked(ModelEvent.BakingCompleted event) {
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        for (ResourceLocation location : LOCATIONS) {
+            if (!event.getModels().containsKey(ModelResourceLocation.standalone(location))) {
+                missing.add(location.toString());
+            }
+        }
+        if (missing.isEmpty()) {
+            LOGGER.info("Scheme Loader bar: all {} strip models baked", LOCATIONS.length);
+        } else {
+            LOGGER.error("Scheme Loader bar: {} of {} strip models were NOT baked ({} ) — the front bar "
+                    + "cannot be drawn", missing.size(), LOCATIONS.length, String.join(", ", missing));
+        }
+    }
+
+    /**
      * True when the strip models are baked and can be rendered.
      *
      * <p>Resolved on first use — a world can be entered before the models are
@@ -107,7 +127,14 @@ public final class LoaderBar {
      */
     public static void render(float segments, BlockState state, PoseStack poseStack, MultiBufferSource buffers,
             int packedLight, int packedOverlay) {
-        if (segments <= 0.01F || !available()) {
+        // Availability first, count second: a bar that stays dark because the models are missing
+        // and a bar that stays dark because the count never arrived looked identical in the log
+        // once already, and that is exactly what the next line rules out.
+        if (!available()) {
+            return;
+        }
+        logFirstDraw("vanilla renderer", segments);
+        if (segments <= 0.01F) {
             return;
         }
         // Same render layer the block's own model is baked into, so the bar keeps the look
@@ -166,5 +193,15 @@ public final class LoaderBar {
     /** Number of strips the whole bar has. */
     public static int stripCount() {
         return MODELS.length;
+    }
+
+    /** One line per session and per path, so a dark bar can be told apart from a missing count. */
+    private static final java.util.Set<String> LOGGED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    public static void logFirstDraw(String path, float segments) {
+        if (LOGGED.add(path)) {
+            LOGGER.info("Scheme Loader bar: first draw through the {} — {} strip(s), count {}",
+                    path, MODELS.length, segments);
+        }
     }
 }

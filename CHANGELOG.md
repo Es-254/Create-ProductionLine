@@ -250,12 +250,16 @@ actually published with at the time was `release`.
   redrawn** — and they are drawn by `SchemeLoaderVisual` (Flywheel, one instance per strip, batched with
   everything else Flywheel draws) or, wherever Flywheel is not visualizing the level, by
   `SchemeLoaderRenderer` (the vanilla block entity renderer, which is also **the path Ponder uses**, so the
-  loader chapter keeps showing the bar filling up). The count travels as block entity data
-  (`Filled` in the update tag) instead of a block state property, so loading a scheme costs one small packet
-  rather than a chunk section re-mesh. Every `fill` variant still resolves to the bar-less
-  `scheme_loader_empty` model, so worlds that stored the property keep a valid model, but nothing writes it any
-  more. The self test gained a 25th check: the six strips have to add up to exactly the bar elements the block
-  model used to bake.
+  loader chapter keeps showing the bar filling up). The count still travels in the **block state** — that is
+  the carrier the working 1.0.2 build used, and the renderer reads it from there — but the state no longer
+  *selects* a bar model: all seventeen `fill` variants resolve to the bar-less `scheme_loader_empty`, so the
+  chunk mesh never contains a bar and only the renderer draws one. Costing one block update (and its section
+  re-mesh) per scheme put in or taken out is the price of that; routing the count through block entity data
+  instead was tried first and left the bar **completely dark** (the count never reached the client), so it was
+  reverted. Two lines in `logs/latest.log` now say which half is at fault if a bar is ever dark again —
+  `Scheme Loader bar: all 6 strip models baked` at startup and `... first draw through the ... — 6 strip(s),
+  count N` on the first draw. The self test gained a 25th check: the six strips have to add up to exactly the
+  bar elements the block model used to bake, and each strip's animation pivot has to match its own cube.
 - **The bar rises instead of switching pictures.** Now that a renderer owns it, the count eases towards the
   loaded-scheme count over five ticks per strip, and the strip being lit is drawn part way grown — from its own
   cube's bottom edge, so it rises out of the bar rather than inflating in place (`5 ticks × 6 strips` = 1.5 s
