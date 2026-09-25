@@ -93,7 +93,14 @@ const pByte = (v) => Buffer.from([v & 0xff]);
  * ever renders or moves. The speed is baked in as well (Create's own belts carry theirs), so the line is
  * already running when it appears; the scene's setKineticSpeed only re-affirms it.
  */
-const BELT_SPEED = 32;
+/**
+ * A belt's own speed unit is `getSpeed() / 480` blocks per tick, and a belt whose `facing` lies on the x
+ * axis has that movement negated (`BeltBlockEntity.getDirectionAwareBeltMovementSpeed`), so an east-facing
+ * belt carries items east only when the speed is NEGATIVE — which is also why Create's own compacting.nbt
+ * ships `facing=east` with `Speed:-32`. At 32 rpm that is 15 ticks per block, which is what the scene's
+ * travel timings are built on.
+ */
+const BELT_SPEED = -32;
 
 /**
  * One item riding the belt, in the exact shape BeltInventory.write / TransportedItemStack.serializeNBT
@@ -186,24 +193,17 @@ const MACHINE = (name, extra) => Object.assign({ Name: name, pos: [2, 1, 2] }, e
 // segment carrying the block-entity NBT that makes it a real belt (see beltNbt). `items` goes onto the
 // controller's inventory and is what the line is carrying.
 const BELT_LENGTH = 5;
-const belt = (x, z, part, items) => ({
+const belt = (x, z, part) => ({
   Name: 'create:belt', pos: [x, 1, z],
   Properties: { casing: 'false', part, facing: 'east', slope: 'horizontal' },
-  nbt: beltNbt(x, BELT_LENGTH, [0, 1, z], items),
+  nbt: beltNbt(x, BELT_LENGTH, [0, 1, z], []),
 });
 
 /**
- * What the closing picture's belt carries: the base under the first Deployer, an unfinished intermediate
- * half way along, and the finished product under the second. Baking them in is deliberate — the runtime
- * `createItemOnBelt` route never produced a visible item here, while a belt's own inventory is plain NBT
- * that loads with the schematic — and it is exactly the picture the narration describes ("基底/中间产物/
- * 产物 on the belt").
+ * What the closing picture's belt carries: nothing, at first. The scene feeds the raw iron in and drives
+ * it from station to station by rewriting the belt's `Inventory` NBT (see ProductionLineScenes), which is
+ * the only route that ever produced a visible item — the runtime `createItemOnBelt` call did not.
  */
-const BELT_ITEMS = [
-  beltItem(0.5, 'minecraft:iron_ore'),
-  beltItem(2.5, 'create_productionline:generic_intermediate'),
-  beltItem(4.5, 'minecraft:iron_ingot'),
-];
 const deployer = (x, y, z) => ({
   Name: 'create:deployer', pos: [x, y, z],
   Properties: { facing: 'down', axis_along_first: 'false' },
@@ -211,14 +211,16 @@ const deployer = (x, y, z) => ({
 
 /**
  * Redstone dust between the cabinet and the lamp: the two connection flags are what make the wire draw
- * as a straight run instead of a dot. Its `power` is baked in rather than raised by the scene, because a
- * wire recomputes its own strength on any neighbour change (`updatePowerStrength`) and the ponder world
- * has no redstone source to find - setting it at runtime put it straight back to 0, which is why the
- * wire stayed dark while the lamp lit up.
+ * as a straight run instead of a dot. `power` is left at 0 because a wire recomputes its own strength
+ * whenever it is placed or a neighbour changes (`RedStoneWireBlock.onPlace` -> `updatePowerStrength`), and
+ * the ponder world has no redstone source: baking 15 did not survive placement, and setting it from the
+ * scene only survived until the lamp's own state change notified the wire back. The scene therefore lights
+ * the lamp first and raises the wire's power afterwards - with the lamp already lit, its neighbour update
+ * changes nothing and the wire keeps its strength.
  */
 const dust = (x, z) => ({
   Name: 'minecraft:redstone_wire', pos: [x, 1, z],
-  Properties: { north: 'false', east: 'true', south: 'false', west: 'true', power: '15' },
+  Properties: { north: 'false', east: 'true', south: 'false', west: 'true', power: '0' },
 });
 
 /**
@@ -232,12 +234,11 @@ const MOTOR_Z = 0;
 const motor = () => ({ Name: 'create:creative_motor', pos: [0, 1, MOTOR_Z], Properties: { facing: 'south' } });
 
 /**
- * The Deployers sit above the belt's first cell and above its last cell, and hang **two** cells above it:
+ * The Deployers sit on the belt's second and fourth cells (of five) - the two stations of the picture - and hang **two** cells above it:
  * a Deployer always acts on the position two blocks in front of itself (Create's own scene says so in as
  * many words), so a Deployer at y=2 facing down would reach the plate at y=0 and miss the belt at y=1
  * entirely. One empty cell between the hand and the belt is what the author called "空一格", and it is
- * how a real sequenced assembly is built. The last cell is deliberate too: an item that reaches the end
- * of a belt stops there by itself, so the picture never depends on how fast the belt happens to run.
+ * how a real sequenced assembly is built.
  */
 const DEPLOYER_Y = 3;
 
@@ -249,13 +250,13 @@ const schematics = {
   // one row in front of the machine (z=1, so the preview never shares a position with the cabinet at z=2).
   scheme_loader: [
     MACHINE('create_productionline:scheme_loader', { Properties: { fill: '0' } }),
-    // The signal path the narration talks about: cabinet (2,1,2) -> dust (3,1,2) -> lamp (4,1,2), shown
-    // together at that step with the wire already carrying the signal.
+    // The signal path the narration talks about: cabinet (2,1,2) -> dust (3,1,2) -> lamp (4,1,2). The
+    // lamp arrives unlit and the scene lights it, then raises the wire - in that order, see dust().
     dust(3, 2),
-    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'true' } },
+    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'false' } },
     motor(),
-    belt(0, 1, 'start', BELT_ITEMS), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
-    deployer(0, DEPLOYER_Y, 1), deployer(4, DEPLOYER_Y, 1),
+    belt(0, 1, 'start'), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
+    deployer(1, DEPLOYER_Y, 1), deployer(3, DEPLOYER_Y, 1),
   ],
 
   // Its own entry — the machine alone, like chapter 1.

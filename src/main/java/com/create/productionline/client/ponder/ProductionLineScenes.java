@@ -7,6 +7,7 @@ import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.menu.GuiLayout;
 import com.create.productionline.registry.ModBlocks;
 import com.create.productionline.registry.ModItems;
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
 
 import net.createmod.catnip.math.Pointing;
@@ -15,6 +16,8 @@ import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -32,7 +35,7 @@ import net.minecraft.world.phys.Vec3;
  * <p><b>The schematic holds every block; the scene only shows and hides them.</b> That is Create's own
  * arrangement, and here it is not a matter of taste: {@code scene.world().setBlock} goes through
  * Ponder's {@code ReplaceBlocksInstruction}, which starts with
- * {@code if (level.getBounds().isInside(pos))} 鈥?and the level's bounds are the bounding box of the
+ * {@code if (level.getBounds().isInside(pos))} — and the level's bounds are the bounding box of the
  * blocks the schematic actually <em>placed</em>, not of its declared {@code size}. A scene that places
  * its machine at y=1 on a plate-only schematic (y=0) therefore has that machine silently dropped:
  * the plate appears (it comes from the schematic) and the machine does not, with no error in the log.
@@ -44,7 +47,7 @@ import net.minecraft.world.phys.Vec3;
  * must be a {@code TAG_List} of {@code TAG_Int}: written as {@code TAG_Int_Array} they load as an empty
  * structure with no error at all, which is what left the scenes blank twice.
  *
- * <p>Text elements are numbered by the order they are shown 鈥?{@code text_1}, {@code text_2}, 鈥?鈥?so
+ * <p>Text elements are numbered by the order they are shown — {@code text_1}, {@code text_2}, — so
  * the order of {@code showText} calls here is the order of the narration table.
  */
 public final class ProductionLineScenes {
@@ -66,16 +69,25 @@ public final class ProductionLineScenes {
      * asserted by the self test.
      */
     private static final int DEPLOYER_Y = 3;
+    /**
+     * Create drives a belt at {@code getSpeed() / 480} blocks per tick, and negates that on the x axis
+     * ({@code BeltBlockEntity.getDirectionAwareBeltMovementSpeed}), so an east-facing belt carries items
+     * east only at a NEGATIVE speed — which is why Create's own compacting.nbt ships {@code facing:east}
+     * with {@code Speed:-32}. The schematic bakes that value and the scene re-states it.
+     */
+    private static final float BELT_SPEED = -32.0F;
+    /** One belt cell per 15 ticks at that speed ({@code 480 / 32}); the travel timings below rely on it. */
+    private static final int BELT_TICKS_PER_BLOCK = 15;
 
     private ProductionLineScenes() {
     }
 
     /**
      * The position the narration boxes are anchored to. Ponder places a speech box at
-     * {@code (min(0.75 * width, projectedX + 50), projectedY + 3)} 鈥?it follows the pointed position 鈥?     * and this mod's GUI panel sits in the top-right corner. Pointing at the machine's <em>near-bottom</em>
+     * {@code (min(0.75 * width, projectedX + 50), projectedY + 3)} —it follows the pointed position —     * and this mod's GUI panel sits in the top-right corner. Pointing at the machine's <em>near-bottom</em>
      * corner (the side facing the camera, one pixel above the plate) drops the box to about two thirds of
      * the screen height, clear of the panel, while still marking the machine for the reader. Pointing at
-     * {@code topOf(machine)} instead lands the box exactly under the panel 鈥?that is the overlap that was
+     * {@code topOf(machine)} instead lands the box exactly under the panel — that is the overlap that was
      * seen in game.
      */
     static Vec3 highlight(SceneBuildingUtil util, BlockPos pos) {
@@ -116,7 +128,7 @@ public final class ProductionLineScenes {
                         Component.translatable("gui.create_productionline.compute"));
         scene.addInstruction(s -> s.addElement(panel));
 
-        // 1 鈥?what the machine is for
+        // 1 —what the machine is for
         scene.addInstruction(s -> panel.setVisible(true));
         scene.overlay().showText(70)
                 .attachKeyFrame()
@@ -126,7 +138,7 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(80);
 
-        // 2 鈥?what goes into the first two slots
+        // 2 —what goes into the first two slots
         scene.addInstruction(s -> panel.setStack(0, target));
         scene.overlay().showText(80)
                 .attachKeyFrame()
@@ -137,7 +149,7 @@ public final class ProductionLineScenes {
         scene.addInstruction(s -> panel.setStack(1, blankScheme));
         scene.idle(60);
 
-        // 3 鈥?the optional paper carrier
+        // 3 —the optional paper carrier
         scene.addInstruction(s -> panel.setStack(2, paper));
         scene.overlay().showText(80)
                 .attachKeyFrame()
@@ -146,7 +158,7 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 鈥?press Compute
+        // 4 —press Compute
         scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 60).leftClick();
         scene.overlay().showText(70)
                 .attachKeyFrame()
@@ -158,7 +170,7 @@ public final class ProductionLineScenes {
         scene.addInstruction(s -> panel.setStack(1, writtenScheme));
         scene.idle(80);
 
-        // 5 鈥?what the written scheme says
+        // 5 —what the written scheme says
         scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("The scheme names the product, the base and the whole chain; a self-referencing "
@@ -192,8 +204,8 @@ public final class ProductionLineScenes {
         scene.configureBasePlate(0, 0, 5);
         scene.scaleSceneView(0.9F);
 
-        // Everything this chapter shows 鈥?the cabinet, the lamp that lights up, the belt and the two
-        // Deployers of the closing picture 鈥?is in the schematic; the scene reveals it step by step.
+        // Everything this chapter shows —the cabinet, the lamp that lights up, the belt and the two
+        // Deployers of the closing picture —is in the schematic; the scene reveals it step by step.
         scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         scene.world().showSection(util.select().position(machine), Direction.DOWN);
@@ -204,7 +216,7 @@ public final class ProductionLineScenes {
                 ModBlocks.SCHEME_LOADER.get().getName(), GuiLayout.LOADER_TITLE_Y, false);
         scene.addInstruction(s -> s.addElement(panel));
 
-        // 1 鈥?the scheme goes in
+        // 1 —the scheme goes in
         scene.addInstruction(s -> panel.setVisible(true));
         scene.addInstruction(s -> panel.setStack(0, writtenScheme));
         scene.overlay().showText(80)
@@ -214,7 +226,7 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 2 鈥?it takes effect at once, and the bar lights up
+        // 2 —it takes effect at once, and the bar lights up
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 1), false);
         scene.effects().indicateSuccess(machine);
         scene.overlay().showText(80)
@@ -225,7 +237,7 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 3 鈥?more schemes, more of the bar
+        // 3 —more schemes, more of the bar
         scene.addInstruction(s -> {
             panel.setStack(1, writtenScheme.copy());
             panel.setStack(2, writtenScheme.copy());
@@ -238,12 +250,17 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 鈥?redstone while recipes are active: the wire and the lamp arrive carrying the signal. Both
-        // states are baked into the schematic rather than set here: a redstone wire recomputes its own
-        // strength on every neighbour change, and with no redstone source in the ponder world that put
-        // the wire straight back to 0 (the lamp lit, the wire stayed dark).
+        // 4 — redstone while recipes are active. The order matters: a wire recomputes its own strength
+        // whenever a neighbour changes and this world has no redstone source to find, so powering the wire
+        // first was undone by the lamp's own update. The lamp is lit first instead — its state change
+        // notifies the wire while that is still at 0 and does not care — which leaves the wire free to
+        // take the signal afterwards.
         scene.world().showSection(util.select().position(dust), Direction.UP);
         scene.world().showSection(util.select().position(lamp), Direction.EAST);
+        scene.idle(5);
+        scene.world().modifyBlock(lamp, state -> state.setValue(RedstoneLampBlock.LIT, true), false);
+        scene.idle(5);
+        scene.world().modifyBlock(dust, state -> state.setValue(RedStoneWireBlock.POWER, 15), false);
         scene.overlay().showText(70)
                 .attachKeyFrame()
                 .text("While recipes are active the cabinet emits a redstone signal")
@@ -253,7 +270,7 @@ public final class ProductionLineScenes {
         scene.idle(80);
         scene.addInstruction(s -> panel.setVisible(false));
 
-        // 5 鈥?the line the plan describes
+        // 5 —the line the plan describes
         scene.world().hideSection(util.select().position(lamp), Direction.UP);
         scene.world().hideSection(util.select().position(machine), Direction.UP);
         scene.idle(10);
@@ -271,65 +288,126 @@ public final class ProductionLineScenes {
      * The closing picture, and it is a working line rather than a diagram of one.
      *
      * <p><b>Powered.</b> The schematic carries a Creative Motor beside the belt's first pulley, and the
-     * scene sets the speed on exactly those cells 鈥?{@code setKineticSpeed} writes the speed onto the
+     * scene sets the speed on exactly those cells — {@code setKineticSpeed} writes the speed onto the
      * kinetic block entities of a selection, which is how Create's own scenes start a belt
      * ({@code DeployerScenes} does {@code setKineticSpeed(select().layer(1), -32F)}).
      *
-     * <p><b>Spaced like a real one.</b> Both Deployers hang two cells above the belt: a Deployer acts on
-     * the position two blocks in front of itself, so the empty cell in between is what puts its hand on
-     * the belt. They are also shown holding the material they add, so the picture says what the narration
-     * says 鈥?one Deployer per added material.
+     * <p><b>Built like a real one.</b> Five belt cells, with the two Deployers on the second and the
+     * fourth, hanging two cells above the belt: a Deployer acts on the position two blocks in front of
+     * itself, so the empty cell in between is what puts its hand on the belt. The first one is shown
+     * holding the material it adds, so the picture says what the narration says.
      *
-     * <p><b>Carrying the whole story.</b> The base item goes onto the belt, the first Deployer turns it
-     * <p><b>Carrying the whole story.</b> The belt itself carries the base (under the first Deployer), an
-     * unfinished Generic Intermediate half way along — this mod's own item, which is exactly what an
-     * unfinished line item is — and the finished product under the second Deployer. Those three ride the
-     * belt's own block-entity inventory, baked into the schematic by {@code tools/ponder-schematics.js}:
-     * the runtime {@code createItemOnBelt} route never produced a visible item here, while an inventory is
-     * plain NBT that loads with the structure. They are marked as locked, the state Create uses for an item
-     * a Deployer is working on, so the line can keep running without the items sliding away.
+     * <p><b>Running the whole process.</b> The raw iron is fed in at the belt's first cell, the line
+     * carries it to the first Deployer (which turns it into a Generic Intermediate — this mod's own item,
+     * exactly what an unfinished line item is), on to the second (which finishes it into the product), and
+     * off the end of the belt. The item is driven by rewriting the belt's own {@code Inventory} NBT rather
+     * than by {@code createItemOnBelt}, which never produced a visible item here; the travel timings come
+     * from the belt speed itself ({@link #BELT_TICKS_PER_BLOCK}).
      */
     private static void buildLinePreview(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util) {
         // The power train and the belt it drives: motor at (0, 1, 0), belt along z = PREVIEW_ROW_Z.
-        BlockPos first = util.grid().at(0, DEPLOYER_Y, PREVIEW_ROW_Z);
-        BlockPos second = util.grid().at(4, DEPLOYER_Y, PREVIEW_ROW_Z);
+        BlockPos first = util.grid().at(1, DEPLOYER_Y, PREVIEW_ROW_Z);
+        BlockPos second = util.grid().at(3, DEPLOYER_Y, PREVIEW_ROW_Z);
         var line = util.select().position(0, 1, PREVIEW_ROW_Z - 1)
                 .add(util.select().fromTo(0, 1, PREVIEW_ROW_Z, 4, 1, PREVIEW_ROW_Z));
-        var deployers = util.select().fromTo(0, DEPLOYER_Y, PREVIEW_ROW_Z, 4, DEPLOYER_Y, PREVIEW_ROW_Z);
+        var deployers = util.select().position(first).add(util.select().position(second));
 
         scene.world().showSection(line, Direction.DOWN);
         scene.idle(5);
-        scene.world().setKineticSpeed(line, 32.0F);
+        scene.world().setKineticSpeed(line, BELT_SPEED);
         scene.idle(5);
 
         scene.world().showSection(deployers, Direction.UP);
-        scene.world().setKineticSpeed(deployers, -32.0F);
+        scene.world().setKineticSpeed(deployers, BELT_SPEED);
         // The first Deployer holds the material it adds, so the picture says what the narration says.
         scene.world().modifyBlockEntityNBT(util.select().position(first), DeployerBlockEntity.class,
                 nbt -> nbt.put("HeldItem",
                         new ItemStack(Items.COAL).saveOptional(scene.world().getHolderLookupProvider())));
         scene.idle(10);
 
-        // Both Deployers reach down onto the item their own cell of the belt is carrying: the base under the
-        // first hand, the finished product under the second.
-        for (BlockPos deployer : new BlockPos[] {first, second}) {
-            scene.world().moveDeployer(deployer, 1f, 20);
-            scene.idle(20);
-            scene.effects().indicateSuccess(deployer);
-            scene.world().moveDeployer(deployer, -1f, 20);
-            scene.idle(15);
-        }
+        // Raw iron in at the belt's input, held for a moment, then released onto the moving belt.
+        ItemStack rawIron = new ItemStack(Items.RAW_IRON);
+        setBeltItem(scene, util, rawIron, 0.5F, true);
+        scene.idle(8);
+        setBeltItem(scene, util, rawIron, 0.5F, false);
+        scene.idle(BELT_TICKS_PER_BLOCK);
+
+        // Station 1: the first Deployer works on it and it comes out an unfinished intermediate.
+        setBeltItem(scene, util, rawIron, 1.5F, true);
+        scene.world().moveDeployer(first, 1f, 12);
+        scene.idle(12);
+        setBeltItem(scene, util, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()), 1.5F, false);
+        scene.effects().indicateSuccess(first);
+        scene.world().moveDeployer(first, -1f, 12);
+        scene.idle(14);
+
+        // On to station 2 — two cells along.
+        scene.idle(2 * BELT_TICKS_PER_BLOCK);
+        setBeltItem(scene, util, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()), 3.5F, true);
+        scene.world().moveDeployer(second, 1f, 12);
+        scene.idle(12);
+        setBeltItem(scene, util, new ItemStack(Items.IRON_INGOT), 3.5F, false);
+        scene.effects().indicateSuccess(second);
+        scene.world().moveDeployer(second, -1f, 12);
+        scene.idle(14);
+
+        // The product runs off the end of the belt and lands on the plate beside it.
+        scene.idle(BELT_TICKS_PER_BLOCK);
+        setBeltItem(scene, util, ItemStack.EMPTY, 5.0F, true);
+        scene.world().createItemEntity(util.vector().of(4.5, 1.1, PREVIEW_ROW_Z + 1.5),
+                util.vector().of(0.0, 0.05, 0.05), new ItemStack(Items.IRON_INGOT));
+        scene.idle(15);
     }
-    /** A written scheme, built the way the computer builds one 鈥?so its steps and tooltip are real. */
+
+    /**
+     * Puts one item on the belt, moves it along, or takes it off, by rewriting the belt controller's
+     * {@code Inventory} NBT — the shape {@code BeltInventory.write} / {@code TransportedItemStack.serializeNBT}
+     * use. This is the route that works here: {@code createItemOnBelt} inserted "successfully" and no item
+     * ever appeared. {@code PonderSceneBuilder.modifyBlockEntityNBT} saves the block entity, applies the
+     * consumer and reloads it, and the redraw flag makes the belt render the change straight away.
+     *
+     * <p>{@code pos} is the position along the belt in cells (a cell's centre is its index plus a half), and
+     * {@code locked} holds the item where it is — the state Create itself uses for an item a Deployer is
+     * working on.
+     */
+    private static void setBeltItem(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
+            SceneBuildingUtil util, ItemStack stack, float pos, boolean locked) {
+        CompoundTag inventory = beltInventory(scene, stack, pos, locked);
+        scene.world().modifyBlockEntityNBT(util.select().position(0, 1, PREVIEW_ROW_Z), BeltBlockEntity.class,
+                nbt -> nbt.put("Inventory", inventory.copy()), true);
+    }
+
+    private static CompoundTag beltInventory(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
+            ItemStack stack, float pos, boolean locked) {
+        CompoundTag inventory = new CompoundTag();
+        ListTag items = new ListTag();
+        if (!stack.isEmpty()) {
+            CompoundTag item = new CompoundTag();
+            item.put("Item", stack.saveOptional(scene.world().getHolderLookupProvider()));
+            item.putFloat("Pos", pos);
+            item.putFloat("PrevPos", pos);
+            item.putFloat("Offset", 0.0F);
+            item.putFloat("PrevOffset", 0.0F);
+            item.putInt("InSegment", (int) pos);
+            item.putInt("Angle", 0);
+            item.putInt("InDirection", Direction.WEST.get3DDataValue());
+            item.putBoolean("Locked", locked);
+            items.add(item);
+        }
+        inventory.put("Items", items);
+        inventory.putBoolean("PositiveOrder", true);
+        return inventory;
+    }
+    /** A written scheme, built the way the computer builds one —so its steps and tooltip are real. */
     static ItemStack writtenScheme() {
         ItemStack stack = new ItemStack(ModItems.LINE_SCHEME.get());
         LineScheme scheme = new LineScheme();
-        scheme.setRecipeId("minecraft:iron_ingot_from_blasting_iron_ore");
+        scheme.setRecipeId("minecraft:iron_ingot_from_blasting_raw_iron");
         scheme.setOutputItem("minecraft:iron_ingot");
-        scheme.setBaseMaterial("minecraft:iron_ore");
+        scheme.setBaseMaterial("minecraft:raw_iron");
         LineScheme.Step feed = scheme.addStep("cpl:feed", 1);
-        feed.addInput("minecraft:iron_ore");
+        feed.addInput("minecraft:raw_iron");
         LineScheme.Step deploy = scheme.addStep("create:deploying", 1);
         deploy.addInput("minecraft:coal");
         deploy.addOutput("minecraft:iron_ingot");

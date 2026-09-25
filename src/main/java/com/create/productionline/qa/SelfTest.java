@@ -1387,8 +1387,8 @@ public final class SelfTest {
         for (int x = 0; x <= 4; x++) {
             loader.put(new BlockPos(x, 1, 1), "create:belt"); // the closing picture's line
         }
-        loader.put(new BlockPos(0, 3, 1), "create:deployer"); // two cells above the belt: one empty cell
-        loader.put(new BlockPos(4, 3, 1), "create:deployer"); // at the belt end, where an item stops by itself
+        loader.put(new BlockPos(1, 3, 1), "create:deployer"); // the belt 2nd cell, two cells above it
+        loader.put(new BlockPos(3, 3, 1), "create:deployer"); // the belt 4th cell, two cells above it
         scenes.put("scheme_loader", loader);
 
         Map<BlockPos, String> dismantler = new LinkedHashMap<>();
