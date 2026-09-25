@@ -42,7 +42,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 24 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 25 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -104,6 +104,12 @@ import net.minecraft.world.level.storage.LevelResource;
  *   <li>the dismantler's eleven-row decision table, its doubling refund and its
  *       fluid notice, driven through a real block entity;</li>
  *   <li>the computer writes the plan and the build guide onto both carriers;</li>
+ *   <li><b>the OP placeholder path for a target no recipe produces</b>: without permission the
+ *       compute still refuses with {@code RESULT_NO_RECIPE} and writes nothing, with permission
+ *       it writes a scheme whose recipe id is EMPTY, with zero steps and the target it was
+ *       computed for (a name the anvil flow can author against — and nothing a Scheme Loader
+ *       could install: the loader refuses the item, counts it as no filled slot and derives no
+ *       entry from it, so the bar stays dark);</li>
  *   <li><b>each Ponder schematic holds the exact block at every position its scene
  *       shows, hides or modifies, and that position is inside the box those blocks
  *       span</b> — Ponder drops anything outside it without a log line, which is how
@@ -153,6 +159,8 @@ public final class SelfTest {
             check("GUI layout fits the drawn wells", () -> guiLayoutFits());
             check("Dismantler decision table, doubling refund, fluid notice", () -> dismantlerRules(server));
             check("Computer writes plan + guide onto both carriers", () -> computerWritesBothCarriers(server));
+            check("Placeholder scheme for an unreachable item (OP only)",
+                    () -> placeholderForUnreachableItem(server));
             check("Ponder schematics hold every block their scene touches", () -> ponderSchematicCoverage());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
@@ -1031,6 +1039,120 @@ public final class SelfTest {
                 ok &= layoutExpect("carrier slot " + slot + " holds plan+guide (plan=" + hasPlan
                         + ", guide=" + hasGuide + ", item=" + carrier.getItem() + ")", hasPlan && hasGuide);
             }
+            return ok;
+        } finally {
+            level.removeBlock(pos, false);
+        }
+    }
+
+    /**
+     * The OP placeholder path, for a target NO recipe produces.
+     *
+     * <p>Without it the feature is unreachable from both ends: the computer refuses to write
+     * anything, and the anvil flow can only refine a scheme the computer wrote — so an operator
+     * can never obtain a scheme naming such an item, and therefore can never hand-author a line
+     * for it. The check drives a REAL computer block entity through both sides of the gate,
+     * because "everybody gets a placeholder" and "nobody does" are both wrong:
+     *
+     * <ul>
+     *   <li>without the authoring permission the run ends in {@code RESULT_NO_RECIPE} with the
+     *       carriers untouched — today's behaviour, unchanged, including its M7 reason;</li>
+     *   <li>with it, the carriers get a placeholder: the target item, an EMPTY {@code RecipeId}
+     *       (nothing the Scheme Loader could ever install) and zero steps;</li>
+     *   <li>the anvil then treats it as an already cleared scheme and takes a material straight
+     *       away, without the paper step — and the marker does not survive that first hammer
+     *       strike, because the scheme is a plan from then on;</li>
+     *   <li>a Scheme Loader counts it as no filled slot and derives no entry from it, which is
+     *       what keeps the bar dark and the cabinet's recipe contribution empty.</li>
+     * </ul>
+     */
+    private static boolean placeholderForUnreachableItem(MinecraftServer server) {
+        ServerLevel level = server.overworld();
+        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(8, 250, 0);
+        // Nothing in vanilla or Create produces a barrier, so the server-side lookup really
+        // comes back empty and the run takes the "no usable recipe" branch.
+        String targetId = "minecraft:barrier";
+        try {
+            level.setBlockAndUpdate(pos, com.create.productionline.registry.ModBlocks.PRODUCTION_COMPUTER.get()
+                    .defaultBlockState());
+            if (!(level.getBlockEntity(pos) instanceof com.create.productionline.block.entity
+                    .ProductionComputerBlockEntity computer)) {
+                System.out.println("   could not place a production computer at " + pos);
+                return false;
+            }
+            var inv = computer.getInventory();
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_TARGET,
+                    new ItemStack(Items.BARRIER));
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME,
+                    new ItemStack(ModItems.LINE_SCHEME.get()));
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD,
+                    new ItemStack(Items.PAPER));
+
+            // (a) No permission: unchanged refusal, and nothing at all is written.
+            computer.runCompute(false);
+            boolean ok = layoutExpect("non-OP still refuses (result=" + computer.getResultCode()
+                    + ", error=" + computer.getLastErrorCode() + ")",
+                    computer.getResultCode() == com.create.productionline.block.entity
+                            .ProductionComputerBlockEntity.RESULT_NO_RECIPE
+                            && computer.getLastErrorCode() == com.create.productionline.block.entity
+                                    .ProductionComputerBlockEntity.ERROR_NO_RECIPE_PRODUCING);
+            LineScheme refused = LineSchemeSerializer.fromStack(inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME));
+            ok &= layoutExpect("non-OP carries stay untouched (empty=" + refused.isEmpty()
+                    + ", placeholder=" + refused.isPlaceholder() + ")",
+                    refused.isEmpty() && !refused.isPlaceholder());
+
+            // (b) With permission: a placeholder that names the target and installs nothing.
+            computer.runCompute(true);
+            ok &= layoutExpect("OP gets a placeholder (result=" + computer.getResultCode() + ")",
+                    computer.getResultCode() == com.create.productionline.block.entity
+                            .ProductionComputerBlockEntity.RESULT_PLACEHOLDER);
+            LineScheme written = LineSchemeSerializer.fromStack(inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME));
+            ok &= layoutExpect("placeholder names the target: " + written.getOutputItem(),
+                    targetId.equals(written.getOutputItem()));
+            ok &= layoutExpect("placeholder recipe id is EMPTY (nothing can be installed): '"
+                    + written.getRecipeId() + "'", written.getRecipeId().isBlank());
+            ok &= layoutExpect("placeholder has zero steps: " + written.getSteps().size(),
+                    written.getSteps().size() == 0);
+            ok &= layoutExpect("placeholder is marked as one", written.isPlaceholder());
+            LineScheme paperCopy = LineSchemeSerializer.fromStack(inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD));
+            ok &= layoutExpect("the second carrier got the same placeholder",
+                    paperCopy.isPlaceholder() && targetId.equals(paperCopy.getOutputItem()));
+
+            ItemStack carried = inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME).copyWithCount(1);
+
+            // (c) The anvil accepts it straight away: "+ item" is the very next rule.
+            var hammer = com.create.productionline.line.scheme.SchemeAnvilMachine.decide(
+                    carried, new ItemStack(Items.IRON_INGOT), true);
+            ok &= expectAction("placeholder + material (already cleared)",
+                    com.create.productionline.line.scheme.SchemeAnvilMachine.Action.HAMMER, hammer);
+            ok &= layoutExpect("the hammered scheme carries the material and keeps the target",
+                    hammer.next() != null && hammer.plan() != null
+                            && hammer.next().materials().equals(List.of("minecraft:iron_ingot"))
+                            && targetId.equals(hammer.plan().getOutputItem()));
+            ok &= layoutExpect("the marker does not survive the first hammer strike (it is a plan now)",
+                    hammer.plan() != null && !hammer.plan().isPlaceholder());
+
+            // (d) A placeholder is never an active line. The slot contract rejects the item
+            // outright (a step-less scheme is not a loader carrier), and even with one sitting
+            // in a slot it counts as no filled slot (the bar follows that number) and yields no
+            // entry for the union — asserted against the very method the cabinet reconciles
+            // with, so "the cabinet would install nothing" is measured, not assumed.
+            ok &= layoutExpect("a loader slot refuses a placeholder scheme",
+                    !ClipboardCompat.isLoaderCarrier(carried));
+            com.create.productionline.block.entity.SchemeLoaderBlockEntity loader =
+                    new com.create.productionline.block.entity.SchemeLoaderBlockEntity(
+                            new net.minecraft.core.BlockPos(8, 249, 0),
+                            com.create.productionline.registry.ModBlocks.SCHEME_LOADER.get().defaultBlockState());
+            loader.getInventory().setItem(0, carried);
+            ok &= layoutExpect("a placeholder fills no loader slot (bar stays dark): "
+                    + loader.filledSlots(), loader.filledSlots() == 0);
+            ok &= layoutExpect("a placeholder derives no installable entry",
+                    com.create.productionline.block.entity.SchemeLoaderBlockEntity
+                            .entriesForSlot(level, carried).isEmpty());
             return ok;
         } finally {
             level.removeBlock(pos, false);

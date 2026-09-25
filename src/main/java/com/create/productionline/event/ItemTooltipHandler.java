@@ -43,6 +43,18 @@ public final class ItemTooltipHandler {
 
         if (custom.contains(LineScheme.SCHEME_TAG_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             LineScheme scheme = LineSchemeSerializer.load(custom.getCompound(LineScheme.SCHEME_TAG_KEY));
+            // A placeholder (paper that received one, or any other carrier) names the target
+            // but holds no plan: printing the usual output/base/chain block would either show
+            // a bare item name or nothing at all, and silence is what "nothing happened" looks
+            // like — the one thing this handler exists to prevent.
+            if (scheme.isPlaceholder()) {
+                tooltip.add(Component.translatable("item.create_productionline.line_scheme.output",
+                        com.create.productionline.util.Names.nameOfItem(scheme.getOutputItem()))
+                        .withStyle(ChatFormatting.GREEN));
+                tooltip.add(Component.translatable("item.create_productionline.line_scheme.placeholder")
+                        .withStyle(ChatFormatting.YELLOW));
+                return;
+            }
             if (!scheme.isEmpty()) {
                 tooltip.add(Component.translatable("item.create_productionline.line_scheme.output",
                         com.create.productionline.util.Names.nameOfItem(scheme.getOutputItem()))

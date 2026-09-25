@@ -13,6 +13,13 @@ import net.minecraft.world.item.ItemStack;
  * <p>All reads use safe accessors so a missing or corrupt field degrades to an
  * empty/partial scheme instead of an exception. Old-version schemes are migrated
  * to the current schema version on load.
+ *
+ * <p>{@code Placeholder} is written only when it is true, so the block of a normal
+ * scheme is byte-identical to what earlier builds wrote, and an absent field reads
+ * back as {@code false}. No version bump is needed: a scheme that does not know the
+ * field still reads a placeholder correctly (a target, no recipe id, no steps), and
+ * "no recipe id" already means "installs nothing" to the loader — the older build
+ * degrades to the safe meaning rather than to a wrong one.
  */
 public final class LineSchemeSerializer {
 
@@ -20,6 +27,7 @@ public final class LineSchemeSerializer {
     private static final String KEY_RECIPE_ID = "RecipeId";
     private static final String KEY_OUTPUT_ITEM = "OutputItem";
     private static final String KEY_BASE_MATERIAL = "BaseMaterial";
+    private static final String KEY_PLACEHOLDER = "Placeholder";
     private static final String KEY_STEPS = "Steps";
 
     private static final String KEY_ORDER = "Order";
@@ -47,6 +55,12 @@ public final class LineSchemeSerializer {
         tag.putString(KEY_RECIPE_ID, scheme.getRecipeId());
         tag.putString(KEY_OUTPUT_ITEM, scheme.getOutputItem());
         tag.putString(KEY_BASE_MATERIAL, scheme.getBaseMaterial());
+        // Written only when set: the marker is display state (the empty RecipeId is what
+        // keeps a placeholder from installing anything), so a normal scheme's NBT must not
+        // grow a field a player could mistake for authority.
+        if (scheme.isPlaceholder()) {
+            tag.putBoolean(KEY_PLACEHOLDER, true);
+        }
         // V2 fields: the player's target output and how often the line must run for it.
         tag.putInt(KEY_TARGET_OUTPUT_COUNT, scheme.getTargetOutputCount());
         tag.putInt(KEY_REPEAT_COUNT, scheme.getRepeatCount());
@@ -107,6 +121,8 @@ public final class LineSchemeSerializer {
         scheme.setRecipeId(tag.getString(KEY_RECIPE_ID));
         scheme.setOutputItem(tag.getString(KEY_OUTPUT_ITEM));
         scheme.setBaseMaterial(tag.getString(KEY_BASE_MATERIAL));
+        // Absent (every scheme written before this field existed) means "not a placeholder".
+        scheme.setPlaceholder(tag.getBoolean(KEY_PLACEHOLDER));
         // V1 items simply have neither key: one pass, one output — the defaults.
         scheme.setTargetOutputCount(tag.contains(KEY_TARGET_OUTPUT_COUNT) ? tag.getInt(KEY_TARGET_OUTPUT_COUNT) : 1);
         scheme.setRepeatCount(tag.contains(KEY_REPEAT_COUNT) ? tag.getInt(KEY_REPEAT_COUNT) : 1);

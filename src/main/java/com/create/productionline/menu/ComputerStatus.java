@@ -73,6 +73,27 @@ public final class ComputerStatus {
             }
             case ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE ->
                     out.add(Component.translatable("screen.create_productionline.computer.not_convertible"));
+            case ProductionComputerBlockEntity.RESULT_PLACEHOLDER -> {
+                // Only ever reached for a requester with authoring permission: the computer
+                // reports RESULT_NO_RECIPE (and writes nothing) for everybody else, so this
+                // text must not read as an instruction every player could follow.
+                LineScheme scheme = LineSchemeSerializer.fromStack(schemeStack);
+                if (scheme.getOutputItem().isBlank()) {
+                    scheme = LineSchemeSerializer.fromStack(clipboardStack);
+                }
+                // A placeholder has zero steps, so isEmpty() is true for it by design and
+                // cannot be used to detect that the write happened: the target id is the
+                // proof, not the step count.
+                if (scheme.getOutputItem().isBlank()) {
+                    // The carrier was taken out (or replaced) after the run: nothing left to
+                    // name, but the outcome is still "no recipe, author it by hand".
+                    out.add(Component.translatable("screen.create_productionline.computer.no_recipe_found"));
+                } else {
+                    out.add(Component.translatable("screen.create_productionline.computer.placeholder",
+                            displayName(scheme.getOutputItem())));
+                }
+                out.add(Component.translatable("screen.create_productionline.computer.placeholder_anvil"));
+            }
             case ProductionComputerBlockEntity.RESULT_NO_SCHEME ->
                     out.add(Component.translatable("screen.create_productionline.computer.no_scheme"));
             case ProductionComputerBlockEntity.RESULT_NO_RECIPE -> {

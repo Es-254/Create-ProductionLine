@@ -12,7 +12,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (Modrinth/CurseForge channel *Beta*, GitHub pre-release). The first such cut was `1.0.2` on
   2026-09-17, which was promoted to a release the same day.
 - **snapshot (alpha)**: `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha` — work in progress towards
-  `x.y.z`. `1.0.3-snapshot.0.0.1` is the first.
+  `x.y.z`. `1.0.3-snapshot.0.0.1` was the first; `1.0.4-snapshot.0.0.1` is the current one (the OP-only
+  placeholder scheme for items that have no recipe).
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
   always published as `beta`. **`0.0.0-dev.5` … `dev.27` are all published on GitHub** (each a
   pre-release with the jar CI rebuilt from its tag; every asset digest verified against the local build).
@@ -28,6 +29,22 @@ different artifact. The number `1.0.2` was reused for the anvil-flow cut, so the
 number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that renumbered record,
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
+
+## 1.0.4-snapshot.0.0.1 — 2026-09-26 (alpha)
+
+### Added
+
+- **An operator can now hand-author a line for an item that has no recipe at all.** The custom-scheme flow
+  lives on the anvil and can only start from a scheme that already names a target — and the only thing that
+  writes such a scheme is the Production Computer, which refused outright when the target had no usable
+  recipe. So a creative-only item, a loot-only item or anything else no mod derives a recipe for could never
+  be given a custom line: there was no way to obtain a scheme carrying its name. With permission level 2 or
+  above, the computer now writes a **placeholder scheme** in that case — the target item and nothing else.
+  The operator completes it on the anvil (each item added becomes one material, paper locks it), and because
+  the placeholder carries no `RecipeId` it installs **nothing** on its own: the Scheme Loader re-derives every
+  recipe from `RecipeId` against the server's `RecipeManager`, so an empty id contributes no recipes and the
+  cabinet's bar stays dark until the line is actually defined. Players without permission see exactly the
+  refusal they saw before.
 
 ## [1.0.3] — 2026-09-26
 

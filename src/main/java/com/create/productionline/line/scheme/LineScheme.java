@@ -15,7 +15,8 @@ import java.util.Objects;
  *   "RecipeId": "modid:recipe_name",
  *   "OutputItem": "modid:item",
  *   "Steps": [ { "Order":0, "FacilityType":"create:mechanical_saw", "Count":1,
- *                "Inputs":[...], "Outputs":[...] }, ... ]
+ *                "Inputs":[...], "Outputs":[...] }, ... ],
+ *   "Placeholder": true   // only present on a placeholder scheme (see isPlaceholder())
  * }
  * </pre>
  */
@@ -28,6 +29,22 @@ public final class LineScheme {
     private String recipeId = "";
     private String outputItem = "";
     private String baseMaterial = "";
+    /**
+     * Marker of a PLACEHOLDER scheme: it names the item to produce and carries no plan at
+     * all, because the server has no usable recipe for that item. Written by the Production
+     * Computer for a player with permission level 2, whose only other route to a scheme
+     * naming that item is blocked — the OP anvil flow can refine a scheme, but a computed
+     * scheme cannot exist without a recipe.
+     *
+     * <p>The marker is a <b>display</b> fact, never an authority: what makes a placeholder
+     * harmless is the empty {@link #recipeId}, because every installed recipe is re-derived
+     * from that id against the server's live {@code RecipeManager}
+     * ({@code SchemeLoaderBlockEntity.entriesForSlot}). Combined with zero steps it also
+     * keeps the placeholder out of the loader's filled-slot count, i.e. off the bar. Absent
+     * from NBT means {@code false}, so schemes written before this field existed keep their
+     * meaning (see {@link LineSchemeSerializer}).
+     */
+    private boolean placeholder = false;
     private final List<Step> steps = new ArrayList<>();
     private final List<CreateRecipeEntry> createRecipes = new ArrayList<>();
     /** Materials the line applies in USE mode instead of consuming (see {@link #getToolMaterials()}). */
@@ -176,6 +193,35 @@ public final class LineScheme {
         this.baseMaterial = Objects.requireNonNullElse(baseMaterial, "");
     }
 
+    /**
+     * Builds a placeholder for {@code targetItem}: the target, an <b>empty</b> recipe id,
+     * no base material and <b>zero</b> steps.
+     *
+     * <p>The empty id is the security-critical part and not a formatting detail: the Scheme
+     * Loader installs nothing but what it can re-derive from {@code RecipeId} against the
+     * server's live {@code RecipeManager}, so a placeholder can never promise a recipe that
+     * does not exist. Its whole value is naming the target, which is what lets an operator
+     * hand-author the line in an anvil (see {@code SchemeAnvilMachine}, which accepts a
+     * target without a plan as an already cleared scheme).
+     */
+    public static LineScheme placeholder(String targetItem) {
+        LineScheme out = new LineScheme();
+        out.setRecipeId(""); // nothing is installable from an empty id - that is the point
+        out.setOutputItem(targetItem);
+        out.setBaseMaterial("");
+        out.setPlaceholder(true);
+        return out;
+    }
+
+    /** True when this scheme only names a target and holds no plan yet. */
+    public boolean isPlaceholder() {
+        return placeholder;
+    }
+
+    public void setPlaceholder(boolean placeholder) {
+        this.placeholder = placeholder;
+    }
+
     public List<Step> getSteps() {
         return Collections.unmodifiableList(steps);
     }
@@ -191,6 +237,11 @@ public final class LineScheme {
         return step;
     }
 
+    /**
+     * True when there is no usable plan on this scheme: no steps, or no target. A
+     * placeholder ({@link #isPlaceholder()}) is "empty" by this same rule, which is what
+     * keeps it out of the Scheme Loader's filled-slot count and therefore off the bar.
+     */
     public boolean isEmpty() {
         return steps.isEmpty() || outputItem.isBlank();
     }

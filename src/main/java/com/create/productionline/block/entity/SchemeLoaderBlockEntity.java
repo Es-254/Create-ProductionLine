@@ -29,6 +29,11 @@ import net.minecraft.world.level.block.state.BlockState;
  * scheme and the final-product scheme of one line — can be active at the same
  * time. Taking a scheme out only removes the recipes that came from it. A
  * redstone signal is emitted while at least one pipeline recipe is active.
+ *
+ * <p>A PLACEHOLDER scheme (a target with an empty {@code RecipeId} and zero steps,
+ * written by the computer for an item no recipe produces) never counts as an active
+ * line: it is not counted as a filled slot and it contributes no entries — see
+ * {@link #filledSlots()} and {@link #entriesForSlot}.
  */
 public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.entity.BlockEntity {
 
@@ -209,6 +214,9 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
      * genuine Line Scheme items are accepted, and the installable recipes are
      * RE-DERIVED server-side from each scheme's {@code recipeId} against the
      * live RecipeManager — the scheme's stored Steps/JSON are never trusted.
+     *
+     * <p>Each slot's verdict comes from {@link #entriesForSlot}, so the single-slot
+     * rule ("what may this item install?") is the same code here and in the QA check.
      */
     private java.util.Map<String, String> currentEntriesMap() {
         java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
@@ -216,39 +224,66 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
             return map;
         }
         for (int i = 0; i < SLOT_COUNT; i++) {
-            ItemStack stack = inventory.getItem(i);
-            if (stack.isEmpty() || !com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(stack)) {
-                continue;
-            }
-            LineScheme scheme = LineSchemeSerializer.fromStack(stack);
-            // A hand-built (anvil) scheme has no live recipeId: its authority is the
-            // server-written component, and the entries are re-derived from that list
-            // by the same deriver — the embedded JSON on the item is still ignored.
-            com.create.productionline.line.scheme.CustomAssembly custom =
-                    stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
-            if (custom != null && custom.locked()) {
-                var derivedCustom = com.create.productionline.line.scheme.CustomAssemblyPlanner
-                        .derive(serverLevel, custom);
-                for (LineScheme.CreateRecipeEntry entry : derivedCustom.entries()) {
-                    if (entry.isValid()) {
-                        map.put(entry.getFileName(), entry.getJson());
-                    }
-                }
-                continue;
-            }
-            String recipeId = scheme.getRecipeId();
-            if (recipeId == null || recipeId.isBlank()) {
-                continue; // nothing authoritative to derive from
-            }
-            var descriptor = com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
-            if (descriptor == null || descriptor.outputs().isEmpty()) {
-                continue; // not a live server recipe -> cannot verify, skip
-            }
-            var derived = com.create.productionline.recipegen.RecipeDeriver.derive(serverLevel, descriptor);
-            for (LineScheme.CreateRecipeEntry entry : derived.entries()) {
+            map.putAll(entriesForSlot(serverLevel, inventory.getItem(i)));
+        }
+        return map;
+    }
+
+    /**
+     * The recipe entries ONE slot contributes to the cabinet's union — empty when the slot
+     * cannot contribute anything at all.
+     *
+     * <p>Extracted from {@link #currentEntriesMap()} (which is a plain loop over the slots
+     * now) so that the "installs nothing" property of an item is decided in one place and can
+     * be asserted against a real server without writing a datapack.
+     *
+     * <p>A PLACEHOLDER scheme — a target, an empty {@code RecipeId} and zero steps, written by
+     * the computer for a target no recipe produces — returns empty here, and three independent
+     * rules say so: {@code ClipboardCompat.isLoaderCarrier} refuses the item (a step-less
+     * scheme only counts as written when it carries a locked component), the explicit
+     * {@link LineScheme#isPlaceholder()} branch below states the rule outright, and the
+     * blank-id branch after it would find no live recipe to derive from anyway. Only the first
+     * is a side effect of a step count, so the other two are kept deliberately: whichever way
+     * the slot contract is ever relaxed, "a name to author against" must not turn into
+     * "recipes the server serves for a line nobody built".
+     */
+    public static java.util.Map<String, String> entriesForSlot(ServerLevel serverLevel, ItemStack stack) {
+        java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
+        if (serverLevel == null || stack == null || stack.isEmpty()
+                || !com.create.productionline.compat.ClipboardCompat.isLoaderCarrier(stack)) {
+            return map;
+        }
+        LineScheme scheme = LineSchemeSerializer.fromStack(stack);
+        if (scheme.isPlaceholder()) {
+            return map; // a name to author against, not a line: nothing to derive or install
+        }
+        // A hand-built (anvil) scheme has no live recipeId: its authority is the
+        // server-written component, and the entries are re-derived from that list
+        // by the same deriver — the embedded JSON on the item is still ignored.
+        com.create.productionline.line.scheme.CustomAssembly custom =
+                stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
+        if (custom != null && custom.locked()) {
+            var derivedCustom = com.create.productionline.line.scheme.CustomAssemblyPlanner
+                    .derive(serverLevel, custom);
+            for (LineScheme.CreateRecipeEntry entry : derivedCustom.entries()) {
                 if (entry.isValid()) {
                     map.put(entry.getFileName(), entry.getJson());
                 }
+            }
+            return map;
+        }
+        String recipeId = scheme.getRecipeId();
+        if (recipeId == null || recipeId.isBlank()) {
+            return map; // nothing authoritative to derive from
+        }
+        var descriptor = com.create.productionline.line.mapper.ServerRecipeLookup.findById(serverLevel, recipeId);
+        if (descriptor == null || descriptor.outputs().isEmpty()) {
+            return map; // not a live server recipe -> cannot verify, skip
+        }
+        var derived = com.create.productionline.recipegen.RecipeDeriver.derive(serverLevel, descriptor);
+        for (LineScheme.CreateRecipeEntry entry : derived.entries()) {
+            if (entry.isValid()) {
+                map.put(entry.getFileName(), entry.getJson());
             }
         }
         return map;
@@ -263,14 +298,34 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
         return activeCount;
     }
 
-    /** Number of slots holding a usable scheme. */
+    /**
+     * Number of slots holding a usable scheme — the number the front bar (block property
+     * {@code FILL}, written by {@link #syncState()}) and the panel's "schemes inserted" row
+     * report.
+     *
+     * <p>A PLACEHOLDER scheme is deliberately not one of them, and that is what keeps the bar
+     * dark while a placeholder sits in a slot:
+     * <ul>
+     *   <li>this method accepts any scheme item (the carrier test here is the loose
+     *       {@code isCarrier}, not the loader's own slot contract), so {@link LineScheme#isEmpty()}
+     *       is what excludes it — zero steps. The explicit {@link LineScheme#isPlaceholder()}
+     *       test says the same thing in the rule's own words, so the bar does not light up if
+     *       that method's meaning ever changes;</li>
+     *   <li>the recipes a cabinet installs are re-derived from {@code RecipeId} against the live
+     *       {@code RecipeManager} ({@link #entriesForSlot}), and a placeholder's id is empty —
+     *       there is no live recipe to resolve, so nothing can be installed.</li>
+     * </ul>
+     * A placeholder is a name to author against and never an active line; counting it here
+     * would light the bar for a cabinet that serves nothing — the exact failure this method has
+     * to prevent.
+     */
     public int filledSlots() {
         int count = 0;
         for (int i = 0; i < SLOT_COUNT; i++) {
             ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty() && com.create.productionline.compat.ClipboardCompat.isCarrier(stack)) {
                 LineScheme scheme = LineSchemeSerializer.fromStack(stack);
-                if (!scheme.isEmpty()) {
+                if (!scheme.isEmpty() && !scheme.isPlaceholder()) {
                     count++;
                 }
             }

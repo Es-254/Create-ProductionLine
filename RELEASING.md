@@ -5,7 +5,11 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-26):**
 >
-> - **`1.0.3` is released** (2026-09-26). It was cut from the tree the author walked through in game: the
+> - **`1.0.4-snapshot.0.0.1` is published** (2026-09-26, alpha): the OP-only placeholder scheme. When a target
+>   item has no usable recipe, an operator (permission level 2+) now gets a scheme carrying just that item and
+>   completes it on the anvil; a placeholder has an **empty `RecipeId`**, so it installs nothing and leaves the
+>   loader's bar dark. `create_productionline-1.0.4-snapshot.0.0.1.jar` **293,866 B / `sha256:23d92b94…`**,
+>   self test **25 passed, 0 failed** (the 25th check drives both sides of the permission gate).> - **`1.0.3` is released** (2026-09-26). It was cut from the tree the author walked through in game: the
 >   acceptance list (`文档\1.0.3-实机验收清单.md`, A–F) passed in full on `dev.34`, which is the `dev.27`
 >   tree. `mod_version=1.0.3` with `mod_version_type=release`; `create_productionline-1.0.3.jar`
 >   **290,613 B / `sha256:0eaa6a0b…`**; self test **24 passed, 0 failed**. Everything that had

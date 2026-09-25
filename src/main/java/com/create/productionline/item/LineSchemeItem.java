@@ -30,6 +30,18 @@ public class LineSchemeItem extends Item {
         LineScheme scheme = LineSchemeSerializer.fromStack(stack);
         com.create.productionline.line.scheme.CustomAssembly custom =
                 stack.get(com.create.productionline.registry.ModDataComponents.CUSTOM_ASSEMBLY.get());
+        // A placeholder is a target and nothing else. "Empty" would be technically true (it
+        // has no steps) and useless: the player has to be told that this is a name to author
+        // against in an anvil, and not a plan that failed to load. Checked before the empty
+        // branch for exactly that reason.
+        if (scheme.isPlaceholder() && custom == null) {
+            tooltip.add(Component.translatable("item.create_productionline.line_scheme.output",
+                    com.create.productionline.util.Names.nameOfItem(scheme.getOutputItem()))
+                    .withStyle(ChatFormatting.GREEN));
+            tooltip.add(Component.translatable("item.create_productionline.line_scheme.placeholder")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         // A hand-built scheme has no Steps while it is being authored (cleared state, or
         // a single-material line), so "no steps" alone must not read as "empty scheme" —
         // that would hide the target the custom recipe is being built for.

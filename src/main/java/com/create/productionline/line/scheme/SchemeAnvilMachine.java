@@ -22,6 +22,15 @@ import net.minecraft.world.item.Items;
  *   LOCK    [scheme, >= 1 item]  + paper -> locked scheme (frozen)
  * </pre>
  *
+ * <p>A scheme that names a target but carries NO plan counts as already cleared, so the
+ * HAMMER row accepts it without the CLEAR step: paper drops a plan, and such a scheme has
+ * nothing to drop. That is the placeholder the computer writes for an operator when the
+ * server has no recipe for the target at all ({@code RESULT_PLACEHOLDER}) — without this row
+ * the operator could never author a line for an item no recipe produces, because a computed
+ * scheme cannot exist for it. Nothing else changes: a scheme that still carries a plan is
+ * refused a material exactly as before, and a scheme without a target stays "empty" and
+ * cannot be hammered either.
+ *
  * <p>Every branch that is not one of those three is {@link Action#REFUSE} (the item is
  * left exactly as it was) or {@link Action#PASS} (not our item at all — the vanilla
  * anvil keeps working).
@@ -106,8 +115,16 @@ public final class SchemeAnvilMachine {
             return lock(custom);
         }
 
-        if (custom == null || rightStack.isEmpty()) {
-            return Decision.refuse(); // a material before clearing, or an empty right slot
+        if (rightStack.isEmpty()) {
+            return Decision.refuse(); // empty right slot: nothing to hammer
+        }
+        // Which state the item is in. Normally the component says so, because the CLEAR row
+        // below is what writes it. A scheme that names a target but has NO plan is already in
+        // the state that row would produce — there is nothing left to drop — so the operator
+        // can hammer the material straight in instead of burning a sheet of paper on a no-op.
+        CustomAssembly base = custom != null ? custom : clearedWithoutPlan(left);
+        if (base == null) {
+            return Decision.refuse(); // a material before clearing: the plan is still there
         }
         String material = itemIdOf(rightStack);
         if (material == null) {
@@ -115,21 +132,52 @@ public final class SchemeAnvilMachine {
         }
         // The product itself IS a legal material: a self-recursive / doubling recipe
         // ("A + B = 2A") needs A as the base that goes on the belt first.
-        CustomAssembly next = custom.withMaterial(material);
+        CustomAssembly next = base.withMaterial(material);
         return new Decision(Action.HAMMER, next, CustomAssemblyPlanner.rebuild(next), 1, 1, false);
     }
 
     private static Decision clear(ItemStack left) {
-        LineScheme source = LineSchemeSerializer.fromStack(left);
-        String target = source.getOutputItem();
-        if (target == null || target.isBlank()) {
+        CustomAssembly custom = clearedAssembly(LineSchemeSerializer.fromStack(left));
+        if (custom == null) {
             return Decision.refuse(); // an empty scheme has no target to keep
         }
-        // The compute-time numbers are inherited, never recomputed here: the player asked
-        // for `targetOutputCount` items when they ran the computer.
-        CustomAssembly custom = new CustomAssembly(List.of(), false, false, target,
+        return new Decision(Action.CLEAR, custom, CustomAssemblyPlanner.cleared(custom.targetItem()), 1, 1, false);
+    }
+
+    /**
+     * The cleared assembly this scheme ALREADY is, or {@code null} when the plan has to be
+     * dropped first.
+     *
+     * <p>"Already cleared" is decided from the plan itself (a target, no steps), not from the
+     * placeholder marker: what makes hammering legal is that there is nothing to clear, and
+     * that is true of every scheme in this shape — including the placeholder the computer
+     * writes for a target no recipe produces ({@code RESULT_PLACEHOLDER}). Trusting the marker
+     * instead would refuse a legitimately empty scheme for a reason that is not about what the
+     * item holds.
+     */
+    private static CustomAssembly clearedWithoutPlan(ItemStack left) {
+        LineScheme source = LineSchemeSerializer.fromStack(left);
+        if (!source.getSteps().isEmpty()) {
+            return null; // still a plan on the item: paper is what drops it
+        }
+        return clearedAssembly(source);
+    }
+
+    /**
+     * The cleared assembly for a scheme that names a target: no material yet, and the
+     * compute-time numbers inherited — never recomputed here, because the player asked for
+     * {@code targetOutputCount} items when they ran the computer.
+     *
+     * <p>Returns {@code null} for a scheme without a target: a cleared scheme is defined by
+     * the target it keeps, so there is nothing to hand to the anvil.
+     */
+    private static CustomAssembly clearedAssembly(LineScheme source) {
+        String target = source.getOutputItem();
+        if (target == null || target.isBlank()) {
+            return null;
+        }
+        return new CustomAssembly(List.of(), false, false, target,
                 source.getTargetOutputCount(), source.getRepeatCount());
-        return new Decision(Action.CLEAR, custom, CustomAssemblyPlanner.cleared(target), 1, 1, false);
     }
 
     private static Decision lock(CustomAssembly custom) {

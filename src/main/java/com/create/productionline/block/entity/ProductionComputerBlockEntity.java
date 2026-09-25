@@ -43,6 +43,13 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     public static final int RESULT_NO_SCHEME = 2;
     public static final int RESULT_NO_RECIPE = 4; // cannot map / no recipe found (TC-01)
     public static final int RESULT_NO_TARGET = 5;
+    /**
+     * No usable recipe, but the requester may author one by hand: a PLACEHOLDER scheme
+     * (target only, empty recipe id, zero steps) was written onto the carriers. Only ever
+     * reported for a requester at the authoring permission level (2, the same gate the anvil
+     * flow uses); everybody else still gets {@link #RESULT_NO_RECIPE} and an untouched carrier.
+     */
+    public static final int RESULT_PLACEHOLDER = 8;
 
     /**
      * Machine-readable reason for the last failed run (M7). {@code resultCode}
@@ -67,6 +74,26 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     private int lastErrorCode = 0;
     private String lastError = "";
     private boolean computeQueued = false;
+
+    /**
+     * The permission level that may turn a failed compute into a placeholder scheme. It is
+     * the same gate the anvil custom flow uses ({@code AnvilSchemeCustomizer}), because it
+     * hands out the same thing: the right to author a line by hand. The gate protects the
+     * <em>surface</em>, not the world — a placeholder installs nothing on its own (its recipe
+     * id is empty), so the worst a wrongly granted placeholder can do is put an inert item
+     * into the requester's own carrier slot.
+     */
+    private static final int AUTHORING_PERMISSION_LEVEL = 2;
+
+    /**
+     * Whether the run queued by the last {@link #computeProvided} request may write a
+     * placeholder scheme. Decided where the requester is known (the server-side entry point
+     * holding the {@link net.minecraft.server.level.ServerPlayer}) and carried to the queued
+     * run, which has no player any more. Transient on purpose and never sent by the client:
+     * the compute payload has no such field, so a client cannot ask for it — a forged
+     * request simply does not set it (fail closed).
+     */
+    private boolean placeholderPermitted = false;
 
     // --- client hint (NEVER authoritative) -----------------------------------
     // The client can only see its own resource packs, so it sends the registry id
@@ -133,6 +160,12 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      * <p>The compute itself is queued for the next tick, so the requester is stored
      * (by UUID, resolved when the run finishes) and told the outcome then: reading the
      * result code right after this call would always see {@code RESULT_EMPTY}.
+     *
+     * <p>This is also where the authoring permission is read, because it is the only place
+     * that sees the player: {@code requester.hasPermissions(2)} is evaluated server-side on
+     * the real player, and the outcome is stored for the queued run. A request that arrives
+     * without a resolvable player (the API allows {@code null}) sets it to {@code false}, so
+     * the gate fails closed.
      */
     public void computeProvided(net.minecraft.server.level.ServerPlayer requester, String targetId, String recipeId,
             String categoryId, java.util.List<String> inputs, String outputId) {
@@ -146,6 +179,8 @@ public class ProductionComputerBlockEntity extends BlockEntity {
                     inputs == null ? java.util.List.of() : inputs,
                     outputId == null || outputId.isBlank() ? java.util.List.of() : java.util.List.of(outputId));
             this.notifyPlayer = requester == null ? null : requester.getUUID();
+            this.placeholderPermitted = requester != null
+                    && requester.hasPermissions(AUTHORING_PERMISSION_LEVEL);
             computeQueued = true;
             setChanged();
         }
@@ -157,8 +192,30 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         this.hintFallback = null;
     }
 
+    /**
+     * Runs the queued compute. The authoring permission comes from the request that queued
+     * it (see {@link #computeProvided}) and is consumed here exactly once, like the recipe
+     * hint, so an operator's grant can never be inherited by a later run.
+     */
     public void runCompute() {
-        runComputeInternal();
+        boolean permitted = this.placeholderPermitted;
+        this.placeholderPermitted = false;
+        runCompute(permitted);
+    }
+
+    /**
+     * Runs one compute with the authoring permission already resolved by the caller.
+     *
+     * <p>Split out the same way {@code SchemeAnvilMachine.decide} takes its {@code allowed}
+     * flag: the decision needs to know whether the acting player may hand-author a line, and
+     * the caller is the only party that can know it. The QA self test drives both sides of
+     * the gate through this parameter, because a headless server has no connected player to
+     * press [Compute] — and a test that could not tell the two sides apart would not prove
+     * the gate exists. The value must therefore come from a server-side permission check on
+     * a real player, never from a payload.
+     */
+    public void runCompute(boolean requesterHasPermission) {
+        runComputeInternal(requesterHasPermission);
         // Only now is the result code final: the run is queued for the next tick after
         // the button press, so this is the first moment the requester can be told what
         // actually happened (before, the chat could only ever show "how to use me").
@@ -179,7 +236,7 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         }
     }
 
-    private void runComputeInternal() {
+    private void runComputeInternal(boolean requesterHasPermission) {
         if (level == null || level.isClientSide || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -203,6 +260,9 @@ public class ProductionComputerBlockEntity extends BlockEntity {
 
         ResourceLocation targetId = BuiltInRegistries.ITEM.getKey(target.getItem());
         if (targetId == null) {
+            // Deliberately NOT a placeholder case: a placeholder exists to NAME the item an
+            // operator is about to hand-author, and an item without a registry id has no name
+            // to write. The old refusal stands.
             setResult(RESULT_NO_RECIPE, "target has no registry id");
             return;
         }
@@ -254,19 +314,72 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         if (source == null) {
             boolean onlySelfRecipes = !found.isEmpty()
                     && found.stream().noneMatch(f -> f.descriptor().hasUsableMaterials());
-            setResult(RESULT_NO_RECIPE, onlySelfRecipes
+            String reason = onlySelfRecipes
                     ? "only self-referential (copy/repair) recipes exist for " + targetId
-                    : "no recipe producing " + targetId + " was found");
+                    : "no recipe producing " + targetId + " was found";
+            // No usable recipe for the target: the operator's one route to a scheme naming
+            // this item (refine a computed scheme in an anvil) is blocked, because a computed
+            // scheme needs a recipe. Write the placeholder instead — for the caller that
+            // passed the authoring gate, and only then.
+            if (requesterHasPermission) {
+                writePlaceholder(targetId, carrier, secondary, reason);
+                return;
+            }
+            setResult(RESULT_NO_RECIPE, reason);
             return;
         }
 
-        processSource(source, carrier, secondary, authoritative);
+        processSource(source, targetId, carrier, secondary, authoritative, requesterHasPermission);
+    }
+
+    /**
+     * Writes the placeholder scheme onto the carrier(s): the target, an empty recipe id, an
+     * empty base material and zero steps (see
+     * {@link com.create.productionline.line.scheme.LineScheme#placeholder(String)}).
+     *
+     * <p>Both carriers are treated exactly like a generated plan, so the player is never left
+     * with one written carrier and one blank one. The empty recipe id is what makes this safe
+     * rather than a lie: the Scheme Loader re-derives every installed recipe from
+     * {@code RecipeId} against the server's live {@code RecipeManager}, and an empty id has
+     * nothing to look up, so the cabinet installs nothing and its bar stays dark (see
+     * {@code SchemeLoaderBlockEntity#filledSlots}).
+     */
+    private void writePlaceholder(ResourceLocation targetId, ItemStack carrier, ItemStack secondary,
+            String reason) {
+        com.create.productionline.line.scheme.LineScheme placeholder =
+                com.create.productionline.line.scheme.LineScheme.placeholder(targetId.toString());
+        writingCarriers = true;
+        try {
+            LineSchemeSerializer.saveToStack(carrier, placeholder);
+            ClipboardCompat.writeGuide(carrier, placeholder);
+            if (!secondary.isEmpty() && secondary != carrier) {
+                LineSchemeSerializer.saveToStack(secondary, placeholder);
+                ClipboardCompat.writeGuide(secondary, placeholder);
+            }
+        } finally {
+            writingCarriers = false;
+        }
+        // The reason travels as the diagnostic, so the log still says WHY no plan exists even
+        // though the run now ends in a written scheme instead of a refusal.
+        setResult(RESULT_PLACEHOLDER, reason);
+        ProductionLineMod.LOGGER.info(
+                "CPL compute: no usable plan for {} ({}); placeholder scheme written for the operator",
+                targetId, reason);
     }
 
     /** Builds the plan, embeds a native Create recipe when possible, writes carriers. */
     private void processSource(com.create.productionline.line.mapper.RecipeDescriptor source,
-            ItemStack carrier, ItemStack secondary, boolean authoritative) {
+            ResourceLocation targetId, ItemStack carrier, ItemStack secondary, boolean authoritative,
+            boolean requesterHasPermission) {
         if (source == null || source.outputs().isEmpty()) {
+            // A recipe exists but has no usable output: the same dead end for the player as
+            // "no recipe at all" — and the target id they picked is right here, so the
+            // placeholder can still name it.
+            if (requesterHasPermission) {
+                writePlaceholder(targetId, carrier, secondary,
+                        "no usable output: recipe of this item has no usable output");
+                return;
+            }
             setResult(RESULT_NO_RECIPE, "no usable output: recipe of this item has no usable output");
             return;
         }
@@ -340,6 +453,10 @@ public class ProductionComputerBlockEntity extends BlockEntity {
                     srv, source, orderedInputs, count);
         }
         if (derived.isEmpty()) {
+            // Deliberately NOT a placeholder case, for either permission level: a usable recipe
+            // for the target DOES exist here, the mod just cannot turn it into a Create line.
+            // The player gets a reason they can act on (the mapping config) instead of a scheme
+            // they would have to author from nothing.
             ProductionLineMod.LOGGER.info(
                     "CPL compute: no convertible Create recipe for {} (recipe={} cat={} materials={}, authoritative={})"
                             + " - no plan written",
