@@ -1,6 +1,7 @@
 package com.create.productionline.client.ponder;
 
 import com.create.productionline.block.SchemeLoaderBlock;
+import com.create.productionline.block.entity.SchemeLoaderBlockEntity;
 import com.create.productionline.item.LineSchemeItem;
 import com.create.productionline.line.scheme.LineScheme;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
@@ -250,16 +251,17 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 — redstone while recipes are active. The order matters: a wire recomputes its own strength
-        // whenever a neighbour changes and this world has no redstone source to find, so powering the wire
-        // first was undone by the lamp's own update. The lamp is lit first instead — its state change
-        // notifies the wire while that is still at 0 and does not care — which leaves the wire free to
-        // take the signal afterwards.
+        // 4 — redstone while recipes are active. The cabinet is a real source: SchemeLoaderBlock#getSignal
+        // reports 15 while its block entity is active, so marking it active makes the wire compute a
+        // genuine full strength through the vanilla power calculation instead of a number written here by
+        // hand. Nudging the wire afterwards is what makes it recompute — and with the cabinet already
+        // active that recompute lands on 15, which is why the wire stays lit at full strength.
         scene.world().showSection(util.select().position(dust), Direction.UP);
         scene.world().showSection(util.select().position(lamp), Direction.EAST);
+        scene.world().modifyBlockEntityNBT(util.select().position(machine), SchemeLoaderBlockEntity.class,
+                nbt -> nbt.putBoolean("Active", true));
         scene.idle(5);
         scene.world().modifyBlock(lamp, state -> state.setValue(RedstoneLampBlock.LIT, true), false);
-        scene.idle(5);
         scene.world().modifyBlock(dust, state -> state.setValue(RedStoneWireBlock.POWER, 15), false);
         scene.overlay().showText(70)
                 .attachKeyFrame()
@@ -270,17 +272,19 @@ public final class ProductionLineScenes {
         scene.idle(80);
         scene.addInstruction(s -> panel.setVisible(false));
 
-        // 5 —the line the plan describes
+        // 5 — the line the plan describes. The narration comes up first and stays for the whole run, so
+        // the reader is told what they are about to watch before anything starts moving.
         scene.world().hideSection(util.select().position(lamp), Direction.UP);
         scene.world().hideSection(util.select().position(machine), Direction.UP);
         scene.idle(10);
-        buildLinePreview(scene, util);
-        scene.overlay().showText(150)
+        scene.overlay().showText(210)
                 .attachKeyFrame()
-                .text("Build the line the scheme describes, and keep it supplied with materials")
+                .text("Build the line the scheme describes as a sequenced assembly, and keep it supplied")
                 .placeNearTarget()
                 .pointAt(highlight(util, util.grid().at(2, 1, PREVIEW_ROW_Z)));
-        scene.idle(160);
+        scene.idle(10);
+        buildLinePreview(scene, util);
+        scene.idle(30);
         scene.markAsFinished();
     }
 
@@ -326,38 +330,53 @@ public final class ProductionLineScenes {
                         new ItemStack(Items.COAL).saveOptional(scene.world().getHolderLookupProvider())));
         scene.idle(10);
 
-        // Raw iron in at the belt's input, held for a moment, then released onto the moving belt.
+        // Raw iron in at the belt's input. The item stays locked from here to the last station and this
+        // scene writes its position in small steps (carryItem): letting the belt move it as well made the
+        // two motions fight, which read as the item twitching on the belt.
         ItemStack rawIron = new ItemStack(Items.RAW_IRON);
         setBeltItem(scene, util, rawIron, 0.5F, true);
         scene.idle(8);
-        setBeltItem(scene, util, rawIron, 0.5F, false);
-        scene.idle(BELT_TICKS_PER_BLOCK);
+
+        carryItem(scene, util, rawIron, 0.5F, 1.5F);
 
         // Station 1: the first Deployer works on it and it comes out an unfinished intermediate.
-        setBeltItem(scene, util, rawIron, 1.5F, true);
         scene.world().moveDeployer(first, 1f, 12);
         scene.idle(12);
-        setBeltItem(scene, util, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()), 1.5F, false);
+        setBeltItem(scene, util, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()), 1.5F, true);
         scene.effects().indicateSuccess(first);
         scene.world().moveDeployer(first, -1f, 12);
         scene.idle(14);
 
-        // On to station 2 — two cells along.
-        scene.idle(2 * BELT_TICKS_PER_BLOCK);
-        setBeltItem(scene, util, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()), 3.5F, true);
+        carryItem(scene, util, new ItemStack(ModItems.GENERIC_INTERMEDIATE.get()), 1.5F, 3.5F);
+
+        // Station 2: the second Deployer finishes it into the product.
         scene.world().moveDeployer(second, 1f, 12);
         scene.idle(12);
-        setBeltItem(scene, util, new ItemStack(Items.IRON_INGOT), 3.5F, false);
+        setBeltItem(scene, util, new ItemStack(Items.IRON_INGOT), 3.5F, true);
         scene.effects().indicateSuccess(second);
         scene.world().moveDeployer(second, -1f, 12);
         scene.idle(14);
 
-        // The product runs off the end of the belt and lands on the plate beside it.
-        scene.idle(BELT_TICKS_PER_BLOCK);
-        setBeltItem(scene, util, ItemStack.EMPTY, 5.0F, true);
-        scene.world().createItemEntity(util.vector().of(4.5, 1.1, PREVIEW_ROW_Z + 1.5),
-                util.vector().of(0.0, 0.05, 0.05), new ItemStack(Items.IRON_INGOT));
-        scene.idle(15);
+        // Then it is handed back to the belt, which carries it off the end and drops it by itself — one
+        // product, ejected by the belt rather than by an entity this scene spawns on top of it.
+        carryItem(scene, util, new ItemStack(Items.IRON_INGOT), 3.5F, 4.7F);
+        setBeltItem(scene, util, new ItemStack(Items.IRON_INGOT), 4.7F, false);
+        scene.idle(25);
+    }
+
+    /**
+     * Slides the item the given distance along the belt in small steps, five per cell over the ticks the
+     * belt itself would need ({@link #BELT_TICKS_PER_BLOCK}), so it reads as the belt carrying it. The item
+     * stays locked throughout: with the belt also moving it the two disagree from tick to tick, which is
+     * what the author saw as twitching.
+     */
+    private static void carryItem(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
+            SceneBuildingUtil util, ItemStack stack, float from, float to) {
+        int steps = Math.max(1, Math.round(Math.abs(to - from) * BELT_TICKS_PER_BLOCK / 3.0F));
+        for (int i = 1; i <= steps; i++) {
+            setBeltItem(scene, util, stack, from + (to - from) * i / steps, true);
+            scene.idle(3);
+        }
     }
 
     /**

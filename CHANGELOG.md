@@ -151,6 +151,19 @@ actually published with at the time was `release`.
   `TransportedItemStack.serializeNBT` (`Item`, `Pos` in belt cells, `Offset`, `InSegment`, `InDirection`,
   `Locked`), which the scene drives directly (see the next entry) and which the schematic can also carry,
   `Locked` being exactly the state Create uses for an item a Deployer is working on.
+- **The wire is powered by the cabinet itself, at full strength.** SchemeLoaderBlock#getSignal already
+  reports 15 while its block entity is active, so the scene now marks the cabinet **active** (its block
+  entity NBT carries that flag) and only nudges the wire afterwards: the vanilla power calculation then
+  finds a real source next door and the wire settles at a genuine 15, instead of a value the scene wrote
+  by hand. That also removes the earlier order-dependency, and the light comes on with it.
+- **The item glides instead of twitching, and only one product comes out.** The line no longer releases the
+  item to the belt midway: it stays locked — Create's own "being worked on" state — and the scene writes its
+  position in small steps (five per cell over the ticks the belt itself would need), so nothing fights over
+  where it is. At the end it is handed back to the belt, which carries it off the tail and drops it by
+  itself; the item entity this scene used to spawn on top of that was the second product.
+- **The narration now comes up before the line starts, and follows the author's revised script**: "用序列
+  装配的方式按照方案上的提示搭建产线，并为设施提供原料" / "Build the line the scheme describes as a sequenced
+  assembly, and keep it supplied".
 - **The closing line is now the whole process, and it runs the right way round.** Three corrections the
   author gave from the game, all of them right: an east-facing belt carries items east only at a
   **negative** speed (`getDirectionAwareBeltMovementSpeed` negates the movement on the x axis, which is why

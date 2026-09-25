@@ -77,7 +77,7 @@
   "create_productionline.ponder.scheme_loader.text_2": "放入即生效，只刷新配方，不会让服务器重载",
   "create_productionline.ponder.scheme_loader.text_3": "外部的存储条可以显示已使用的数量占比",
   "create_productionline.ponder.scheme_loader.text_4": "有配方生效时，柜子会输出红石信号",
-  "create_productionline.ponder.scheme_loader.text_5": "按照方案上的提示搭建产线，并为设施提供原料",
+  "create_productionline.ponder.scheme_loader.text_5": "用序列装配的方式按照方案上的提示搭建产线，并为设施提供原料",
   "create_productionline.ponder.dismantler.header": "拆解不需要的物品",
   "create_productionline.ponder.dismantler.text_1": "左格放成品或未完成的中间产物",
   "create_productionline.ponder.dismantler.text_2": "拆解将会退还原料并生成只读镜像",
