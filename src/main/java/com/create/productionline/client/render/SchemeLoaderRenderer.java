@@ -26,7 +26,9 @@ public class SchemeLoaderRenderer implements BlockEntityRenderer<SchemeLoaderBlo
         if (LoaderBar.visualized(loader.getLevel())) {
             return; // Flywheel draws the bar for this block entity (SchemeLoaderVisual)
         }
-        LoaderBar.render(loader.getRenderSegments(), loader.getBlockState(), poseStack, buffers, packedLight,
+        // The count eases towards the target: a strip grows in from its bottom edge instead of
+        // popping, which is what the renderer-driven bar bought us over the block model.
+        LoaderBar.render(loader.advanceBarAnimation(), loader.getBlockState(), poseStack, buffers, packedLight,
                 packedOverlay);
     }
 }

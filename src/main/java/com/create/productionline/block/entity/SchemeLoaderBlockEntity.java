@@ -43,6 +43,25 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     public static final int BAR_SEGMENTS = 6;
 
     /**
+     * Bottom centre of each strip cube in model pixels — the point a strip grows from
+     * (and shrinks back to) when the loaded-scheme count changes. Read from
+     * {@code scheme_loader_strip_1 … _6} rather than hand-measured: the self test
+     * re-derives every entry from those models, so the animation follows the art if the
+     * strips are ever moved.
+     */
+    private static final float[][] BAR_STRIP_PIVOTS = {
+            { 13.5F, 3.0F, 1.5F },
+            { 11.5F, 3.0F, 1.5F },
+            { 9.5F, 3.0F, 1.5F },
+            { 7.5F, 3.0F, 1.5F },
+            { 5.5F, 3.0F, 1.5F },
+            { 3.5F, 3.0F, 1.5F },
+    };
+
+    /** Ticks one strip takes to grow in or shrink out. */
+    public static final float BAR_ANIM_TICKS = 5.0F;
+
+    /**
      * Loaded-scheme count as the client's renderer sees it: 0 … {@value #SLOT_COUNT}.
      *
      * <p>This is the ONLY thing the bar needs, and it travels as block entity data
@@ -53,6 +72,14 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
      * sake of worlds that stored it, but nothing writes it any more.
      */
     private int renderFilled = 0;
+
+    /**
+     * Bar animation (client only, never saved): how many strips are drawn right now,
+     * which eases towards {@link #getRenderSegments()} instead of jumping.
+     */
+    private float barAnimated = -1.0F;
+    /** Client clock of the previous animation step, 0 while the animation has not started. */
+    private long barAnimatedAt = 0L;
 
     private final ModContainer inventory = new ModContainer(this, SLOT_COUNT, this::onSlotChanged);
     private boolean active = false;
@@ -312,6 +339,41 @@ public class SchemeLoaderBlockEntity extends net.minecraft.world.level.block.ent
     /** Lit strips of the front bar, 0 … {@value #BAR_SEGMENTS}. */
     public int getRenderSegments() {
         return segmentsFor(renderFilled);
+    }
+
+    /** Bottom centre of a strip cube in model pixels; {@code strip} counts from 0. */
+    public static float[] barStripPivot(int strip) {
+        return BAR_STRIP_PIVOTS[strip];
+    }
+
+    /**
+     * Lit strips to draw this frame, easing towards {@link #getRenderSegments()} so a strip
+     * grows in (and shrinks back out) instead of popping — the reason the bar is drawn by a
+     * renderer at all, a block model cannot do this.
+     *
+     * <p>Client side only, and called once per frame by whichever renderer draws the bar;
+     * it advances the animation by the time since the previous call, so the motion is
+     * frame-rate independent. The first call after a chunk load snaps to the target — a
+     * machine that was already full when it came into view must not fill up again.
+     */
+    public float advanceBarAnimation() {
+        long now = net.minecraft.Util.getMillis();
+        int target = getRenderSegments();
+        if (barAnimated < 0.0F || barAnimatedAt == 0L) {
+            barAnimated = target;
+            barAnimatedAt = now;
+            return barAnimated;
+        }
+        // One strip per BAR_ANIM_TICKS; a machine that was off screen for a while (or a
+        // lag spike) simply finishes the motion in one step.
+        float step = (now - barAnimatedAt) / 50.0F / BAR_ANIM_TICKS;
+        barAnimatedAt = now;
+        if (barAnimated != target) {
+            float remaining = target - barAnimated;
+            barAnimated = Math.abs(remaining) <= step ? target
+                    : barAnimated + Math.signum(remaining) * step;
+        }
+        return barAnimated;
     }
 
     private void syncState() {

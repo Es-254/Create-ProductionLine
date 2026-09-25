@@ -37,8 +37,8 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
     /** One instance per strip of the bar, always all six — hidden ones are not drawn. */
     private final List<TransformedInstance> strips = new ArrayList<>(SchemeLoaderBlockEntity.BAR_SEGMENTS);
 
-    /** Number of strips currently shown; -1 forces the first update to apply. */
-    private int segments = -1;
+    /** Animated strip count already applied; -1 forces the first update to apply. */
+    private float applied = -1.0F;
 
     public SchemeLoaderVisual(VisualizationContext context, SchemeLoaderBlockEntity blockEntity, float partialTick) {
         super(context, blockEntity, partialTick);
@@ -53,7 +53,9 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
             instance.setChanged();
             strips.add(instance);
         }
-        applySegments(blockEntity.getRenderSegments());
+        // First frame snaps to the count the cabinet already has; from then on the strips
+        // grow in and shrink back out (see SchemeLoaderBlockEntity#advanceBarAnimation).
+        apply(blockEntity.advanceBarAnimation());
         relight(strips.toArray(new FlatLit[0]));
     }
 
@@ -63,13 +65,13 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
     }
 
     private void tick() {
-        applySegments(blockEntity.getRenderSegments());
+        apply(blockEntity.advanceBarAnimation());
     }
 
-    /** Also checked per frame: the bar has to follow a scheme being taken out at once. */
+    /** Also advanced per frame, so the motion is smooth rather than 20 steps a second. */
     @Override
     public void update(float partialTick) {
-        applySegments(blockEntity.getRenderSegments());
+        apply(blockEntity.advanceBarAnimation());
     }
 
     @Override
@@ -79,13 +81,41 @@ public class SchemeLoaderVisual extends AbstractBlockEntityVisual<SchemeLoaderBl
         }
     }
 
-    private void applySegments(int next) {
-        if (next == segments) {
+    /**
+     * Shows the strips the animated count has reached. The strip the count is currently
+     * inside is drawn part way grown, from its bottom edge, so the bar rises segment by
+     * segment instead of switching pictures.
+     */
+    private void apply(float segments) {
+        if (segments == applied) {
             return;
         }
-        segments = next;
+        applied = segments;
+        int whole = (int) Math.floor(segments);
+        float partial = segments - whole;
         for (int strip = 0; strip < strips.size(); strip++) {
-            strips.get(strip).setVisible(strip < next);
+            float grown = strip < whole ? 1.0F : (strip == whole ? partial : 0.0F);
+            TransformedInstance instance = strips.get(strip);
+            if (grown <= 0.01F) {
+                instance.setVisible(false);
+                instance.setChanged();
+                continue;
+            }
+            instance.setVisible(true);
+            instance.setIdentityTransform();
+            if (grown < 1.0F) {
+                float[] pivot = SchemeLoaderBlockEntity.barStripPivot(strip);
+                // Model pixels -> block space; scaling about the strip's bottom edge makes it
+                // rise out of the bar. Same pivot and same curve as the vanilla renderer, so
+                // Ponder (BER) and the game (Flywheel) move identically.
+                float px = pivot[0] / 16.0F;
+                float py = pivot[1] / 16.0F;
+                float pz = pivot[2] / 16.0F;
+                instance.translate(px, py, pz);
+                instance.scale(1.0F, LoaderBar.grow(grown), 1.0F);
+                instance.translate(-px, -py, -pz);
+            }
+            instance.setChanged();
         }
     }
 

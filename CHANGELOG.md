@@ -256,6 +256,13 @@ actually published with at the time was `release`.
   `scheme_loader_empty` model, so worlds that stored the property keep a valid model, but nothing writes it any
   more. The self test gained a 25th check: the six strips have to add up to exactly the bar elements the block
   model used to bake.
+- **The bar rises instead of switching pictures.** Now that a renderer owns it, the count eases towards the
+  loaded-scheme count over five ticks per strip, and the strip being lit is drawn part way grown — from its own
+  cube's bottom edge, so it rises out of the bar rather than inflating in place (`5 ticks × 6 strips` = 1.5 s
+  for a whole cabinet, and taking a scheme out shrinks it back down). Both renderers share the pivot and the
+  curve, so the motion is identical in the game (Flywheel) and in Ponder (the vanilla path). The strips'
+  bottom centres are constants in the block entity and the self test re-derives them from the strip models, so
+  a strip moved in the art cannot end up growing from somewhere else.
 
 ## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
 

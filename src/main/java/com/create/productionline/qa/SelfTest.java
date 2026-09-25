@@ -1462,8 +1462,10 @@ public final class SelfTest {
      * The Scheme Loader's front bar is drawn by a renderer since 1.0.3 instead of being
      * baked into the block model, so three things have to hold together: every {@code fill}
      * variant resolves to the bar-less model (nothing re-meshes for the count any more), the
-     * six strip models the renderer reads exist, and the strips add up to exactly the bar
-     * the block model used to bake — the machine has to keep looking the same.
+     * six strip models the renderer reads exist, the strips add up to exactly the bar the
+     * block model used to bake — the machine has to keep looking the same — and each strip is
+     * animated around its own cube's bottom centre, so a strip that moves in the art cannot
+     * end up growing from somewhere else.
      */
     private static boolean loaderBarIsRendererDriven() throws Exception {
         com.google.gson.JsonObject variants = readJson(
@@ -1507,6 +1509,23 @@ public final class SelfTest {
             }
             if (!bar.contains(element)) {
                 return note("scheme_loader_strip_" + strip + " is not one of the bar elements of the full model");
+            }
+            // The grow-in animation scales each strip about its bottom centre, and that point
+            // is a constant in the block entity: it has to be re-derived from the model here,
+            // or a strip moved in the art would grow from somewhere else.
+            com.google.gson.JsonObject cube = elements.get(0).getAsJsonObject();
+            com.google.gson.JsonArray from = cube.getAsJsonArray("from");
+            com.google.gson.JsonArray to = cube.getAsJsonArray("to");
+            float[] pivot = com.create.productionline.block.entity.SchemeLoaderBlockEntity
+                    .barStripPivot(strip - 1);
+            float bottomCentreX = (from.get(0).getAsFloat() + to.get(0).getAsFloat()) / 2.0F;
+            float bottomY = from.get(1).getAsFloat();
+            float bottomCentreZ = (from.get(2).getAsFloat() + to.get(2).getAsFloat()) / 2.0F;
+            if (Math.abs(pivot[0] - bottomCentreX) > 0.001F || Math.abs(pivot[1] - bottomY) > 0.001F
+                    || Math.abs(pivot[2] - bottomCentreZ) > 0.001F) {
+                return note("strip " + strip + " is animated around " + java.util.Arrays.toString(pivot)
+                        + " but its cube's bottom centre is (" + bottomCentreX + ", " + bottomY + ", "
+                        + bottomCentreZ + ")");
             }
         }
         if (!strips.equals(bar)) {

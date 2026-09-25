@@ -101,12 +101,13 @@ public final class LoaderBar {
     /**
      * Draws the lit strips with the vanilla block entity renderer.
      *
-     * <p>{@code segments} is 0 … 6 and comes from
-     * {@link SchemeLoaderBlockEntity#getRenderSegments()}.
+     * <p>{@code segments} is a fractional 0 … 6 count from
+     * {@link SchemeLoaderBlockEntity#advanceBarAnimation()}: the last strip may be part way
+     * through growing in, and is drawn that far grown from its bottom edge.
      */
-    public static void render(int segments, BlockState state, PoseStack poseStack, MultiBufferSource buffers,
+    public static void render(float segments, BlockState state, PoseStack poseStack, MultiBufferSource buffers,
             int packedLight, int packedOverlay) {
-        if (segments <= 0 || !available()) {
+        if (segments <= 0.01F || !available()) {
             return;
         }
         // Same render layer the block's own model is baked into, so the bar keeps the look
@@ -114,10 +115,41 @@ public final class LoaderBar {
         // i.e. solid).
         RenderType type = ItemBlockRenderTypes.getChunkRenderType(state);
         VertexConsumer consumer = buffers.getBuffer(type);
-        for (int strip = 0; strip < segments; strip++) {
-            SuperByteBuffer buffer = CachedBuffers.partial(MODELS[strip], state);
-            buffer.light(packedLight).renderInto(poseStack, consumer);
+        int whole = (int) Math.floor(segments);
+        float partial = segments - whole;
+        for (int strip = 0; strip < stripCount() && strip <= whole; strip++) {
+            draw(strip, state, poseStack, consumer, packedLight, strip < whole ? 1.0F : partial);
         }
+    }
+
+    /** Draws one strip, grown to {@code grown} (0 … 1) of its height from the bottom edge. */
+    private static void draw(int strip, BlockState state, PoseStack poseStack, VertexConsumer consumer,
+            int packedLight, float grown) {
+        if (grown <= 0.01F) {
+            return;
+        }
+        SuperByteBuffer buffer = CachedBuffers.partial(MODELS[strip], state);
+        buffer.light(packedLight);
+        if (grown < 1.0F) {
+            float[] pivot = SchemeLoaderBlockEntity.barStripPivot(strip);
+            // Model pixels -> block space (0 … 1). Scaling about the strip's bottom edge
+            // makes it rise out of the bar rather than inflate in place.
+            float px = pivot[0] / 16.0F;
+            float py = pivot[1] / 16.0F;
+            float pz = pivot[2] / 16.0F;
+            buffer.translate(px, py, pz).scale(1.0F, grow(grown), 1.0F).translate(-px, -py, -pz);
+        }
+        buffer.renderInto(poseStack, consumer);
+    }
+
+    /**
+     * The bar's motion curve: {@code grown} is the raw 0 … 1 progress of one strip, returned
+     * eased so the strip shoots up quickly and settles into place. Shared by both renderers,
+     * so the bar looks the same in Flywheel and in the vanilla path (Ponder).
+     */
+    public static float grow(float grown) {
+        float inverse = 1.0F - Math.max(0.0F, Math.min(1.0F, grown));
+        return 1.0F - inverse * inverse;
     }
 
     /**
