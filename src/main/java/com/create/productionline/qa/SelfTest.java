@@ -1,9 +1,12 @@
 package com.create.productionline.qa;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.create.productionline.ProductionLineMod;
@@ -17,9 +20,14 @@ import com.create.productionline.line.scheme.LineSchemeSerializer;
 import com.create.productionline.menu.GuiLayout;
 import com.create.productionline.registry.ModItems;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -34,7 +42,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 21 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 24 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -93,6 +101,13 @@ import net.minecraft.world.level.storage.LevelResource;
  *       provides</b> (centred, inside its well, clear of the button and of the
  *       player-inventory groove) — the one defect class no resource check can see,
  *       and the reason the loader grid and the dismantler hint are where they are.</li>
+ *   <li>the dismantler's eleven-row decision table, its doubling refund and its
+ *       fluid notice, driven through a real block entity;</li>
+ *   <li>the computer writes the plan and the build guide onto both carriers;</li>
+ *   <li><b>each Ponder schematic holds the exact block at every position its scene
+ *       shows, hides or modifies, and that position is inside the box those blocks
+ *       span</b> — Ponder drops anything outside it without a log line, which is how
+ *       the machines stayed invisible on a plate-only schematic.</li>
  * </ol>
  */
 public final class SelfTest {
@@ -138,6 +153,7 @@ public final class SelfTest {
             check("GUI layout fits the drawn wells", () -> guiLayoutFits());
             check("Dismantler decision table, doubling refund, fluid notice", () -> dismantlerRules(server));
             check("Computer writes plan + guide onto both carriers", () -> computerWritesBothCarriers(server));
+            check("Ponder schematics hold every block their scene touches", () -> ponderSchematicCoverage());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
             t.printStackTrace(System.out);
@@ -1338,6 +1354,102 @@ public final class SelfTest {
     }
 
     // --- harness ---------------------------------------------------------------
+
+    /**
+     * Guards the Ponder scenes' one silent failure mode. {@code PonderLevel}'s schema-level bounds — the
+     * box {@code scene.world().setBlock}/{@code modifyBlock} may touch, because
+     * {@code ReplaceBlocksInstruction} starts with {@code if (level.getBounds().isInside(pos))} — are
+     * computed from the blocks the schematic actually <em>placed</em>, not from its declared {@code size}
+     * (see {@code SchematicLevel#setBlock}). A scene that places its machine at y=1 on a plate-only
+     * schematic therefore has it dropped without a single log line: the plate shows, the machine does not.
+     * So our scenes reveal every prop from the schematic, and this check asserts the invariant both ways:
+     * each scene's schematic holds the exact block at every position the scene shows, hides or modifies,
+     * and that position lies inside the box the schematic's blocks span.
+     *
+     * <p>It also pins the shape that loads as <em>nothing</em> while reporting no error at all:
+     * {@code size} and every {@code pos} have to be a {@code TAG_List} of {@code TAG_Int}. Written as a
+     * {@code TAG_Int_Array} — which a hand-rolled reader accepts just as happily — vanilla's
+     * {@code getListOrEmpty} reads an empty list and the structure becomes (0,0,0) with no blocks.
+     */
+    private static boolean ponderSchematicCoverage() throws Exception {
+        // scene id -> every position that scene shows, hides or modifies -> the block that must be there
+        Map<String, Map<BlockPos, String>> scenes = new LinkedHashMap<>();
+
+        Map<BlockPos, String> computer = new LinkedHashMap<>();
+        computer.put(new BlockPos(2, 1, 2), "create_productionline:production_computer");
+        scenes.put("production_computer", computer);
+
+        Map<BlockPos, String> loader = new LinkedHashMap<>();
+        loader.put(new BlockPos(2, 1, 2), "create_productionline:scheme_loader");
+        loader.put(new BlockPos(4, 1, 2), "minecraft:redstone_lamp");
+        for (int x = 0; x <= 4; x++) {
+            loader.put(new BlockPos(x, 1, 1), "create:belt"); // the closing picture's line
+        }
+        loader.put(new BlockPos(1, 2, 1), "create:deployer");
+        loader.put(new BlockPos(3, 2, 1), "create:deployer");
+        scenes.put("scheme_loader", loader);
+
+        Map<BlockPos, String> dismantler = new LinkedHashMap<>();
+        dismantler.put(new BlockPos(2, 1, 2), "create_productionline:dismantler");
+        scenes.put("dismantler", dismantler);
+
+        for (Map.Entry<String, Map<BlockPos, String>> scene : scenes.entrySet()) {
+            CompoundTag nbt = readPonderSchematic(scene.getKey());
+            ListTag size = nbt.getList("size", Tag.TAG_INT);
+            if (size.size() != 3) {
+                System.out.println("   " + scene.getKey() + ": size is not a 3-int list -> vanilla loads an"
+                        + " empty structure: " + nbt.get("size"));
+                return false;
+            }
+            Map<BlockPos, String> placed = new LinkedHashMap<>();
+            ListTag palette = nbt.getList("palette", Tag.TAG_COMPOUND);
+            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+            for (Tag element : nbt.getList("blocks", Tag.TAG_COMPOUND)) {
+                ListTag pos = ((CompoundTag) element).getList("pos", Tag.TAG_INT);
+                if (pos.size() != 3) {
+                    System.out.println("   " + scene.getKey() + ": a block's pos is not a 3-int list");
+                    return false;
+                }
+                BlockPos at = new BlockPos(pos.getInt(0), pos.getInt(1), pos.getInt(2));
+                placed.put(at, palette.getCompound(((CompoundTag) element).getInt("state")).getString("Name"));
+                minX = Math.min(minX, at.getX());
+                minY = Math.min(minY, at.getY());
+                minZ = Math.min(minZ, at.getZ());
+                maxX = Math.max(maxX, at.getX());
+                maxY = Math.max(maxY, at.getY());
+                maxZ = Math.max(maxZ, at.getZ());
+            }
+            for (Map.Entry<BlockPos, String> want : scene.getValue().entrySet()) {
+                BlockPos at = want.getKey();
+                if (at.getX() < minX || at.getX() > maxX || at.getY() < minY || at.getY() > maxY
+                        || at.getZ() < minZ || at.getZ() > maxZ) {
+                    System.out.println("   " + scene.getKey() + ": " + at.toShortString() + " is outside the"
+                            + " schematic's block bounds (" + minX + "," + minY + "," + minZ + ")..("
+                            + maxX + "," + maxY + "," + maxZ + ") -> Ponder drops it silently");
+                    return false;
+                }
+                String found = placed.get(at);
+                if (!want.getValue().equals(found)) {
+                    System.out.println("   " + scene.getKey() + ": expected " + want.getValue() + " at "
+                            + at.toShortString() + " but the schematic has " + found);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Reads a Ponder schematic straight out of the mod's own resources (works on a dedicated server). */
+    private static CompoundTag readPonderSchematic(String sceneId) throws Exception {
+        String path = "/assets/create_productionline/ponder/" + sceneId + ".nbt";
+        try (InputStream in = SelfTest.class.getResourceAsStream(path)) {
+            if (in == null) {
+                throw new IllegalStateException("missing resource " + path);
+            }
+            return NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
+        }
+    }
 
     public interface Check {
         boolean run() throws Exception;

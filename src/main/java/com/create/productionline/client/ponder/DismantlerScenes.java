@@ -47,10 +47,10 @@ public final class DismantlerScenes {
         scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         BlockPos machine = util.grid().at(2, 1, 2);
-        scene.world().setBlock(machine, ModBlocks.DISMANTLER.get().defaultBlockState(), false);
-        // Independent section: the block is placed here, so it is not in the schematic's backup and
-        // a plain showSection would have nothing to reveal (the machine never appeared without this).
-        scene.world().showIndependentSection(util.select().position(machine), Direction.DOWN);
+        // The machine is a block of this scene's schematic, so it is revealed, not placed: a block the
+        // scene places itself is dropped unless it sits inside the schematic's own bounding box (see
+        // ProductionLineScenes for the full rule).
+        scene.world().showSection(util.select().position(machine), Direction.DOWN);
         scene.idle(15);
         scene.special().movePointOfInterest(machine);
 
