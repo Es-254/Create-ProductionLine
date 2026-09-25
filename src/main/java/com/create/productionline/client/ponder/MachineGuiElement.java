@@ -6,6 +6,7 @@ import java.util.List;
 import com.create.productionline.client.CreateGui;
 import com.create.productionline.menu.GuiLayout;
 
+import net.createmod.catnip.animation.AnimationTickHolder;
 import net.createmod.ponder.api.element.PonderOverlayElement;
 import net.createmod.ponder.foundation.PonderScene;
 import net.createmod.ponder.foundation.ui.PonderUI;
@@ -13,6 +14,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -74,6 +77,7 @@ public class MachineGuiElement implements PonderOverlayElement {
     private boolean visible;
 
     private Component buttonLabel;
+    private boolean buttonHighlighted;
     private int buttonX;
     private int buttonY;
     private int buttonWidth;
@@ -120,6 +124,18 @@ public class MachineGuiElement implements PonderOverlayElement {
         }
     }
 
+    /**
+     * Draws a pulsing frame around the panel's button, which is how a scene says "press this".
+     *
+     * <p>Ponder's own click cue ({@code overlay().showControls(...)}) can only be anchored to a position in
+     * the world, so it lands on the block — but the block is only what opens the GUI, while the action the
+     * narration describes is the button in it. A scene turns this on when the step needs the button pressed
+     * and off when it does not.
+     */
+    public void setButtonHighlighted(boolean highlighted) {
+        this.buttonHighlighted = highlighted;
+    }
+
     @Override
     public boolean isVisible() {
         return visible;
@@ -148,6 +164,17 @@ public class MachineGuiElement implements PonderOverlayElement {
             graphics.blitSprite(BUTTON_SPRITE, x + buttonX, y + buttonY, buttonWidth, buttonHeight);
             graphics.drawCenteredString(Minecraft.getInstance().font, buttonLabel,
                     x + buttonX + buttonWidth / 2, y + buttonY + (buttonHeight - 8) / 2, BUTTON_TEXT_COLOR);
+            if (buttonHighlighted) {
+                // A pulsing frame, two pixels out, so it reads as "click me" next to the narration rather than
+                // as part of the panel's own art.
+                float pulse = 0.55F + 0.45F * Mth.sin(AnimationTickHolder.getTicks() * 0.35F);
+                int colour = FastColor.ARGB32.color(Math.round(200 + 55 * pulse), 255, 215, 90);
+                int thickness = pulse > 0.75F ? 2 : 1;
+                for (int i = 0; i < thickness; i++) {
+                    graphics.renderOutline(x + buttonX - 2 - i, y + buttonY - 2 - i,
+                            buttonWidth + 3 + 2 * i, buttonHeight + 3 + 2 * i, colour);
+                }
+            }
         }
 
         graphics.drawString(Minecraft.getInstance().font, title, x + TITLE_X, y + titleY, TITLE_COLOR, false);

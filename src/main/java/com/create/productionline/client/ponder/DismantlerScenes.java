@@ -4,7 +4,6 @@ import com.create.productionline.menu.GuiLayout;
 import com.create.productionline.registry.ModBlocks;
 import com.create.productionline.registry.ModItems;
 
-import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
@@ -79,8 +78,9 @@ public final class DismantlerScenes {
                 .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.idle(90);
 
-        // 2 — dismantle it
-        scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 45).leftClick();
+        // 2 — dismantle it. The cue is the button in the panel, not a click on the block: the block is only
+        // what opens the GUI, while the action the narration describes is pressing 【拆解】.
+        scene.addInstruction(s -> panel.setButtonHighlighted(true));
         scene.overlay().showText(80)
                 .attachKeyFrame()
                 .text("Dismantling hands the materials back and leaves a read-only mirror")
@@ -93,6 +93,7 @@ public final class DismantlerScenes {
 
         // 3 — a written scheme instead: it is erased, not refunded
         scene.addInstruction(s -> {
+            panel.setButtonHighlighted(false);
             panel.setStack(0, ItemStack.EMPTY);
             panel.setStack(1, com.create.productionline.item.LineSchemeItem.sampleStack());
         });
@@ -104,8 +105,8 @@ public final class DismantlerScenes {
                 .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.idle(100);
 
-        // 4 — silent: the swap itself
-        scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 35).leftClick();
+        // 4 — silent: the swap itself, again behind the button
+        scene.addInstruction(s -> panel.setButtonHighlighted(true));
         scene.addInstruction(s -> {
             panel.setStack(0, mirror);
             panel.setStack(1, blankScheme);
@@ -113,7 +114,12 @@ public final class DismantlerScenes {
         scene.effects().indicateSuccess(machine);
         scene.idle(70);
 
-        // 5 — the intermediate case
+        // 5 — the intermediate case, which needs the button too — this step used to have no cue at all.
+        // The highlight is turned off after the previous press and back on here, so each press the narration
+        // asks for has its own cue.
+        scene.addInstruction(s -> panel.setButtonHighlighted(false));
+        scene.idle(10);
+        scene.addInstruction(s -> panel.setButtonHighlighted(true));
         scene.addInstruction(s -> {
             panel.setStack(0, intermediate);
             panel.setStack(1, ItemStack.EMPTY);
@@ -124,6 +130,8 @@ public final class DismantlerScenes {
                 .placeNearTarget()
                 .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.idle(100);
+        scene.addInstruction(s -> panel.setButtonHighlighted(false));
+        scene.idle(10);
         scene.markAsFinished();
     }
 }

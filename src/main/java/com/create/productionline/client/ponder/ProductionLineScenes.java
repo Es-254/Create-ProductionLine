@@ -11,7 +11,6 @@ import com.create.productionline.registry.ModItems;
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
 
-import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
@@ -158,8 +157,9 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 —press Compute
-        scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 60).leftClick();
+        // 4 — press Compute. The cue is the button in the panel, not a click on the block: the block only
+        // opens the GUI, while the action the narration describes is pressing 【计算】.
+        scene.addInstruction(s -> panel.setButtonHighlighted(true));
         scene.overlay().showText(70)
                 .attachKeyFrame()
                 .text("Press Compute: the server derives it from its live recipes and writes the scheme")
@@ -168,7 +168,9 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.effects().indicateSuccess(machine);
         scene.addInstruction(s -> panel.setStack(1, writtenScheme));
-        scene.idle(80);
+        scene.idle(45);
+        scene.addInstruction(s -> panel.setButtonHighlighted(false));
+        scene.idle(35);
 
         // 5 —what the written scheme says
         scene.overlay().showText(90)

@@ -172,6 +172,13 @@ actually published with at the time was `release`.
   own state change always showed, so the wire is out of the picture. The cabinet is still marked active
   (which is what SchemeLoaderBlock#getSignal reads) and the lamp is switched on, so the step shows the
   machine lighting its own lamp.
+- **The cue for "press it" now points at the button, and the last dismantler step has one.** Ponder's own
+  click cue (overlay().showControls(...)) can only be anchored to a world position, so it landed on the
+  block — but the block is merely what opens the GUI, while the action the narration describes is the button
+  inside it (the author's point). The panel element can draw a **pulsing frame around its own button**, and
+  the scenes now use that instead: the Dismantler highlights 【拆解】 for each of the two presses the story
+  shows and again for the last step (the intermediate case, which previously had **no cue at all**), and the
+  Production Computer highlights 【计算】 for its step.
 - **English narration back inside the documented budget**: production_computer.text_5 was 107 characters,
   over the 100 the narration table allows for English, and is now 93.
 - **The narration now comes up before the line starts, and follows the author's revised script**: "用序列
