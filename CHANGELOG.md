@@ -172,6 +172,18 @@ actually published with at the time was `release`.
   own state change always showed, so the wire is out of the picture. The cabinet is still marked active
   (which is what SchemeLoaderBlock#getSignal reads) and the lamp is switched on, so the step shows the
   machine lighting its own lamp.
+- **Every step across both Ponder entries now uses one cue vocabulary.** The author asked for the operation
+  steps to be unified: if a click is a highlighted button, every click should be, and each kind of action
+  should use the best expression available. The four expressions, applied in the computer chapter, the
+  cabinet chapter and the Dismantler alike:
+  **"this item goes into that slot"** → the slot's own pulsing frame in the panel, a beat, then the item
+  appears in it; **"press this button"** → the button's pulsing frame, a beat, then its effect (the panel's
+  contents change and the machine flashes); **"look at this part of the block"** → narration pointing at the
+  world position (only the bar and the redstone lamp steps are about the block); **"something appears"** → no
+  cue, the change is the cue. Ponder's overlay().showControls(...) is now unused throughout, because it can
+  only anchor to a block and every action these machines ask for happens inside the panel that block opens.
+  The vocabulary is written down in ProductionLineScenes' class comment and in MachineGuiElement, next to
+  the shared frame both highlights draw.
 - **The cue for "press it" now points at the button, and the last dismantler step has one.** Ponder's own
   click cue (overlay().showControls(...)) can only be anchored to a world position, so it landed on the
   block — but the block is merely what opens the GUI, while the action the narration describes is the button

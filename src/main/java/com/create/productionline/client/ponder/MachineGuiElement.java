@@ -78,6 +78,7 @@ public class MachineGuiElement implements PonderOverlayElement {
 
     private Component buttonLabel;
     private boolean buttonHighlighted;
+    private int slotHighlighted = -1;
     private int buttonX;
     private int buttonY;
     private int buttonWidth;
@@ -127,13 +128,25 @@ public class MachineGuiElement implements PonderOverlayElement {
     /**
      * Draws a pulsing frame around the panel's button, which is how a scene says "press this".
      *
-     * <p>Ponder's own click cue ({@code overlay().showControls(...)}) can only be anchored to a position in
-     * the world, so it lands on the block — but the block is only what opens the GUI, while the action the
-     * narration describes is the button in it. A scene turns this on when the step needs the button pressed
-     * and off when it does not.
+     * <p>Ponder's own cue vocabulary only reaches the world ({@code overlay().showControls(...)} anchors to a
+     * position in a block), and everything these machines actually ask the player to do happens in a GUI:
+     * a click is a click on a control, not on the block that opens the panel. So the two things a scene can
+     * ask for are expressed here, with the same frame: {@link #setButtonHighlighted(boolean)} for "press
+     * this button" and {@link #setSlotHighlighted(int)} for "this item goes into that slot". The block-level
+     * cues stay for what is genuinely about the block — which side the bar is on, where the redstone lamp
+     * sits — and pointing there is what {@code pointAt} is for.
      */
     public void setButtonHighlighted(boolean highlighted) {
         this.buttonHighlighted = highlighted;
+    }
+
+    /**
+     * Draws the same pulsing frame around one drawn slot, for a step that puts an item into it. Pass -1 to
+     * clear. Scenes use it the way they use the button highlight: on when the step asks for the slot, off
+     * when the next step is about something else.
+     */
+    public void setSlotHighlighted(int index) {
+        this.slotHighlighted = index;
     }
 
     @Override
@@ -165,16 +178,13 @@ public class MachineGuiElement implements PonderOverlayElement {
             graphics.drawCenteredString(Minecraft.getInstance().font, buttonLabel,
                     x + buttonX + buttonWidth / 2, y + buttonY + (buttonHeight - 8) / 2, BUTTON_TEXT_COLOR);
             if (buttonHighlighted) {
-                // A pulsing frame, two pixels out, so it reads as "click me" next to the narration rather than
-                // as part of the panel's own art.
-                float pulse = 0.55F + 0.45F * Mth.sin(AnimationTickHolder.getTicks() * 0.35F);
-                int colour = FastColor.ARGB32.color(Math.round(200 + 55 * pulse), 255, 215, 90);
-                int thickness = pulse > 0.75F ? 2 : 1;
-                for (int i = 0; i < thickness; i++) {
-                    graphics.renderOutline(x + buttonX - 2 - i, y + buttonY - 2 - i,
-                            buttonWidth + 3 + 2 * i, buttonHeight + 3 + 2 * i, colour);
-                }
+                pulse(graphics, x + buttonX, y + buttonY, buttonWidth, buttonHeight);
             }
+        }
+
+        if (slotHighlighted >= 0 && slotHighlighted < stacks.size()) {
+            pulse(graphics, x + slotX[slotHighlighted] - 1, y + slotY[slotHighlighted] - 1,
+                    GuiLayout.SLOT_FRAME, GuiLayout.SLOT_FRAME);
         }
 
         graphics.drawString(Minecraft.getInstance().font, title, x + TITLE_X, y + titleY, TITLE_COLOR, false);
@@ -184,6 +194,19 @@ public class MachineGuiElement implements PonderOverlayElement {
             if (!stack.isEmpty()) {
                 graphics.renderItem(stack, x + slotX[i], y + slotY[i]);
             }
+        }
+    }
+
+    /**
+     * The one highlight both cues share: a frame two pixels outside the control, pulsing between one and two
+     * pixels thick, so it reads as "this one" next to the narration rather than as part of the panel's art.
+     */
+    private static void pulse(GuiGraphics graphics, int x, int y, int width, int height) {
+        float pulse = 0.55F + 0.45F * Mth.sin(AnimationTickHolder.getTicks() * 0.35F);
+        int colour = FastColor.ARGB32.color(Math.round(200 + 55 * pulse), 255, 215, 90);
+        int thickness = pulse > 0.75F ? 2 : 1;
+        for (int i = 0; i < thickness; i++) {
+            graphics.renderOutline(x - 2 - i, y - 2 - i, width + 3 + 2 * i, height + 3 + 2 * i, colour);
         }
     }
 }

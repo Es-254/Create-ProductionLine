@@ -48,6 +48,20 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Text elements are numbered by the order they are shown — {@code text_1}, {@code text_2}, — so
  * the order of {@code showText} calls here is the order of the narration table.
+ *
+ * <p><b>One cue vocabulary for every step</b>, in this entry and in {@link DismantlerScenes} alike, so the
+ * three scenes read the same way:
+ * <ul>
+ *   <li><b>"this item goes into that slot"</b> → highlight that control in the panel
+ *       ({@code panel.setSlotHighlighted(i)}), a beat to read it, then the item appears in it;</li>
+ *   <li><b>"press this button"</b> → highlight the button ({@code panel.setButtonHighlighted(true)}), a
+ *       beat, then its effect (the panel's contents change and the machine gets a success flash);</li>
+ *   <li><b>"look at this part of the block"</b> → narration {@code pointAt} of the world position — the only
+ *       thing a world cue is good for, and what the bar and the redstone lamp steps use;</li>
+ *   <li><b>"something appears or changes"</b> → no cue at all: the change is the cue.</li>
+ * </ul>
+ * Ponder's own {@code overlay().showControls(...)} is deliberately unused: it can only anchor to a block,
+ * and every action these machines ask for happens inside the panel that block opens.
  */
 public final class ProductionLineScenes {
 
@@ -127,7 +141,7 @@ public final class ProductionLineScenes {
                         Component.translatable("gui.create_productionline.compute"));
         scene.addInstruction(s -> s.addElement(panel));
 
-        // 1 —what the machine is for
+        // 1 — what the machine is for
         scene.addInstruction(s -> panel.setVisible(true));
         scene.overlay().showText(70)
                 .attachKeyFrame()
@@ -137,42 +151,53 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(80);
 
-        // 2 —what goes into the first two slots
-        scene.addInstruction(s -> panel.setStack(0, target));
-        scene.overlay().showText(80)
+        // 2 — what goes into the first two slots. Every "this goes in there" step follows the same shape:
+        // highlight the slot, a beat to read it, then the item appears in it.
+        scene.addInstruction(s -> panel.setSlotHighlighted(0));
+        scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("Slot 1 takes the item to produce, slot 2 a blank Line Scheme")
                 .placeNearTarget()
                 .pointAt(highlight(util, machine));
-        scene.idle(60);
+        scene.idle(12);
+        scene.addInstruction(s -> panel.setStack(0, target));
+        scene.idle(48);
+        scene.addInstruction(s -> panel.setSlotHighlighted(1));
+        scene.idle(12);
         scene.addInstruction(s -> panel.setStack(1, blankScheme));
-        scene.idle(60);
+        scene.idle(48);
 
-        // 3 —the optional paper carrier
-        scene.addInstruction(s -> panel.setStack(2, paper));
-        scene.overlay().showText(80)
+        // 3 — the optional paper carrier
+        scene.addInstruction(s -> panel.setSlotHighlighted(2));
+        scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("Slot 3 may hold paper: it stays readable as a manual after the scheme is loaded")
                 .placeNearTarget()
                 .pointAt(highlight(util, machine));
-        scene.idle(90);
+        scene.idle(12);
+        scene.addInstruction(s -> panel.setStack(2, paper));
+        scene.idle(78);
 
         // 4 — press Compute. The cue is the button in the panel, not a click on the block: the block only
         // opens the GUI, while the action the narration describes is pressing 【计算】.
+        scene.addInstruction(s -> panel.setSlotHighlighted(-1));
+        scene.idle(10);
         scene.addInstruction(s -> panel.setButtonHighlighted(true));
-        scene.overlay().showText(70)
+        scene.overlay().showText(80)
                 .attachKeyFrame()
                 .text("Press Compute: the server derives it from its live recipes and writes the scheme")
                 .colored(PonderPalette.INPUT)
                 .placeNearTarget()
                 .pointAt(highlight(util, machine));
+        scene.idle(14);
         scene.effects().indicateSuccess(machine);
         scene.addInstruction(s -> panel.setStack(1, writtenScheme));
         scene.idle(45);
         scene.addInstruction(s -> panel.setButtonHighlighted(false));
         scene.idle(35);
 
-        // 5 —what the written scheme says
+        // 5 — what the written scheme says: point at the scheme the panel is holding
+        scene.addInstruction(s -> panel.setSlotHighlighted(1));
         scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("The scheme names the product, the base and the whole chain; a self-referencing "
@@ -181,6 +206,8 @@ public final class ProductionLineScenes {
                 .placeNearTarget()
                 .pointAt(highlight(util, machine));
         scene.idle(100);
+        scene.addInstruction(s -> panel.setSlotHighlighted(-1));
+        scene.idle(10);
         scene.markAsFinished();
     }
 
@@ -217,17 +244,20 @@ public final class ProductionLineScenes {
                 ModBlocks.SCHEME_LOADER.get().getName(), GuiLayout.LOADER_TITLE_Y, false);
         scene.addInstruction(s -> s.addElement(panel));
 
-        // 1 —the scheme goes in
+        // 1 — the scheme goes in: same shape as every "into a slot" step — highlight it, a beat, then it is
+        // there. `writtenScheme` is the same stack the computer wrote, so the panel shows a real one.
         scene.addInstruction(s -> panel.setVisible(true));
-        scene.addInstruction(s -> panel.setStack(0, writtenScheme));
-        scene.overlay().showText(80)
+        scene.addInstruction(s -> panel.setSlotHighlighted(0));
+        scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("Put the written scheme into any slot of a Scheme Loader")
                 .placeNearTarget()
                 .pointAt(highlight(util, machine));
-        scene.idle(90);
+        scene.idle(14);
+        scene.addInstruction(s -> panel.setStack(0, writtenScheme));
+        scene.idle(76);
 
-        // 2 —it takes effect at once, and the bar lights up
+        // 2 — it takes effect at once, and the bar lights up
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 1), false);
         scene.effects().indicateSuccess(machine);
         scene.overlay().showText(80)
@@ -238,18 +268,20 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 3 —more schemes, more of the bar
-        scene.addInstruction(s -> {
-            panel.setStack(1, writtenScheme.copy());
-            panel.setStack(2, writtenScheme.copy());
-        });
+        // 3 — more schemes, more of the bar
+        scene.addInstruction(s -> panel.setSlotHighlighted(1));
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 3), false);
         scene.overlay().showText(80)
                 .attachKeyFrame()
                 .text("The bar on its side shows how much of the cabinet is in use")
                 .placeNearTarget()
                 .pointAt(highlight(util, machine));
-        scene.idle(90);
+        scene.idle(14);
+        scene.addInstruction(s -> {
+            panel.setStack(1, writtenScheme.copy());
+            panel.setStack(2, writtenScheme.copy());
+        });
+        scene.idle(76);
 
         // 4 — redstone while recipes are active: the lamp sits directly on the cabinet, so the picture shows
         // the machine driving it. The cabinet really is a source (SchemeLoaderBlock#getSignal reports 15
@@ -257,6 +289,7 @@ public final class ProductionLineScenes {
         // was tried twice — baked at 15, then powered from here — and rendered dark both times, so it is not
         // part of the picture: its brightness never followed the value written to it in a ponder world.
         scene.world().showSection(util.select().position(lamp), Direction.UP);
+        scene.addInstruction(s -> panel.setSlotHighlighted(-1));
         scene.world().modifyBlockEntityNBT(util.select().position(machine), SchemeLoaderBlockEntity.class,
                 nbt -> nbt.putBoolean("Active", true));
         scene.idle(5);

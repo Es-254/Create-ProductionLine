@@ -68,68 +68,87 @@ public final class DismantlerScenes {
         ItemStack blankScheme = new ItemStack(ModItems.LINE_SCHEME.get());
         ItemStack intermediate = new ItemStack(ModItems.GENERIC_INTERMEDIATE.get());
 
-        // 1 — what the left slot takes
+        // 1 — what the left slot takes: highlight the slot, a beat, then the item is in it
         scene.addInstruction(s -> panel.setVisible(true));
-        scene.addInstruction(s -> panel.setStack(0, product));
-        scene.overlay().showText(80)
+        scene.addInstruction(s -> panel.setSlotHighlighted(0));
+        scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("The left slot takes a finished product, or an unfinished intermediate")
                 .placeNearTarget()
                 .pointAt(ProductionLineScenes.highlight(util, machine));
-        scene.idle(90);
+        scene.idle(14);
+        scene.addInstruction(s -> panel.setStack(0, product));
+        scene.idle(76);
 
         // 2 — dismantle it. The cue is the button in the panel, not a click on the block: the block is only
-        // what opens the GUI, while the action the narration describes is pressing 【拆解】.
+        // what opens the GUI, while the action the narration describes is pressing 【拆解】. Same shape as
+        // every other press in these scenes: highlight the control, a beat, then its effect.
+        scene.addInstruction(s -> panel.setSlotHighlighted(-1));
+        scene.idle(10);
         scene.addInstruction(s -> panel.setButtonHighlighted(true));
-        scene.overlay().showText(80)
+        scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("Dismantling hands the materials back and leaves a read-only mirror")
                 .colored(PonderPalette.OUTPUT)
                 .placeNearTarget()
                 .pointAt(ProductionLineScenes.highlight(util, machine));
+        scene.idle(14);
         scene.addInstruction(s -> panel.setStack(0, mirror));
         scene.effects().indicateSuccess(machine);
-        scene.idle(90);
+        scene.idle(76);
 
         // 3 — a written scheme instead: it is erased, not refunded
         scene.addInstruction(s -> {
             panel.setButtonHighlighted(false);
             panel.setStack(0, ItemStack.EMPTY);
-            panel.setStack(1, com.create.productionline.item.LineSchemeItem.sampleStack());
         });
+        scene.addInstruction(s -> panel.setSlotHighlighted(1));
         scene.overlay().showText(90)
                 .attachKeyFrame()
                 .text("A written scheme is erased: a mirror of the plan, and a blank scheme back")
                 .colored(PonderPalette.INPUT)
                 .placeNearTarget()
                 .pointAt(ProductionLineScenes.highlight(util, machine));
-        scene.idle(100);
+        scene.idle(14);
+        scene.addInstruction(s -> panel.setStack(1, com.create.productionline.item.LineSchemeItem.sampleStack()));
+        scene.idle(86);
 
         // 4 — silent: the swap itself, again behind the button
-        scene.addInstruction(s -> panel.setButtonHighlighted(true));
+        scene.addInstruction(s -> {
+            panel.setSlotHighlighted(-1);
+            panel.setButtonHighlighted(true);
+        });
+        scene.idle(14);
         scene.addInstruction(s -> {
             panel.setStack(0, mirror);
             panel.setStack(1, blankScheme);
         });
         scene.effects().indicateSuccess(machine);
-        scene.idle(70);
+        scene.idle(66);
 
         // 5 — the intermediate case, which needs the button too — this step used to have no cue at all.
-        // The highlight is turned off after the previous press and back on here, so each press the narration
-        // asks for has its own cue.
-        scene.addInstruction(s -> panel.setButtonHighlighted(false));
-        scene.idle(10);
-        scene.addInstruction(s -> panel.setButtonHighlighted(true));
+        // The item goes back in first, then the press: the same two-part shape as step 3 and 4, so the reader
+        // sees the item arrive and then the button that acts on it.
         scene.addInstruction(s -> {
+            panel.setButtonHighlighted(false);
+            panel.setSlotHighlighted(0);
             panel.setStack(0, intermediate);
             panel.setStack(1, ItemStack.EMPTY);
         });
-        scene.overlay().showText(90)
+        scene.overlay().showText(100)
                 .attachKeyFrame()
                 .text("An unfinished intermediate gives back only what has been assembled so far")
                 .placeNearTarget()
                 .pointAt(ProductionLineScenes.highlight(util, machine));
-        scene.idle(100);
+        scene.idle(60);
+        scene.addInstruction(s -> {
+            panel.setSlotHighlighted(-1);
+            panel.setButtonHighlighted(true);
+        });
+        scene.idle(14);
+        scene.addInstruction(s -> panel.setStack(0, mirror));
+        scene.effects().indicateSuccess(machine);
+        scene.idle(66);
         scene.addInstruction(s -> panel.setButtonHighlighted(false));
         scene.idle(10);
         scene.markAsFinished();
