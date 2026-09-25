@@ -76,7 +76,7 @@ public final class DismantlerScenes {
                 .attachKeyFrame()
                 .text("The left slot takes a finished product, or an unfinished intermediate")
                 .placeNearTarget()
-                .pointAt(util.vector().topOf(machine));
+                .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.idle(90);
 
         // 2 — dismantle it
@@ -86,7 +86,7 @@ public final class DismantlerScenes {
                 .text("Dismantling hands the materials back and leaves a read-only mirror")
                 .colored(PonderPalette.OUTPUT)
                 .placeNearTarget()
-                .pointAt(util.vector().topOf(machine));
+                .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.addInstruction(s -> panel.setStack(0, mirror));
         scene.effects().indicateSuccess(machine);
         scene.idle(90);
@@ -101,7 +101,7 @@ public final class DismantlerScenes {
                 .text("A written scheme is erased: a mirror of the plan, and a blank scheme back")
                 .colored(PonderPalette.INPUT)
                 .placeNearTarget()
-                .pointAt(util.vector().topOf(machine));
+                .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.idle(100);
 
         // 4 — silent: the swap itself
@@ -122,7 +122,7 @@ public final class DismantlerScenes {
                 .attachKeyFrame()
                 .text("An unfinished intermediate gives back only what has been assembled so far")
                 .placeNearTarget()
-                .pointAt(util.vector().topOf(machine));
+                .pointAt(ProductionLineScenes.highlight(util, machine));
         scene.idle(100);
         scene.markAsFinished();
     }

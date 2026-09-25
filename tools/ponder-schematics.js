@@ -82,7 +82,7 @@ const pList = (itemId, items) => {
 };
 const pCompound = (entries) => Buffer.concat([...entries, Buffer.from([0])]);
 
-const SIZE = [5, 3, 5];
+const SIZE = [5, 4, 5];
 
 /** state -> palette entry NBT. Properties are the exact spellings Create's own schematics use. */
 function paletteEntry(state) {
@@ -145,6 +145,16 @@ const deployer = (x, y, z) => ({
 const MOTOR_Z = 0;
 const motor = () => ({ Name: 'create:creative_motor', pos: [0, 1, MOTOR_Z], Properties: { facing: 'south' } });
 
+/**
+ * The Deployers sit above the belt's first cell and above its last cell, and hang **two** cells above it:
+ * a Deployer always acts on the position two blocks in front of itself (Create's own scene says so in as
+ * many words), so a Deployer at y=2 facing down would reach the plate at y=0 and miss the belt at y=1
+ * entirely. One empty cell between the hand and the belt is what the author called "空一格", and it is
+ * how a real sequenced assembly is built. The last cell is deliberate too: an item that reaches the end
+ * of a belt stops there by itself, so the picture never depends on how fast the belt happens to run.
+ */
+const DEPLOYER_Y = 3;
+
 const schematics = {
   // Chapter 1 — the machine alone on the plate.
   production_computer: [MACHINE('create_productionline:production_computer')],
@@ -156,7 +166,7 @@ const schematics = {
     { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'true' } },
     motor(),
     belt(0, 1, 'start'), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
-    deployer(1, 2, 1), deployer(3, 2, 1),
+    deployer(1, DEPLOYER_Y, 1), deployer(4, DEPLOYER_Y, 1),
   ],
 
   // Its own entry — the machine alone, like chapter 1.

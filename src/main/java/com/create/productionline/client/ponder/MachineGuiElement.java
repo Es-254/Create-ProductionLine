@@ -47,7 +47,14 @@ public class MachineGuiElement implements PonderOverlayElement {
     private static final int TITLE_X = 8;
     /** Distance from the screen edge, matching where Ponder's own widget column sits. */
     private static final int MARGIN_X = 14;
-    private static final int MARGIN_Y = 26;
+    /**
+     * The panel hugs the top edge. Ponder puts every narration box at
+     * {@code (min(0.75 * width, targetX + 50), targetY + 3)}, and our scenes point at the machine's
+     * near-bottom corner, which lands those boxes around two thirds of the screen height — so with the
+     * panel one panel-height down from the top (the 26 this used to be) a long line of narration ran
+     * straight across its lower half. Up here the two cannot meet.
+     */
+    private static final int MARGIN_Y = 6;
 
     private static final int TITLE_COLOR = 0x404040;
     private static final int BUTTON_TEXT_COLOR = 0xFFFFFF;

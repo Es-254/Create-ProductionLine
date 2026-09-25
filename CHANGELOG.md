@@ -105,6 +105,21 @@ actually published with at the time was `release`.
   along x is turned by), and the scene sets the speed on the motor and the belt, drops the base item onto
   the running belt and lets each Deployer reach down onto it and retract again, with a success flash. The
   line reads as a powered line now, not as a diagram of one.
+- **The Deployers were one cell too low to reach the belt, and the belt carried nothing.** A Deployer acts
+  on the position **two** blocks in front of itself, so the cells at y=2 facing down work the plate at y=0
+  and never touch the belt at y=1 — exactly the "leave one cell empty" the author described from a real
+  sequenced assembly. They now hang two cells above the belt (schematic grown to 5x4x5), holding the
+  material they add, and the belt carries the whole story: the base goes on under the first Deployer, which
+  turns it into a **Generic Intermediate** (this mod's own unfinished-line item), and the second — waiting
+  at the belt's last cell, where an item stops by itself, so the picture cannot drift out of step with the
+  belt speed — finishes it into the product. Base, intermediate and product all travel the belt.
+- **The narration boxes ran across the GUI panel.** Ponder anchors a speech box to the pointed position
+  (`min(0.75 * width, projectedX + 50)`, `projectedY + 3`), and the scenes pointed at `topOf(machine)`,
+  which projects to roughly 40% of the screen height — the panel's own band. They now point at the machine's
+  **near-bottom** corner (the side facing the camera, just above the plate), which drops the boxes to about
+  two thirds of the height, and the panel moved up to the top edge (`y=6`). Both boxes and panel are clear
+  of each other in every scene, with the projection worked out from Ponder's own transform rather than by
+  eye.
 
 ### Added
 
