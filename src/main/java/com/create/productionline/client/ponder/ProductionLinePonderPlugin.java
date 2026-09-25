@@ -2,7 +2,9 @@ package com.create.productionline.client.ponder;
 
 import com.create.productionline.ProductionLineMod;
 import com.create.productionline.registry.ModBlocks;
+import com.simibubi.create.foundation.ponder.PonderWorldBlockEntityFix;
 
+import net.createmod.ponder.api.level.PonderLevel;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
@@ -81,5 +83,17 @@ public class ProductionLinePonderPlugin implements PonderPlugin {
         tags.addTagToComponent(ModBlocks.PRODUCTION_COMPUTER.get(), MACHINES_TAG);
         tags.addTagToComponent(ModBlocks.SCHEME_LOADER.get(), MACHINES_TAG);
         tags.addTagToComponent(ModBlocks.DISMANTLER.get(), MACHINES_TAG);
+    }
+
+    /**
+     * Belt segments placed from a schematic do not know which segment is their controller: that link is
+     * per-instance state, and restoring the ponder level from its backup rebuilds the block entities
+     * without it. Without the link, {@code createItemOnBelt} does nothing at all — no item, no error,
+     * no log line — which is why the closing picture's belt stayed empty. Create hooks this very method
+     * for its own scenes ({@code CreatePonderPlugin.onPonderLevelRestore}).
+     */
+    @Override
+    public void onPonderLevelRestore(PonderLevel ponderLevel) {
+        PonderWorldBlockEntityFix.fixControllerBlockEntities(ponderLevel);
     }
 }

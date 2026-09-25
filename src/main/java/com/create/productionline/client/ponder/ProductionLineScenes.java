@@ -21,6 +21,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -180,6 +182,7 @@ public final class ProductionLineScenes {
 
         BlockPos machine = util.grid().at(2, 1, 2);
         BlockPos lamp = util.grid().at(4, 1, 2);
+        BlockPos dust = util.grid().at(3, 1, 2);
         ItemStack writtenScheme = writtenScheme();
 
         int[] loaderSlotsX = new int[16];
@@ -238,14 +241,18 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 — redstone while recipes are active: the lamp is in the schematic, already lit
+        // 4 — redstone while recipes are active: the dust lights up and the lamp comes on with it
+        scene.world().showSection(util.select().position(dust), Direction.UP);
         scene.world().showSection(util.select().position(lamp), Direction.EAST);
+        scene.idle(5);
+        scene.world().modifyBlock(dust, state -> state.setValue(RedStoneWireBlock.POWER, 15), false);
+        scene.world().modifyBlock(lamp, state -> state.setValue(RedstoneLampBlock.LIT, true), false);
         scene.overlay().showText(70)
                 .attachKeyFrame()
                 .text("While recipes are active the cabinet emits a redstone signal")
                 .colored(PonderPalette.RED)
                 .placeNearTarget()
-                .pointAt(highlight(util, lamp));
+                .pointAt(highlight(util, dust));
         scene.idle(80);
         scene.addInstruction(s -> panel.setVisible(false));
 
@@ -286,11 +293,11 @@ public final class ProductionLineScenes {
     private static void buildLinePreview(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util) {
         // The power train and the belt it drives: motor at (0, 1, 0), belt along z = PREVIEW_ROW_Z.
-        BlockPos first = util.grid().at(1, DEPLOYER_Y, PREVIEW_ROW_Z);
+        BlockPos first = util.grid().at(0, DEPLOYER_Y, PREVIEW_ROW_Z);
         BlockPos second = util.grid().at(4, DEPLOYER_Y, PREVIEW_ROW_Z);
         var line = util.select().position(0, 1, PREVIEW_ROW_Z - 1)
                 .add(util.select().fromTo(0, 1, PREVIEW_ROW_Z, 4, 1, PREVIEW_ROW_Z));
-        var deployers = util.select().fromTo(1, DEPLOYER_Y, PREVIEW_ROW_Z, 4, DEPLOYER_Y, PREVIEW_ROW_Z);
+        var deployers = util.select().fromTo(0, DEPLOYER_Y, PREVIEW_ROW_Z, 4, DEPLOYER_Y, PREVIEW_ROW_Z);
 
         scene.world().showSection(line, Direction.DOWN);
         scene.idle(5);
@@ -305,9 +312,11 @@ public final class ProductionLineScenes {
                         new ItemStack(Items.COAL).saveOptional(scene.world().getHolderLookupProvider())));
         scene.idle(10);
 
-        // The base waits under the first Deployer — stalled, so the two do not depend on belt speed.
+        // The base goes on at the belt's input cell, which is also where the first Deployer waits — so the
+        // two are in position from the first tick. Create's own scenes insert at the belt's `start` cell
+        // and pass the side the item comes from (a belt facing east takes items from the west).
         ElementLink<BeltItemElement> item = scene.world().createItemOnBelt(
-                util.grid().at(1, 1, PREVIEW_ROW_Z), Direction.EAST, new ItemStack(Items.IRON_ORE));
+                util.grid().at(0, 1, PREVIEW_ROW_Z), Direction.WEST, new ItemStack(Items.IRON_ORE));
         scene.world().stallBeltItem(item, true);
         scene.idle(10);
         scene.world().moveDeployer(first, 1f, 20);

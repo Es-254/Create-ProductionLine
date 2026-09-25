@@ -120,6 +120,18 @@ actually published with at the time was `release`.
   two thirds of the height, and the panel moved up to the top edge (`y=6`). Both boxes and panel are clear
   of each other in every scene, with the projection worked out from Ponder's own transform rather than by
   eye.
+- **Nothing ever appeared on the belt.** A belt placed from a schematic does not know which of its segments
+  is the controller — that link is per-instance state and is lost when the ponder level is restored from its
+  backup — and `createItemOnBelt` then does nothing at all: no item, no error, no log line. Create fixes
+  exactly this in `CreatePonderPlugin.onPonderLevelRestore` via
+  `PonderWorldBlockEntityFix.fixControllerBlockEntities`; our plugin now implements the same hook. The item
+  is also inserted the way Create's own scenes do it: at the belt's `start` cell, passing the side the item
+  comes from (a belt facing east takes items from the west), and the first Deployer now waits above that very
+  cell, so base and hand start in position instead of relying on a guessed travel time.
+- **The redstone signal had no wire to travel along.** The narration promises that an active cabinet emits a
+  redstone signal, but the lamp simply appeared already lit. The schematic now carries redstone dust between
+  the cabinet and the lamp (a straight east-west run), the lamp starts unlit, and the scene raises the dust's
+  `power` and switches the lamp's `lit` in the same tick — the signal arrives on screen.
 
 ### Added
 

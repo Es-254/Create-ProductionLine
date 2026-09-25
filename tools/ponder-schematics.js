@@ -136,6 +136,16 @@ const deployer = (x, y, z) => ({
 });
 
 /**
+ * Redstone dust between the cabinet and the lamp: the two connection flags are what make the wire draw
+ * as a straight run instead of a dot, and `power` is what the scene raises when the narration says the
+ * cabinet emits a signal.
+ */
+const dust = (x, z) => ({
+  Name: 'minecraft:redstone_wire', pos: [x, 1, z],
+  Properties: { north: 'false', east: 'true', south: 'false', west: 'true', power: '0' },
+});
+
+/**
  * The motor that drives the closing picture's belt, one cell north of the belt's first pulley. A belt
  * travelling along x is turned by pulleys whose axis runs along z, so the motor's output has to point
  * at the belt from the side: at (0,1,0) facing south it drives (0,1,1). Ponder scenes do run kinetics
@@ -159,14 +169,18 @@ const schematics = {
   // Chapter 1 — the machine alone on the plate.
   production_computer: [MACHINE('create_productionline:production_computer')],
 
-  // Chapter 2 — the cabinet, the lamp it lights up, and the powered line the plan describes, one row
-  // in front of the machine (z=1, so the preview never shares a position with the cabinet at z=2).
+  // Chapter 2 — the cabinet, the redstone line it drives, and the powered belt line the plan describes,
+  // one row in front of the machine (z=1, so the preview never shares a position with the cabinet at z=2).
   scheme_loader: [
     MACHINE('create_productionline:scheme_loader', { Properties: { fill: '0' } }),
-    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'true' } },
+    // The signal path the narration talks about: cabinet (2,1,2) -> dust (3,1,2) -> lamp (4,1,2). The
+    // lamp starts unlit and the scene powers dust and lamp together, so the picture shows the signal
+    // arriving rather than a lamp that was lit all along.
+    dust(3, 2),
+    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'false' } },
     motor(),
     belt(0, 1, 'start'), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
-    deployer(1, DEPLOYER_Y, 1), deployer(4, DEPLOYER_Y, 1),
+    deployer(0, DEPLOYER_Y, 1), deployer(4, DEPLOYER_Y, 1),
   ],
 
   // Its own entry — the machine alone, like chapter 1.
