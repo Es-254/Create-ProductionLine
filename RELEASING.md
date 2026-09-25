@@ -5,6 +5,23 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-25):**
 >
+> - **`0.0.0-dev.14` … `dev.24` were published on request** (2026-09-26, GitHub only, each
+>   `prerelease: true`): the author asked for everything after `dev.13` to go up. Each tag sits on the
+>   commit that produced its jar, the tags were pushed 30 s apart so no CI run is dropped, all eleven runs
+>   finished **success**, and **every published asset was downloaded and hashed against the local jar —
+>   all eleven are byte-identical**. Tag → commit → size (sha256 prefix is the local jar digest, which the
+>   asset matches):
+>   `dev.14`=`0169c68`=283,701 B (schematics ship, scenes grouped), `dev.15`=`1c4a1a3`=283,907 B
+>   (schematic NBT read as empty), `dev.16`=`e7d8072`=285,312 B (runtime sections, panel contents,
+>   chapters), `dev.17`=`3021b83`=286,931 B (schematics carry the props), `dev.18`=`84979a5`=287,209 B
+>   (powered line), `dev.19`=`afcf268`=287,918 B (Deployer height, narration boxes), `dev.20`=`7366e99`=
+>   288,348 B (belt controllers, dust), `dev.21`=`ba8b5e4`=288,306 B (belt block-entity data), `dev.22`=
+>   `80d7e93`=288,184 B (items fed onto the belt), `dev.23`=`87477a1`=289,290 B (belt direction, raw iron,
+>   Deployer cells), `dev.24`=`8cefddd`=289,517 B (full-strength signal, gliding item, one product).
+>   Their Release bodies are CI placeholders ("Release 0.0.0-dev.N — see CHANGELOG.md." plus the compare
+>   link), because those commits carry no `## 0.0.0-dev.N` heading for CI to extract and **no API token was
+>   available in the environment to patch them** the way `dev.7`…`dev.13` were. Patching them needs a
+>   token, or the bodies can be edited on the GitHub web UI; the jars themselves are correct.
 > - **`0.0.0-dev.7` … `dev.13` were published retroactively** (2026-09-25, GitHub only, each
 >   `prerelease: true`). They had accumulated locally while work went on; every tag was placed on the
 >   commit that reproduces its jar **byte-for-byte** (rebuilt from the commit with
@@ -19,9 +36,8 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 >   Their Release bodies are **hand-written**, not CHANGELOG sections: those commits predate the
 >   sections, so CI wrote its placeholder and the body was patched through the API afterwards. That is a
 >   deliberate, recorded exception to "the body is the matching CHANGELOG section".
-> - **`0.0.0-dev.14` is built locally and NOT published** (2026-09-25) — the Ponder schematic + tag fix,
->   `create_productionline-0.0.0-dev.14.jar`, 283,701 B, `sha256:d81c4035…`; `dev-build.txt` stands at
->   `15`, so the next dev cut is `0.0.0-dev.15`. It is the build the author has yet to watch in game.
+> - **`dev-build.txt` stands at `25`**, so the next dev cut is `0.0.0-dev.25`; `dev.14`…`dev.24` are all
+>   published now (above), and the two instances run `dev.24` for the author's in-game pass.
 > - **`1.0.3-snapshot.0.0.2` is the newest public snapshot** (2026-09-25, alpha, GitHub **and**
 >   CurseForge): the whole `1.0.3` line up to the build-guide tooltip fix. Local jar
 >   `create_productionline-1.0.3-snapshot.0.0.2.jar`, 261,785 B, `sha256:a1f9bfef…`; GitHub asset from CI

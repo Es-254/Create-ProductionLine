@@ -14,7 +14,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **snapshot (alpha)**: `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha` — work in progress towards
   `x.y.z`. `1.0.3-snapshot.0.0.1` is the first.
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
-  always published as `beta`.
+  always published as `beta`. **`0.0.0-dev.5` … `dev.24` are all published on GitHub** (each a
+  pre-release with the jar CI rebuilt from its tag; every asset digest verified against the local build).
+  The next dev cut is `0.0.0-dev.25`.
 
 The four jars of the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) predate this policy: they
 were published with channel `release` back then, and they are recorded below as the development snapshots
