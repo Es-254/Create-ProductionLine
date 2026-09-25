@@ -31,7 +31,15 @@ public final class DismantlerScenes {
         scene.title(ProductionLinePonderPlugin.DISMANTLER_SCENE, "Dismantling what you do not need");
 
         scene.configureBasePlate(0, 0, 5);
-        scene.showBasePlate();
+
+
+        scene.scaleSceneView(0.9F);
+
+
+        // The base plate is the schematic's layer 0; revealing it that way is what Create's own scenes do.
+
+
+        scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         BlockPos machine = util.grid().at(2, 1, 2);
         scene.world().setBlock(machine, ModBlocks.DISMANTLER.get().defaultBlockState(), false);
@@ -54,6 +62,7 @@ public final class DismantlerScenes {
         scene.addInstruction(s -> panel.setVisible(true));
         scene.addInstruction(s -> panel.setStack(0, product));
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("The left slot takes a finished product, or an unfinished intermediate")
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));
@@ -62,6 +71,7 @@ public final class DismantlerScenes {
         // 2 — dismantle it
         scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 45).leftClick();
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("Dismantling hands the materials back and leaves a read-only mirror")
                 .colored(PonderPalette.OUTPUT)
                 .placeNearTarget()
@@ -76,6 +86,7 @@ public final class DismantlerScenes {
             panel.setStack(1, com.create.productionline.item.LineSchemeItem.sampleStack());
         });
         scene.overlay().showText(90)
+                .attachKeyFrame()
                 .text("A written scheme is erased: a mirror of the plan, and a blank scheme back")
                 .colored(PonderPalette.INPUT)
                 .placeNearTarget()
@@ -97,6 +108,7 @@ public final class DismantlerScenes {
             panel.setStack(1, ItemStack.EMPTY);
         });
         scene.overlay().showText(90)
+                .attachKeyFrame()
                 .text("An unfinished intermediate gives back only what has been assembled so far")
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));

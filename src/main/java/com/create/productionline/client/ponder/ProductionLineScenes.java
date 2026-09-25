@@ -59,7 +59,15 @@ public final class ProductionLineScenes {
         ItemStack writtenScheme = writtenScheme();
 
         scene.configureBasePlate(0, 0, 5);
-        scene.showBasePlate();
+
+
+        scene.scaleSceneView(0.9F);
+
+
+        // The base plate is the schematic's layer 0; revealing it that way is what Create's own scenes do.
+
+
+        scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         scene.world().setBlock(machine, ModBlocks.PRODUCTION_COMPUTER.get().defaultBlockState(), false);
         scene.world().showSection(util.select().position(machine), Direction.DOWN);
@@ -75,6 +83,7 @@ public final class ProductionLineScenes {
         // 1 — what the machine is for
         scene.addInstruction(s -> panel.setVisible(true));
         scene.overlay().showText(70)
+                .attachKeyFrame()
                 .text("Turn any recipe into a production line plan")
                 .colored(PonderPalette.GREEN)
                 .placeNearTarget()
@@ -84,6 +93,7 @@ public final class ProductionLineScenes {
         // 2 — what goes into the first two slots
         scene.addInstruction(s -> panel.setStack(0, target));
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("Slot 1 takes the item to produce, slot 2 a blank Line Scheme")
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));
@@ -94,6 +104,7 @@ public final class ProductionLineScenes {
         // 3 — the optional paper carrier
         scene.addInstruction(s -> panel.setStack(2, paper));
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("Slot 3 may hold paper: it stays readable as a manual after the scheme is loaded")
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));
@@ -102,6 +113,7 @@ public final class ProductionLineScenes {
         // 4 — press Compute
         scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 60).leftClick();
         scene.overlay().showText(70)
+                .attachKeyFrame()
                 .text("Press Compute: the server derives it from its live recipes and writes the scheme")
                 .colored(PonderPalette.INPUT)
                 .placeNearTarget()
@@ -112,6 +124,7 @@ public final class ProductionLineScenes {
 
         // 5 — what the written scheme says
         scene.overlay().showText(90)
+                .attachKeyFrame()
                 .text("The scheme names the product, the base and the whole chain; a self-referencing "
                         + "recipe is marked as an incremental line")
                 .colored(PonderPalette.OUTPUT)
@@ -140,7 +153,15 @@ public final class ProductionLineScenes {
         }
 
         scene.configureBasePlate(0, 0, 5);
-        scene.showBasePlate();
+
+
+        scene.scaleSceneView(0.9F);
+
+
+        // The base plate is the schematic's layer 0; revealing it that way is what Create's own scenes do.
+
+
+        scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(10);
         scene.world().setBlock(machine, ModBlocks.SCHEME_LOADER.get().defaultBlockState(), false);
         scene.world().showSection(util.select().position(machine), Direction.DOWN);
@@ -154,6 +175,7 @@ public final class ProductionLineScenes {
         scene.addInstruction(s -> panel.setVisible(true));
         scene.addInstruction(s -> panel.setStack(0, writtenScheme));
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("Put the written scheme into any slot of a Scheme Loader")
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));
@@ -163,6 +185,7 @@ public final class ProductionLineScenes {
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 1), false);
         scene.effects().indicateSuccess(machine);
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("It takes effect immediately: only the recipes refresh, the server does not reload")
                 .colored(PonderPalette.GREEN)
                 .placeNearTarget()
@@ -176,6 +199,7 @@ public final class ProductionLineScenes {
         });
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 3), false);
         scene.overlay().showText(80)
+                .attachKeyFrame()
                 .text("The bar on its side shows how much of the cabinet is in use")
                 .placeNearTarget()
                 .pointAt(util.vector().blockSurface(machine, Direction.NORTH));
@@ -185,6 +209,7 @@ public final class ProductionLineScenes {
         scene.world().setBlock(lamp, net.minecraft.world.level.block.Blocks.REDSTONE_LAMP.defaultBlockState(), false);
         scene.world().showSection(util.select().position(lamp), Direction.EAST);
         scene.overlay().showText(70)
+                .attachKeyFrame()
                 .text("While recipes are active the cabinet emits a redstone signal")
                 .colored(PonderPalette.RED)
                 .placeNearTarget()
@@ -198,6 +223,7 @@ public final class ProductionLineScenes {
         scene.idle(10);
         buildLinePreview(scene, util);
         scene.overlay().showText(100)
+                .attachKeyFrame()
                 .text("Build the line it describes: base onto the belt first, one Deployer per added "
                         + "material facing down")
                 .placeNearTarget()

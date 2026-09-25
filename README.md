@@ -33,6 +33,7 @@ world is re-read. The target item can then be produced by a real Create producti
 | [`docs/qa.md`](docs/qa.md) | 无头自检 / QA | How to run the self test, the 23-check snapshot and the doc↔code consistency baseline ／ 自检运行方式、23 项快照、文档—代码一致性核对基线 |
 | [`docs/platform-listing.md`](docs/platform-listing.md) | 平台文案 / Platform listing | The project body text uploaded to Modrinth / CurseForge ／ 上传到 Modrinth / CurseForge 的项目描述文案 |
 | [`CHANGELOG.md`](CHANGELOG.md) | 更新日志 / Release history | What changed in every version ／ 每个版本的变更记录 |
+| [`docs/version-diff-1.0.1-to-now.md`](docs/version-diff-1.0.1-to-now.md) | 版本对比 / Version diff | Every local jar against the last stable release `1.0.1`: which commit/tag each one is, what changed and what is still unreleased ／ 与上一个正式版 `1.0.1` 的逐包对比：每个本地 jar 对应的提交/tag、改了什么、还有什么没发布 |
 | [`RELEASING.md`](RELEASING.md) | 发布流程 / Releasing | How a release is cut: version policy, tags and CI, the three-platform paths ／ 版本规范、tag 与 CI、三平台发布路径 |
 | [`CONTRIBUTORS.md`](CONTRIBUTORS.md) | 贡献与资助名单 / Contributors | The full funding-support and technical-support lists ／ 资金支持与技术支持完整名单 |
 | [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | 第三方清单 / Third-party inventory | Third-party code and licences ／ 第三方代码与许可清单 |
