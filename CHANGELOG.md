@@ -65,6 +65,16 @@ actually published with at the time was `release`.
   `LineBuildGuide` payload is still written — it is what makes a plain item a carrier — it is simply not
   rendered, and its four now-unused language keys were removed.
 
+### Added
+
+- **Generated recipes are retired, not deleted, when they leave the union.** An item crafted on a line
+  outlives the line: the Dismantler refunds an unfinished intermediate from the recipe that gave it its
+  provenance, so deleting that recipe the moment its scheme left the loader turned every leftover
+  intermediate into scrap — reported in game as "找不到它来源的序列配方 cpl:…". The pack now moves retired
+  files to `<world>/cpl_retired/` (outside `datapacks/`, so nothing loads them again) and the reader falls
+  back to that folder when the live pack no longer has the recipe. Intermediates orphaned *before* this
+  change stay unrecoverable unless their scheme is put back once, which regenerates the file.
+
 ## 1.0.3-snapshot.0.0.2 — 2026-09-25 (alpha)
 
 **The second `1.0.3` snapshot: the whole line so far, for an in-game pass before the release cut.**

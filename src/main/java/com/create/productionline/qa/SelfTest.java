@@ -903,6 +903,37 @@ public final class SelfTest {
             refunded.forEach(net.minecraft.world.entity.Entity::discard);
             inv.setItem(DismantlerBlockEntity.SLOT_ITEM, ItemStack.EMPTY);
 
+            // --- a retired generated recipe is still readable for provenance -------
+            // A generated recipe leaves the pack when its scheme leaves the loader; the item
+            // crafted while it was live still names it, so the retirement folder is the last
+            // place the refund can come from.
+            java.nio.file.Path retired = com.create.productionline.recipegen.CreateRecipePack.retiredDir(server);
+            java.nio.file.Files.createDirectories(retired);
+            java.nio.file.Path retiredFile = retired.resolve("cpl_test_retired.json");
+            java.nio.file.Files.writeString(retiredFile, """
+                    {
+                      "type": "create:sequenced_assembly",
+                      "ingredient": { "item": "minecraft:copper_ingot" },
+                      "loops": 1,
+                      "results": [ { "id": "minecraft:gold_ingot" } ],
+                      "sequence": [
+                        {
+                          "type": "create:deploying",
+                          "ingredients": [ { "item": "minecraft:copper_ingot" }, { "item": "minecraft:redstone" } ],
+                          "results": [ { "id": "minecraft:copper_ingot" } ]
+                        }
+                      ],
+                      "transitional_item": { "id": "minecraft:copper_ingot" }
+                    }
+                    """);
+            com.create.productionline.util.RecipeJsonReader.SequenceParts retiredParts =
+                    com.create.productionline.util.RecipeJsonReader.sequenceParts(server.getResourceManager(),
+                            ResourceLocation.fromNamespaceAndPath("cpl", "cpl_test_retired"), retired);
+            ok &= layoutExpect("a retired generated recipe is still readable for provenance",
+                    retiredParts != null && "minecraft:copper_ingot".equals(retiredParts.base())
+                            && retiredParts.stepMaterials().contains("minecraft:redstone"));
+            java.nio.file.Files.deleteIfExists(retiredFile);
+
             // --- fluid ingredients are counted, never silently dropped -------------
             var manager = server.getResourceManager();
             int fluids = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(manager, fluidId);

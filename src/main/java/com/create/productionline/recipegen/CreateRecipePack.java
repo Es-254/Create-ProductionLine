@@ -44,6 +44,20 @@ import net.minecraft.world.level.storage.LevelResource;
 public final class CreateRecipePack {
 
     public static final String PACK_FOLDER = "cpl_converted";
+
+    /** Folder (outside {@code datapacks/}) holding generated recipes that left the union. */
+    private static final String RETIRED_FOLDER = "cpl_retired";
+
+    /**
+     * Where generated recipes go once they leave the union.
+     *
+     * <p>Deliberately not under {@code datapacks/}: nothing may load these again — they exist so
+     * that an item crafted on a line can still be refunded after that line's scheme is gone.
+     * See {@code RecipeJsonReader#readRecipeJson(ResourceManager, ResourceLocation, Path)}.
+     */
+    public static java.nio.file.Path retiredDir(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT).resolve(RETIRED_FOLDER);
+    }
     public static final String PACK_NAMESPACE = "cpl";
     /**
      * Minecraft 1.21.1 <b>data</b> pack format. (34 is the 1.21.1 <b>resource</b>
@@ -430,6 +444,33 @@ public final class CreateRecipePack {
                     .forEach(n -> installedBefore.add(n.substring(0, n.length() - ".json".length())));
         } catch (java.io.IOException e) {
             ProductionLineMod.LOGGER.debug("No previous cpl recipe folder to diff against: {}", e.toString());
+        }
+        // Retire what is leaving the union instead of deleting it. An item on a line outlives
+        // the line: the Dismantler refunds an unfinished intermediate from the recipe that gave
+        // it its provenance, so deleting that recipe turned every leftover intermediate into
+        // scrap the moment its scheme left the loader. The retired copies live OUTSIDE
+        // datapacks/ (nothing loads them) and are only ever read for provenance.
+        Path retiredDir = retiredDir(server);
+        int retired = 0;
+        for (String name : installedBefore) {
+            if (all.containsKey(name)) {
+                continue;
+            }
+            Path from = recipeDir.resolve(name + ".json");
+            if (!Files.exists(from)) {
+                continue;
+            }
+            try {
+                Files.createDirectories(retiredDir);
+                Files.move(from, retiredDir.resolve(name + ".json"),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                retired++;
+            } catch (java.io.IOException e) {
+                ProductionLineMod.LOGGER.warn("Could not retire the generated recipe {}: {}", name, e.toString());
+            }
+        }
+        if (retired > 0) {
+            ProductionLineMod.LOGGER.info("Retired {} generated recipe(s) that left the union", retired);
         }
         deleteRecursively(recipeDir);
         Files.createDirectories(recipeDir);

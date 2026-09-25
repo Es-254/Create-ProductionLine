@@ -329,7 +329,13 @@ public final class RecipeJsonReader {
      * cannot resolve).
      */
     public static SequenceParts sequenceParts(ResourceManager manager, ResourceLocation recipeId) {
-        JsonObject obj = readRecipeJson(manager, recipeId);
+        return sequenceParts(manager, recipeId, null);
+    }
+
+    /** Same, with the retirement folder as a fallback source (see {@link #readRecipeJson}). */
+    public static SequenceParts sequenceParts(ResourceManager manager, ResourceLocation recipeId,
+            java.nio.file.Path retiredDir) {
+        JsonObject obj = readRecipeJson(manager, recipeId, retiredDir);
         if (obj == null || !obj.has("sequence") || !obj.get("sequence").isJsonArray()) {
             return null;
         }
@@ -391,19 +397,49 @@ public final class RecipeJsonReader {
     }
 
     /** Reads a recipe JSON by id, or {@code null} when unavailable/unreadable. */
-    public static JsonObject readRecipeJson(ResourceManager manager, ResourceLocation recipeId) {        if (manager == null || recipeId == null) {
+    public static JsonObject readRecipeJson(ResourceManager manager, ResourceLocation recipeId) {
+        return readRecipeJson(manager, recipeId, null);
+    }
+
+    /**
+     * Same, with a fallback folder for recipes that are no longer installed.
+     *
+     * <p>{@code RecipeJsonReader} normally reads through the server's resource manager, i.e. the
+     * recipes that are live right now. A generated recipe that left the union is gone from there
+     * (see {@code CreateRecipePack.retiredDir}) — but an item crafted while it was live still
+     * names it, so the retirement folder is consulted before giving up.
+     */
+    public static JsonObject readRecipeJson(ResourceManager manager, ResourceLocation recipeId,
+            java.nio.file.Path retiredDir) {
+        if (recipeId == null) {
+            return null;
+        }
+        if (manager != null) {
+            try {
+                var opt = manager.getResource(ResourceLocation.fromNamespaceAndPath(
+                        recipeId.getNamespace(), "recipe/" + recipeId.getPath() + ".json"));
+                if (opt.isPresent()) {
+                    return com.google.gson.JsonParser.parseString(readAll(opt.get().open())).getAsJsonObject();
+                }
+            } catch (Exception ignored) {
+                // fall through to the retirement folder
+            }
+        }
+        if (retiredDir == null) {
             return null;
         }
         try {
-            var opt = manager.getResource(ResourceLocation.fromNamespaceAndPath(
-                    recipeId.getNamespace(), "recipe/" + recipeId.getPath() + ".json"));
-            if (opt.isEmpty()) {
-                return null;
+            String path = recipeId.getPath();
+            int slash = path.lastIndexOf('/');
+            java.nio.file.Path file = retiredDir.resolve((slash >= 0 ? path.substring(slash + 1) : path) + ".json");
+            if (java.nio.file.Files.isRegularFile(file)) {
+                return com.google.gson.JsonParser.parseString(
+                        java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8))
+                        .getAsJsonObject();
             }
-            return com.google.gson.JsonParser.parseString(readAll(opt.get().open())).getAsJsonObject();
         } catch (Exception ignored) {
-            return null;
         }
+        return null;
     }
 
     /**

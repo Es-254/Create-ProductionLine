@@ -208,7 +208,8 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
             // --- unfinished intermediate: refund what it already absorbed -------------
             com.create.productionline.util.RecipeJsonReader.SequenceParts parts =
                     com.create.productionline.util.RecipeJsonReader.sequenceParts(
-                            manager, assembly.id());
+                            manager, assembly.id(),
+                            com.create.productionline.recipegen.CreateRecipePack.retiredDir(serverLevel.getServer()));
             if (parts == null) {
                 // The recipe that gives this item its provenance is gone (the scheme that
                 // generated it left the loader) or unreadable: say which one it was.
@@ -216,8 +217,7 @@ public class DismantlerBlockEntity extends net.minecraft.world.level.block.entit
                         assembly.id() == null ? "" : assembly.id().toString());
             }
             fluidsSkipped = com.create.productionline.util.RecipeJsonReader.countFluidIngredients(
-                    manager, assembly.id());
-            if (parts.base() != null) {
+                    manager, assembly.id());            if (parts.base() != null) {
                 toRestore.add(parts.base());
             }
             int applied = Math.min(assembly.step(), parts.stepMaterials().size());
