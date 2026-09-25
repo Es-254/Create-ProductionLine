@@ -163,6 +163,17 @@ actually published with at the time was `release`.
   position in small steps (five per cell over the ticks the belt itself would need), so nothing fights over
   where it is. At the end it is handed back to the belt, which carries it off the tail and drops it by
   itself; the item entity this scene used to spawn on top of that was the second product.
+- **The item glides, and the signal is shown on the machine instead of on a wire.** Two fixes from the
+  author's pass: the item's PrevPos is now the position it had on the previous tick (the belt's renderer
+  interpolates lerp(partialTicks, prevBeltPosition, beltPosition), and writing both to the same value left
+  it nothing to interpolate — the jumps), and it steps once per tick rather than once every three. And the
+  redstone lamp now sits **on top of the cabinet** rather than at the end of a wire: a vanilla redstone wire
+  was tried twice — baked at 15, then powered from the scene — and rendered dark both times, while the lamp's
+  own state change always showed, so the wire is out of the picture. The cabinet is still marked active
+  (which is what SchemeLoaderBlock#getSignal reads) and the lamp is switched on, so the step shows the
+  machine lighting its own lamp.
+- **English narration back inside the documented budget**: production_computer.text_5 was 107 characters,
+  over the 100 the narration table allows for English, and is now 93.
 - **The narration now comes up before the line starts, and follows the author's revised script**: "用序列
   装配的方式按照方案上的提示搭建产线，并为设施提供原料" / "Build the line the scheme describes as a sequenced
   assembly, and keep it supplied".

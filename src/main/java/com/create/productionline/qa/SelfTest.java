@@ -1381,8 +1381,7 @@ public final class SelfTest {
 
         Map<BlockPos, String> loader = new LinkedHashMap<>();
         loader.put(new BlockPos(2, 1, 2), "create_productionline:scheme_loader");
-        loader.put(new BlockPos(3, 1, 2), "minecraft:redstone_wire"); // cabinet -> dust -> lamp
-        loader.put(new BlockPos(4, 1, 2), "minecraft:redstone_lamp");
+        loader.put(new BlockPos(2, 2, 2), "minecraft:redstone_lamp"); // sits on the cabinet: it lights when the cabinet emits
         loader.put(new BlockPos(0, 1, 0), "create:creative_motor"); // drives the closing picture's belt
         for (int x = 0; x <= 4; x++) {
             loader.put(new BlockPos(x, 1, 1), "create:belt"); // the closing picture's line

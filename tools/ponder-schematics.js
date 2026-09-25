@@ -250,10 +250,13 @@ const schematics = {
   // one row in front of the machine (z=1, so the preview never shares a position with the cabinet at z=2).
   scheme_loader: [
     MACHINE('create_productionline:scheme_loader', { Properties: { fill: '0' } }),
-    // The signal path the narration talks about: cabinet (2,1,2) -> dust (3,1,2) -> lamp (4,1,2). The
-    // lamp arrives unlit and the scene lights it, then raises the wire - in that order, see dust().
-    dust(3, 2),
-    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'false' } },
+    // The signal the narration talks about, shown the way the author suggested: the lamp sits directly on
+    // the cabinet, and the scene lights it while the cabinet's block entity is active. A vanilla redstone
+    // wire between them was tried twice — baked at 15, then powered from the scene — and rendered dark both
+    // times, while the lamp's own state change always showed. The wire's brightness is recomputed on paths
+    // guarded by `!level.isClientSide`, which a ponder level does not satisfy, so it never followed the
+    // value written to it. The lamp needs none of that.
+    { Name: 'minecraft:redstone_lamp', pos: [2, 2, 2], Properties: { lit: 'false' } },
     motor(),
     belt(0, 1, 'start'), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
     deployer(1, DEPLOYER_Y, 1), deployer(3, DEPLOYER_Y, 1),

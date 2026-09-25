@@ -23,7 +23,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.phys.Vec3;
 
@@ -191,8 +190,7 @@ public final class ProductionLineScenes {
         scene.title(ProductionLinePonderPlugin.LOADER_SCENE, "Loading the scheme");
 
         BlockPos machine = util.grid().at(2, 1, 2);
-        BlockPos lamp = util.grid().at(4, 1, 2);
-        BlockPos dust = util.grid().at(3, 1, 2);
+        BlockPos lamp = util.grid().at(2, 2, 2);
         ItemStack writtenScheme = writtenScheme();
 
         int[] loaderSlotsX = new int[16];
@@ -251,24 +249,22 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 — redstone while recipes are active. The cabinet is a real source: SchemeLoaderBlock#getSignal
-        // reports 15 while its block entity is active, so marking it active makes the wire compute a
-        // genuine full strength through the vanilla power calculation instead of a number written here by
-        // hand. Nudging the wire afterwards is what makes it recompute — and with the cabinet already
-        // active that recompute lands on 15, which is why the wire stays lit at full strength.
-        scene.world().showSection(util.select().position(dust), Direction.UP);
-        scene.world().showSection(util.select().position(lamp), Direction.EAST);
+        // 4 — redstone while recipes are active: the lamp sits directly on the cabinet, so the picture shows
+        // the machine driving it. The cabinet really is a source (SchemeLoaderBlock#getSignal reports 15
+        // while its block entity is active), and the lamp is switched on here. A vanilla wire between them
+        // was tried twice — baked at 15, then powered from here — and rendered dark both times, so it is not
+        // part of the picture: its brightness never followed the value written to it in a ponder world.
+        scene.world().showSection(util.select().position(lamp), Direction.UP);
         scene.world().modifyBlockEntityNBT(util.select().position(machine), SchemeLoaderBlockEntity.class,
                 nbt -> nbt.putBoolean("Active", true));
         scene.idle(5);
         scene.world().modifyBlock(lamp, state -> state.setValue(RedstoneLampBlock.LIT, true), false);
-        scene.world().modifyBlock(dust, state -> state.setValue(RedStoneWireBlock.POWER, 15), false);
         scene.overlay().showText(70)
                 .attachKeyFrame()
                 .text("While recipes are active the cabinet emits a redstone signal")
                 .colored(PonderPalette.RED)
                 .placeNearTarget()
-                .pointAt(highlight(util, dust));
+                .pointAt(highlight(util, lamp));
         scene.idle(80);
         scene.addInstruction(s -> panel.setVisible(false));
 
@@ -365,17 +361,22 @@ public final class ProductionLineScenes {
     }
 
     /**
-     * Slides the item the given distance along the belt in small steps, five per cell over the ticks the
-     * belt itself would need ({@link #BELT_TICKS_PER_BLOCK}), so it reads as the belt carrying it. The item
-     * stays locked throughout: with the belt also moving it the two disagree from tick to tick, which is
-     * what the author saw as twitching.
+     * Slides the item the given distance along the belt, one tick per step over the ticks the belt itself
+     * would need ({@link #BELT_TICKS_PER_BLOCK}), so it reads as the belt carrying it. Every step also
+     * records where the item was on the previous tick: the belt's renderer interpolates between the two
+     * ({@code lerp(partialTicks, prevBeltPosition, beltPosition)}), and writing both to the same value — as
+     * an earlier round did — leaves it nothing to interpolate, which is what made the item move in jumps.
+     * The item stays locked throughout; letting the belt move it as well means the two disagree from tick
+     * to tick, which read as twitching.
      */
     private static void carryItem(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util, ItemStack stack, float from, float to) {
-        int steps = Math.max(1, Math.round(Math.abs(to - from) * BELT_TICKS_PER_BLOCK / 3.0F));
+        int steps = Math.max(1, Math.round(Math.abs(to - from) * BELT_TICKS_PER_BLOCK));
         for (int i = 1; i <= steps; i++) {
-            setBeltItem(scene, util, stack, from + (to - from) * i / steps, true);
-            scene.idle(3);
+            float prev = from + (to - from) * (i - 1) / steps;
+            float next = from + (to - from) * i / steps;
+            setBeltItem(scene, util, stack, next, prev, true);
+            scene.idle(1);
         }
     }
 
@@ -386,26 +387,32 @@ public final class ProductionLineScenes {
      * ever appeared. {@code PonderSceneBuilder.modifyBlockEntityNBT} saves the block entity, applies the
      * consumer and reloads it, and the redraw flag makes the belt render the change straight away.
      *
-     * <p>{@code pos} is the position along the belt in cells (a cell's centre is its index plus a half), and
+     * <p>{@code pos} is the position along the belt in cells (a cell's centre is its index plus a half),
+     * {@code prevPos} the position on the previous tick (the renderer interpolates between them), and
      * {@code locked} holds the item where it is — the state Create itself uses for an item a Deployer is
      * working on.
      */
     private static void setBeltItem(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util, ItemStack stack, float pos, boolean locked) {
-        CompoundTag inventory = beltInventory(scene, stack, pos, locked);
+        setBeltItem(scene, util, stack, pos, pos, locked);
+    }
+
+    private static void setBeltItem(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
+            SceneBuildingUtil util, ItemStack stack, float pos, float prevPos, boolean locked) {
+        CompoundTag inventory = beltInventory(scene, stack, pos, prevPos, locked);
         scene.world().modifyBlockEntityNBT(util.select().position(0, 1, PREVIEW_ROW_Z), BeltBlockEntity.class,
                 nbt -> nbt.put("Inventory", inventory.copy()), true);
     }
 
     private static CompoundTag beltInventory(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
-            ItemStack stack, float pos, boolean locked) {
+            ItemStack stack, float pos, float prevPos, boolean locked) {
         CompoundTag inventory = new CompoundTag();
         ListTag items = new ListTag();
         if (!stack.isEmpty()) {
             CompoundTag item = new CompoundTag();
             item.put("Item", stack.saveOptional(scene.world().getHolderLookupProvider()));
             item.putFloat("Pos", pos);
-            item.putFloat("PrevPos", pos);
+            item.putFloat("PrevPos", prevPos);
             item.putFloat("Offset", 0.0F);
             item.putFloat("PrevOffset", 0.0F);
             item.putInt("InSegment", (int) pos);

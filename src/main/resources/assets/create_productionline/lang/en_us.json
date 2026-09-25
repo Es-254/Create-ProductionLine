@@ -71,7 +71,7 @@
   "create_productionline.ponder.production_computer.text_2": "Slot 1 takes the item to produce, slot 2 a blank Line Scheme",
   "create_productionline.ponder.production_computer.text_3": "Slot 3 may hold paper: it stays readable as a manual after the scheme is loaded",
   "create_productionline.ponder.production_computer.text_4": "Press Compute: the server derives it from its live recipes and writes the scheme",
-  "create_productionline.ponder.production_computer.text_5": "The scheme names the product, the base and the whole chain; a self-referencing recipe is marked incremental",
+  "create_productionline.ponder.production_computer.text_5": "The scheme names the product, base and chain; a self-referencing recipe is marked incremental",
   "create_productionline.ponder.scheme_loader.header": "Loading the scheme",
   "create_productionline.ponder.scheme_loader.text_1": "Put the written scheme into any slot of a Scheme Loader",
   "create_productionline.ponder.scheme_loader.text_2": "It takes effect at once: only the recipes refresh, the server does not reload",
