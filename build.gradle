@@ -150,6 +150,13 @@ runs {
     client {
         // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
         systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        // Jump straight into an existing world instead of the main menu:
+        //   gradlew runClient -PquickPlay=<world folder name>
+        // For checking things only a running client can show (rendering, mostly).
+        if (project.hasProperty('quickPlay')) {
+            argument '--quickPlaySingleplayer'
+            argument project.property('quickPlay').toString()
+        }
     }
 
     server {

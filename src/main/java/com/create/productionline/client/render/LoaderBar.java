@@ -180,15 +180,29 @@ public final class LoaderBar {
     }
 
     /**
-     * True when Flywheel is visualizing the level the block entity lives in, i.e.
-     * when {@link SchemeLoaderVisual} draws the bar and the vanilla block entity
-     * renderer has to keep its hands off it. False in Ponder, which renders block
-     * entities but does not run Flywheel visuals.
+     * True when Flywheel is drawing the bar for this block entity, i.e. when
+     * {@link SchemeLoaderVisual} is registered AND Flywheel visualizes the level. False
+     * everywhere else — most importantly inside Ponder, whose scene renderer dispatches block
+     * entity renderers but runs no Flywheel visuals.
+     *
+     * <p>Both halves matter. The registration is opt-in
+     * ({@code -Dcreate_productionline.flywheelBar=true}) because the visual has not been seen
+     * working in game yet; asking only whether the level is visualized would make the vanilla
+     * renderer step aside for a visual that is not there, and the bar would be invisible — the
+     * exact failure that made this a switch instead of a default.
      */
     public static boolean visualized(net.minecraft.world.level.LevelAccessor level) {
-        return level != null && dev.engine_room.flywheel.api.visualization.VisualizationManager
-                .supportsVisualization(level);
+        return flywheelBarEnabled() && level != null
+                && dev.engine_room.flywheel.api.visualization.VisualizationManager
+                        .supportsVisualization(level);
     }
+
+    /** Whether the bar's Flywheel visual is registered (system property, off by default). */
+    public static boolean flywheelBarEnabled() {
+        return FLYWHEEL_BAR;
+    }
+
+    private static final boolean FLYWHEEL_BAR = Boolean.getBoolean("create_productionline.flywheelBar");
 
     /** Number of strips the whole bar has. */
     public static int stripCount() {

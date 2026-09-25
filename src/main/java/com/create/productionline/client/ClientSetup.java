@@ -51,11 +51,19 @@ public final class ClientSetup {
     private static void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         net.createmod.ponder.foundation.PonderIndex.addPlugin(
                 new com.create.productionline.client.ponder.ProductionLinePonderPlugin());
-        // Flywheel visuals have to be registered before any level is visualized. The bar
-        // used to be a block model; it is instanced now (SchemeLoaderVisual) so that
-        // loading a scheme costs a packet instead of a chunk section re-mesh.
-        event.enqueueWork(() -> dev.engine_room.flywheel.api.visualization.VisualizerRegistry.setVisualizer(
-                com.create.productionline.registry.ModBlockEntities.SCHEME_LOADER.get(),
-                new com.create.productionline.client.render.SchemeLoaderVisual.Visualizer()));
+        // The bar is drawn by the vanilla block entity renderer (SchemeLoaderRenderer). A
+        // Flywheel visual for it exists (SchemeLoaderVisual) but is NOT registered by default:
+        // with it registered the bar stayed invisible in game even though the visual was
+        // created and reported the right count, and a visual that draws nothing is worse than
+        // no visual. Enable it to test with
+        //   -Dcreate_productionline.flywheelBar=true
+        // and only turn it on for everyone once it has been seen working in game (Ponder does
+        // not run Flywheel visuals at all, so it cannot be checked there). LoaderBar.visualized
+        // follows the same switch, so the two renderers never both claim the bar.
+        if (com.create.productionline.client.render.LoaderBar.flywheelBarEnabled()) {
+            event.enqueueWork(() -> dev.engine_room.flywheel.api.visualization.VisualizerRegistry.setVisualizer(
+                    com.create.productionline.registry.ModBlockEntities.SCHEME_LOADER.get(),
+                    new com.create.productionline.client.render.SchemeLoaderVisual.Visualizer()));
+        }
     }
 }
