@@ -81,6 +81,40 @@ const pList = (itemId, items) => {
   return Buffer.concat([Buffer.from([itemId]), n, ...items]);
 };
 const pCompound = (entries) => Buffer.concat([...entries, Buffer.from([0])]);
+const pByte = (v) => Buffer.from([v & 0xff]);
+
+/**
+ * Block-entity NBT for one belt segment, in the shape Create's own schematics ship it. Every one of
+ * these fields is load-bearing: `Index`/`Length` are where the segment sits in the chain, `Controller`
+ * is the chain head (this structure is placed at the origin, so schematic coordinates are world
+ * coordinates), `IsController` marks the head, and the head additionally carries the item `Inventory`.
+ * A belt without them has nowhere to put an item: `createItemOnBelt` inserts successfully and nothing
+ * ever renders or moves. The speed is baked in as well (Create's own belts carry theirs), so the line is
+ * already running when it appears; the scene's setKineticSpeed only re-affirms it.
+ */
+const BELT_SPEED = 32;
+
+function beltNbt(index, length, head) {
+  const entries = [
+    tag(8, 'id', pStr('create:belt')),
+    tag(3, 'Index', pInt(index)),
+    tag(3, 'Length', pInt(length)),
+    tag(1, 'IsController', pByte(index === 0 ? 1 : 0)),
+    tag(10, 'Controller', pCompound([
+      tag(3, 'X', pInt(head[0])), tag(3, 'Y', pInt(head[1])), tag(3, 'Z', pInt(head[2])),
+    ])),
+    tag(3, 'Speed', pInt(BELT_SPEED)),
+    tag(1, 'NeedsSpeedUpdate', pByte(1)),
+    tag(8, 'Casing', pStr('NONE')),
+  ];
+  if (index === 0) {
+    entries.push(tag(10, 'Inventory', pCompound([
+      tag(9, 'Items', pList(10, [])),
+      tag(1, 'PositiveOrder', pByte(0)),
+    ])));
+  }
+  return pCompound(entries);
+}
 
 const SIZE = [5, 4, 5];
 
@@ -107,12 +141,16 @@ function buildSchematic(props) {
   for (const prop of props) {
     let idx = palette.findIndex((e) => e.Name === prop.Name && JSON.stringify(e.Properties || {}) === JSON.stringify(prop.Properties || {}));
     if (idx < 0) { palette.push({ Name: prop.Name, Properties: prop.Properties }); idx = palette.length - 1; }
-    blocks.push({ pos: prop.pos, state: idx });
+    blocks.push({ pos: prop.pos, state: idx, nbt: prop.nbt });
   }
-  const blockTags = blocks.map((b) => pCompound([
-    tag(9, 'pos', pIntList(b.pos)),
-    tag(3, 'state', pInt(b.state)),
-  ]));
+  const blockTags = blocks.map((b) => {
+    const entries = [
+      tag(9, 'pos', pIntList(b.pos)),
+      tag(3, 'state', pInt(b.state)),
+    ];
+    if (b.nbt) entries.push(tag(10, 'nbt', b.nbt));
+    return pCompound(entries);
+  });
   const root = pCompound([
     tag(3, 'DataVersion', pInt(dataVersion)),
     tag(9, 'size', pIntList(SIZE)),
@@ -125,10 +163,13 @@ function buildSchematic(props) {
 
 // --- the three scenes -----------------------------------------------------------------------
 const MACHINE = (name, extra) => Object.assign({ Name: name, pos: [2, 1, 2] }, extra || {});
-// A straight belt line, spelled the way Create's own schematics spell it (start -> middle -> end).
+// A straight belt line, spelled the way Create's own schematics spell it (start -> middle -> end), each
+// segment carrying the block-entity NBT that makes it a real belt (see beltNbt).
+const BELT_LENGTH = 5;
 const belt = (x, z, part) => ({
   Name: 'create:belt', pos: [x, 1, z],
   Properties: { casing: 'false', part, facing: 'east', slope: 'horizontal' },
+  nbt: beltNbt(x, BELT_LENGTH, [0, 1, z]),
 });
 const deployer = (x, y, z) => ({
   Name: 'create:deployer', pos: [x, y, z],
@@ -137,12 +178,14 @@ const deployer = (x, y, z) => ({
 
 /**
  * Redstone dust between the cabinet and the lamp: the two connection flags are what make the wire draw
- * as a straight run instead of a dot, and `power` is what the scene raises when the narration says the
- * cabinet emits a signal.
+ * as a straight run instead of a dot. Its `power` is baked in rather than raised by the scene, because a
+ * wire recomputes its own strength on any neighbour change (`updatePowerStrength`) and the ponder world
+ * has no redstone source to find - setting it at runtime put it straight back to 0, which is why the
+ * wire stayed dark while the lamp lit up.
  */
 const dust = (x, z) => ({
   Name: 'minecraft:redstone_wire', pos: [x, 1, z],
-  Properties: { north: 'false', east: 'true', south: 'false', west: 'true', power: '0' },
+  Properties: { north: 'false', east: 'true', south: 'false', west: 'true', power: '15' },
 });
 
 /**
@@ -173,11 +216,10 @@ const schematics = {
   // one row in front of the machine (z=1, so the preview never shares a position with the cabinet at z=2).
   scheme_loader: [
     MACHINE('create_productionline:scheme_loader', { Properties: { fill: '0' } }),
-    // The signal path the narration talks about: cabinet (2,1,2) -> dust (3,1,2) -> lamp (4,1,2). The
-    // lamp starts unlit and the scene powers dust and lamp together, so the picture shows the signal
-    // arriving rather than a lamp that was lit all along.
+    // The signal path the narration talks about: cabinet (2,1,2) -> dust (3,1,2) -> lamp (4,1,2), shown
+    // together at that step with the wire already carrying the signal.
     dust(3, 2),
-    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'false' } },
+    { Name: 'minecraft:redstone_lamp', pos: [4, 1, 2], Properties: { lit: 'true' } },
     motor(),
     belt(0, 1, 'start'), belt(1, 1, 'middle'), belt(2, 1, 'middle'), belt(3, 1, 'middle'), belt(4, 1, 'end'),
     deployer(0, DEPLOYER_Y, 1), deployer(4, DEPLOYER_Y, 1),

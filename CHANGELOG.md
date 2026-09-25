@@ -128,10 +128,23 @@ actually published with at the time was `release`.
   is also inserted the way Create's own scenes do it: at the belt's `start` cell, passing the side the item
   comes from (a belt facing east takes items from the west), and the first Deployer now waits above that very
   cell, so base and hand start in position instead of relying on a guessed travel time.
-- **The redstone signal had no wire to travel along.** The narration promises that an active cabinet emits a
-  redstone signal, but the lamp simply appeared already lit. The schematic now carries redstone dust between
-  the cabinet and the lamp (a straight east-west run), the lamp starts unlit, and the scene raises the dust's
-  `power` and switches the lamp's `lit` in the same tick — the signal arrives on screen.
+- **The redstone signal had no wire to travel along, and the wire it got could not stay powered.** The
+  narration promises that an active cabinet emits a redstone signal, but the lamp simply appeared already
+  lit. The schematic now carries redstone dust between the cabinet (2,1,2) and the lamp (4,1,2) — spelled
+  with the two connection flags, so it draws as a straight run rather than a dot. Raising its `power` from
+  the scene does **not** work and never would: a redstone wire recomputes its own strength on any neighbour
+  change (`updatePowerStrength`), and the ponder world contains no redstone source, so the wire was put
+  straight back to 0 in the same tick — the lamp lit up (its state did change, and it notified the lamp) and
+  the wire stayed dark, which is exactly what was reported. Both states are now baked into the schematic, so
+  the wire arrives already carrying the signal.
+- **The belt could not hold an item, because our schematics carried no block-entity data.** Create's own
+  Ponder schematics ship block-entity NBT on every kinetic block, and a belt's carries `Index`, `Length`,
+  `IsController` and `Controller` — with the item `Inventory` on the chain head. Without them a segment has
+  no place in its chain and no inventory to insert into, so `createItemOnBelt` inserted "successfully" and
+  nothing ever appeared or moved. The generator now writes that NBT for every belt segment (schematic
+  coordinates are world coordinates here, so the controller link is exact rather than stale like Create's
+  authored-in-world values), and the belt also carries its speed, so the line is running the moment it
+  appears.
 
 ### Added
 

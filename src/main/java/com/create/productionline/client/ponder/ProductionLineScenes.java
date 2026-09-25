@@ -241,12 +241,12 @@ public final class ProductionLineScenes {
                 .pointAt(highlight(util, machine));
         scene.idle(90);
 
-        // 4 — redstone while recipes are active: the dust lights up and the lamp comes on with it
+        // 4 — redstone while recipes are active: the wire and the lamp arrive carrying the signal. Both
+        // states are baked into the schematic rather than set here: a redstone wire recomputes its own
+        // strength on every neighbour change, and with no redstone source in the ponder world that put
+        // the wire straight back to 0 (the lamp lit, the wire stayed dark).
         scene.world().showSection(util.select().position(dust), Direction.UP);
         scene.world().showSection(util.select().position(lamp), Direction.EAST);
-        scene.idle(5);
-        scene.world().modifyBlock(dust, state -> state.setValue(RedStoneWireBlock.POWER, 15), false);
-        scene.world().modifyBlock(lamp, state -> state.setValue(RedstoneLampBlock.LIT, true), false);
         scene.overlay().showText(70)
                 .attachKeyFrame()
                 .text("While recipes are active the cabinet emits a redstone signal")
