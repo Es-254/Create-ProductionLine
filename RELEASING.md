@@ -3,8 +3,20 @@
 How to cut a release of **Create: Production Line** and publish it to **Modrinth**,
 **CurseForge** and **GitHub**.
 
-> **Current state (verified against this repository + the live APIs, 2026-09-25):**
+> **Current state (verified against this repository + the live APIs, 2026-09-26):**
 >
+> - **`1.0.3` is released** (2026-09-26). It was cut from the tree the author walked through in game: the
+>   acceptance list (`文档\1.0.3-实机验收清单.md`, A–F) passed in full on `dev.34`, which is the `dev.27`
+>   tree. `mod_version=1.0.3` with `mod_version_type=release`; `create_productionline-1.0.3.jar`
+>   **290,613 B / `sha256:0eaa6a0b…`**; self test **24 passed, 0 failed**. Everything that had
+>   accumulated in `## Unreleased` is now the `## [1.0.3]` section (Ponder tutorials, dismantler
+>   decisions, the compute reply in chat, retired recipes, the build-guide removal). The Scheme Loader
+>   bar work (`dev.28` … `dev.32`: a Flywheel visual, then a renderer-only variant) was **rolled back at
+>   the author's request**; `dev.33`/`dev.34` are that reverted tree.
+> - **`0.0.0-dev.25` … `dev.27` are published** (2026-09-26, GitHub only, `prerelease: true`): the last
+>   Ponder corrections (interpolated item motion, the signal shown on the machine, the button cue
+>   pointing at the button, one cue vocabulary across both entries). `dev.28` … `dev.34` were local
+>   builds only, so the next dev cut is `0.0.0-dev.35` (`dev-build.txt` = 35).
 > - **`0.0.0-dev.14` … `dev.24` were published on request** (2026-09-26, GitHub only, each
 >   `prerelease: true`): the author asked for everything after `dev.13` to go up. Each tag sits on the
 >   commit that produced its jar, the tags were pushed 30 s apart so no CI run is dropped, all eleven runs
@@ -476,7 +488,7 @@ cd create_productionline
 # Full build → build/libs/create_productionline-<version>.jar
 .\gradlew.bat build
 
-# Headless QA self-test on a real server (23 checks, then the server halts)
+# Headless QA self-test on a real server (24 checks, then the server halts)
 .\gradlew.bat runServer -PselfTest
 ```
 
@@ -489,7 +501,7 @@ Check the self-test log ends with a line matching:
 **Do not hard-code the check count when judging a build.** `qa/SelfTest.java` prints
 `CPL SELF-TEST RESULT: <pass> passed, <fail> failed` (`SelfTest.java:148`), so the acceptance
 criterion is *"the last line matches `\d+ passed, 0 failed`"* — a literal number would silently
-misjudge the very next release that adds a case. The current snapshot is **23 passed** (the count of
+misjudge the very next release that adds a case. The current snapshot is **24 passed** (the count of
 `check("…")` calls in `qa/SelfTest.java`; `Plan topology (chain: base -> machine+material -> product)`
 arrived with dev snapshot `0.0.0-dev.3`, and `Tag ingredients kept in flat recipes` / `Deriver refuses
 native/unmappable recipes` / `Single-material recipes map to a semantic machine` / `Duration only on
@@ -630,7 +642,7 @@ If you would rather not hand tokens to Gradle, upload by hand:
       definition added at the bottom**
 - [ ] `gradlew build` succeeds (dev: `gradlew build -PdevBuild`)
 - [ ] `runServer -PselfTest` → last log line matches **`\d+ passed, 0 failed`** (current snapshot:
-      23 passed; never hard-code the number)
+      24 passed; never hard-code the number)
 - [ ] Jar contains no `.bak` / `*_particle.png` / `debug/` entries
 - [ ] Size + SHA-256 recorded
 - [ ] Git tag pushed (`v1.0.x`, `vx.y.z-snapshot.0.0.N` or `v0.0.0-dev.N`); GitHub Release created with the jar attached

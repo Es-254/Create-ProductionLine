@@ -6,8 +6,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 **Version policy / 版本规范** (see `RELEASING.md`):
 
-- **release**: `1.0.x`, the value of `mod_version`; `1.0.2` is the current stable release (`1.0.1` is the
-  one before it).
+- **release**: `1.0.x`, the value of `mod_version`; `1.0.3` is the current stable release (`1.0.2` is the
+  one before it, `1.0.1` the first under this policy).
 - **beta**: also a `1.0.x` value, published as a pre-release when `mod_version_type=beta`
   (Modrinth/CurseForge channel *Beta*, GitHub pre-release). The first such cut was `1.0.2` on
   2026-09-17, which was promoted to a release the same day.
@@ -16,9 +16,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
   always published as `beta`. **`0.0.0-dev.5` … `dev.27` are all published on GitHub** (each a
   pre-release with the jar CI rebuilt from its tag; every asset digest verified against the local build).
-  The next cut is `0.0.0-dev.33`: `dev.28` … `dev.32` were local builds of the Scheme Loader bar work
-  (a Flywheel visual for the bar, then a renderer-only variant), which was **rolled back at the author's
-  request** — the bar is a block model again, exactly as in `dev.27`.
+  The next cut is `0.0.0-dev.35`: `dev.28` … `dev.34` were local builds of the Scheme Loader bar work
+  (a Flywheel visual for the bar, then a renderer-only variant, both **rolled back at the author's
+  request** — `dev.34` is the reverted tree, identical to `dev.27` apart from its version string).
 
 The four jars of the **old numbering** (`1.0.0` / `1.0.1` / `1.0.2` / `1.0.3`) predate this policy: they
 were published with channel `release` back then, and they are recorded below as the development snapshots
@@ -29,7 +29,7 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
-## Unreleased
+## [1.0.3] — 2026-09-26
 
 ### Fixed
 
@@ -786,8 +786,10 @@ JEI is optional, and only for viewing recipes: this mod does not call its API.
 - Licensing: **MIT**.
 - Build: `gradlew build` (JDK 21). See `RELEASING.md` for the publication flow.
 
-<!-- Dev snapshots (0.0.0-dev.N) are intentionally not tagged on GitHub and have no release
-     page; only release versions (v1.0.x) get a tag and a GitHub Release. -->
+<!-- Dev snapshots (0.0.0-dev.N) do have GitHub release pages (dev.5 … dev.27 are published),
+     but they are deliberately not linked from here: only the 1.0.x line carries link
+     definitions. -->
 
+[1.0.3]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.3
 [1.0.2]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Es-254/Create-ProductionLine/releases/tag/v1.0.1

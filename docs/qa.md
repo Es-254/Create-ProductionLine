@@ -38,7 +38,7 @@ gradlew runServer -PselfTest
 [PASS] GUI layout fits the drawn wells
 [PASS] Dismantler decision table, doubling refund, fluid notice
 [PASS] Computer writes plan + guide onto both carriers
-CPL SELF-TEST RESULT: 23 passed, 0 failed
+CPL SELF-TEST RESULT: 24 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
@@ -62,7 +62,7 @@ CPL SELF-TEST RESULT: 23 passed, 0 failed
 > on `main` after 1.0.2. Adding or
 > removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
 > file (`docs/qa.md`), in `../CHANGELOG.md` and in `../RELEASING.md`.
-> **中文** — 当前快照 **23 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
+> **中文** — 当前快照 **24 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
 > `0.0.0-dev.3` 进来的；`Tag ingredients kept in flat recipes`、`Duration only on duration-capable types`、
 > `Loader accepts written schemes only`、`Self-referential recipes are skipped`、
 > `Deriver refuses native/unmappable recipes`、`Single-material recipes map to a semantic machine`
@@ -79,7 +79,7 @@ CPL SELF-TEST RESULT: 23 passed, 0 failed
 > rounds; the `DataPacket action whitelist` case went away with the old architecture. Current code has **23** checks
 > and no DataPacket whitelist case.
 > **中文** — 历史文档里的 "5 passed" / "6 passed" / "7 passed" / "9 passed" / "10 passed" 是更早几轮的数字；
-> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **23 项**，也不再有任何 DataPacket 白名单用例。
+> `DataPacket action whitelist` 一项随旧架构一起删掉了。当前代码为 **24 项**，也不再有任何 DataPacket 白名单用例。
 
 ## Doc↔code consistency baseline (2026-09-13) / 文档—代码一致性核对基线（2026-09-13）
 
