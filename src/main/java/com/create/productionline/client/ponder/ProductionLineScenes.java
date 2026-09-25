@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.create.productionline.block.SchemeLoaderBlock;
-import com.create.productionline.client.ponder.MachineGuiElement;
 import com.create.productionline.item.LineSchemeItem;
 import com.create.productionline.line.scheme.LineScheme;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
@@ -12,6 +11,7 @@ import com.create.productionline.menu.GuiLayout;
 import com.create.productionline.registry.ModBlocks;
 import com.create.productionline.registry.ModItems;
 
+import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
@@ -22,11 +22,17 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
- * The line story, in two chapters and one scene (see {@link ProductionLinePonderPlugin}):
- * <b>chapter 1</b> writes a plan on the Production Computer, <b>chapter 2</b> puts it to work in the
- * Scheme Loader and shows the line that gets built from it.
+ * The line story, as two scenes the author's table describes as chapters: the computer writes a
+ * plan, the cabinet puts it to work. They are separate scenes (each with its own header and its own
+ * schematic) because Ponder's chapter type is a stub in this version — see
+ * {@link ProductionLinePonderPlugin} — while scenes are grouped into the ponder index by tags,
+ * which is the built-in mechanism that actually works.
  *
- * <p>Text elements are shown in order — Ponder numbers them {@code text_1}, {@code text_2}, … — so
+ * <p>Each scene carries its own structure schematic ({@code assets/create_productionline/ponder/
+ * <id>.nbt}): a scene without one logs "Ponder schematic missing" and renders an empty world, which
+ * is exactly what happened before these files existed.
+ *
+ * <p>Text elements are numbered by the order they are shown — {@code text_1}, {@code text_2}, … — so
  * the order of {@code showText} calls here is the order of the narration table.
  */
 public final class ProductionLineScenes {
@@ -39,27 +45,19 @@ public final class ProductionLineScenes {
     private ProductionLineScenes() {
     }
 
-    public static void productionLine(SceneBuilder builder, SceneBuildingUtil util) {
-        // Create's wrapper adds the helpers this scene needs (items on belts, Deployer punches);
-        // everything else is plain Ponder.
+    // --- chapter 1: the computer writes the plan ---------------------------------
+
+    public static void productionComputer(SceneBuilder builder, SceneBuildingUtil util) {
         com.simibubi.create.foundation.ponder.CreateSceneBuilder scene =
                 new com.simibubi.create.foundation.ponder.CreateSceneBuilder(builder);
-        scene.title(ProductionLinePonderPlugin.LINE_SCENE, "Writing a Line Scheme");
+        scene.title(ProductionLinePonderPlugin.COMPUTER_SCENE, "Writing a Line Scheme");
 
         BlockPos machine = util.grid().at(2, 1, 2);
-        int[] loaderSlotsX = new int[16];
-        int[] loaderSlotsY = new int[16];
-        for (int i = 0; i < 16; i++) {
-            loaderSlotsX[i] = GuiLayout.loaderSlotX(i % 8);
-            loaderSlotsY[i] = GuiLayout.loaderSlotY(i / 8);
-        }
-
         ItemStack target = new ItemStack(Items.IRON_INGOT, 8);
         ItemStack blankScheme = new ItemStack(ModItems.LINE_SCHEME.get());
         ItemStack paper = new ItemStack(Items.PAPER);
         ItemStack writtenScheme = writtenScheme();
 
-        // --- chapter 1: the computer writes the plan --------------------------
         scene.configureBasePlate(0, 0, 5);
         scene.showBasePlate();
         scene.idle(10);
@@ -102,8 +100,7 @@ public final class ProductionLineScenes {
         scene.idle(90);
 
         // 4 — press Compute
-        scene.overlay().showControls(util.vector().topOf(machine), net.createmod.catnip.math.Pointing.DOWN, 60)
-                .leftClick();
+        scene.overlay().showControls(util.vector().topOf(machine), Pointing.DOWN, 60).leftClick();
         scene.overlay().showText(70)
                 .text("Press Compute: the server derives it from its live recipes and writes the scheme")
                 .colored(PonderPalette.INPUT)
@@ -121,32 +118,48 @@ public final class ProductionLineScenes {
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));
         scene.idle(100);
-        scene.addInstruction(s -> panel.setVisible(false));
-        scene.world().hideSection(util.select().position(machine), Direction.UP);
-        scene.idle(15);
+        scene.markAsFinished();
+    }
 
-        // --- chapter 2: the cabinet puts it to work ---------------------------
-        // 6 — chapter title
-        scene.overlay().showText(60)
-                .text("Loading the scheme")
-                .colored(PonderPalette.BLUE)
-                .independent();
-        scene.idle(70);
+    // --- chapter 2: the cabinet loads it -----------------------------------------
+
+    public static void schemeLoader(SceneBuilder builder, SceneBuildingUtil util) {
+        com.simibubi.create.foundation.ponder.CreateSceneBuilder scene =
+                new com.simibubi.create.foundation.ponder.CreateSceneBuilder(builder);
+        scene.title(ProductionLinePonderPlugin.LOADER_SCENE, "Loading the scheme");
+
+        BlockPos machine = util.grid().at(2, 1, 2);
+        BlockPos lamp = util.grid().at(4, 1, 2);
+        ItemStack writtenScheme = writtenScheme();
+
+        int[] loaderSlotsX = new int[16];
+        int[] loaderSlotsY = new int[16];
+        for (int i = 0; i < 16; i++) {
+            loaderSlotsX[i] = GuiLayout.loaderSlotX(i % 8);
+            loaderSlotsY[i] = GuiLayout.loaderSlotY(i / 8);
+        }
+
+        scene.configureBasePlate(0, 0, 5);
+        scene.showBasePlate();
+        scene.idle(10);
         scene.world().setBlock(machine, ModBlocks.SCHEME_LOADER.get().defaultBlockState(), false);
         scene.world().showSection(util.select().position(machine), Direction.DOWN);
-        scene.special().movePointOfInterest(machine);
         scene.idle(15);
-        scene.addInstruction(s -> panel.setVisible(true));
+        scene.special().movePointOfInterest(machine);
 
-        // 7 — the scheme goes in
+        MachineGuiElement panel = new MachineGuiElement(LOADER_GUI, loaderSlotsX, loaderSlotsY, false);
+        scene.addInstruction(s -> s.addElement(panel));
+
+        // 1 — the scheme goes in
+        scene.addInstruction(s -> panel.setVisible(true));
         scene.addInstruction(s -> panel.setStack(0, writtenScheme));
         scene.overlay().showText(80)
-                .text("Put the written Line Scheme into any slot of a Scheme Loader")
+                .text("Put the written scheme into any slot of a Scheme Loader")
                 .placeNearTarget()
                 .pointAt(util.vector().topOf(machine));
         scene.idle(90);
 
-        // 8 — it takes effect at once, and the bar lights up
+        // 2 — it takes effect at once, and the bar lights up
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 1), false);
         scene.effects().indicateSuccess(machine);
         scene.overlay().showText(80)
@@ -156,10 +169,10 @@ public final class ProductionLineScenes {
                 .pointAt(util.vector().topOf(machine));
         scene.idle(90);
 
-        // 9 — more schemes, more of the bar
+        // 3 — more schemes, more of the bar
         scene.addInstruction(s -> {
-            panel.setStack(1, writtenScheme);
-            panel.setStack(2, writtenScheme);
+            panel.setStack(1, writtenScheme.copy());
+            panel.setStack(2, writtenScheme.copy());
         });
         scene.world().modifyBlock(machine, state -> state.setValue(SchemeLoaderBlock.FILL, 3), false);
         scene.overlay().showText(80)
@@ -168,8 +181,7 @@ public final class ProductionLineScenes {
                 .pointAt(util.vector().blockSurface(machine, Direction.NORTH));
         scene.idle(90);
 
-        // 10 — redstone while recipes are active
-        BlockPos lamp = util.grid().at(4, 1, 2);
+        // 4 — redstone while recipes are active
         scene.world().setBlock(lamp, net.minecraft.world.level.block.Blocks.REDSTONE_LAMP.defaultBlockState(), false);
         scene.world().showSection(util.select().position(lamp), Direction.EAST);
         scene.overlay().showText(70)
@@ -180,8 +192,8 @@ public final class ProductionLineScenes {
         scene.idle(80);
         scene.addInstruction(s -> panel.setVisible(false));
 
-        // 11 — the line the plan describes
-        scene.world().hideSection(util.select().fromTo(lamp, lamp), Direction.UP);
+        // 5 — the line the plan describes
+        scene.world().hideSection(util.select().position(lamp), Direction.UP);
         scene.world().hideSection(util.select().position(machine), Direction.UP);
         scene.idle(10);
         buildLinePreview(scene, util);
@@ -196,8 +208,8 @@ public final class ProductionLineScenes {
 
     /**
      * The closing picture: a belt with the base on it and two Deployers facing down over it — the
-     * shape every derived plan has. It is a picture, not a simulated assembly line: Ponder scenes
-     * cannot run Create's kinetics.
+     * shape every derived plan has. A picture, not a simulated line: Ponder scenes cannot run
+     * Create's kinetics.
      */
     private static void buildLinePreview(com.simibubi.create.foundation.ponder.CreateSceneBuilder scene,
             SceneBuildingUtil util) {
@@ -226,8 +238,8 @@ public final class ProductionLineScenes {
         }
     }
 
-    /** A written scheme, built the same way the computer builds one — so the tooltip/steps are real. */
-    private static ItemStack writtenScheme() {
+    /** A written scheme, built the way the computer builds one — so its steps and tooltip are real. */
+    static ItemStack writtenScheme() {
         ItemStack stack = new ItemStack(ModItems.LINE_SCHEME.get());
         LineScheme scheme = new LineScheme();
         scheme.setRecipeId("minecraft:iron_ingot_from_blasting_iron_ore");
