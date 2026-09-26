@@ -195,6 +195,30 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
         return computerContainer.stillValid(player);
     }
 
+    /**
+     * The block entity this menu belongs to, or {@code null} on the client (see
+     * {@link #createClient}). The click that answers a placeholder question must be bound to the
+     * computer the player is actually looking at, and this menu is the only server-side record of
+     * which one that is.
+     */
+    public ProductionComputerBlockEntity computer() {
+        return computer;
+    }
+
+    /**
+     * Closing the menu drops the question that was asked through it: the offer is about the target
+     * slot the player was watching, and a chat line that outlives the window it came from must not
+     * be able to write into it later. Only the asked player's own menu closes their question —
+     * this method is called for whoever closes a menu, and the block entity checks whose it is.
+     */
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        if (computer != null && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            computer.cancelPlaceholderRequest(serverPlayer.getUUID());
+        }
+    }
+
     /** Slot 2 takes only a BLANK line scheme (a written plan would be overwritten). */
     private static boolean isBlankScheme(ItemStack stack) {
         return stack != null && !stack.isEmpty()

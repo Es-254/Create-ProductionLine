@@ -12,8 +12,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (Modrinth/CurseForge channel *Beta*, GitHub pre-release). The first such cut was `1.0.2` on
   2026-09-17, which was promoted to a release the same day.
 - **snapshot (alpha)**: `x.y.z-snapshot.0.0.N` with `mod_version_type=alpha` — work in progress towards
-  `x.y.z`. `1.0.3-snapshot.0.0.1` was the first; `1.0.4-snapshot.0.0.1` is the current one (the OP-only
-  placeholder scheme for items that have no recipe).
+  `x.y.z`. `1.0.3-snapshot.0.0.1` was the first and `1.0.3-snapshot.0.0.2` the last one so far. For `1.0.4`
+  **no snapshot is cut for now** (author's call, 2026-09-26): the work rides the **dev** line, next cut
+  `0.0.0-dev.35` — the OP-only placeholder scheme for items no recipe produces, and for items whose recipe
+  exists but cannot be converted into a Create line.
 - **dev (beta)**: `0.0.0-dev.N`, built with `gradlew build -PdevBuild` (N from `dev-build.txt`),
   always published as `beta`. **`0.0.0-dev.5` … `dev.27` are all published on GitHub** (each a
   pre-release with the jar CI rebuilt from its tag; every asset digest verified against the local build).
@@ -30,7 +32,11 @@ number no longer exists anywhere. The four `0.0.0-dev.N` sections below are that
 and they keep the `(beta)` marker a dev build carries **under the current policy** — the channel they were
 actually published with at the time was `release`.
 
-## 1.0.4-snapshot.0.0.1 — 2026-09-26 (alpha)
+
+## 0.0.0-dev.35 — 2026-09-26 (beta)
+
+> `1.0.4-snapshot.0.0.1` was briefly published as a GitHub pre-release and is **retracted**: this dev
+> build carries the same work plus the follow-up below, and no `1.0.4` snapshot is cut for now.
 
 ### Added
 
@@ -45,6 +51,23 @@ actually published with at the time was `release`.
   recipe from `RecipeId` against the server's `RecipeManager`, so an empty id contributes no recipes and the
   cabinet's bar stays dark until the line is actually defined. Players without permission see exactly the
   refusal they saw before.
+
+
+### Changed
+
+- **Converting a recipe that cannot become a Create line now asks before it writes anything.** The snapshot
+  below gave an operator a placeholder when the target had *no* recipe at all; the author then hit the other
+  dead end with the Milk Bucket, whose recipe exists but cannot be turned into a Create line
+  (`RESULT_NOT_CONVERTIBLE`, "该配方无法转成 Create 产线，未写入方案"). That refusal named the reason but still left
+  no way to obtain a scheme carrying the item, so a custom line for it could not be started either. With
+  permission level 2 or above the computer now **asks first**: the reason is still shown, and a private chat
+  line offers two clickable options — write a placeholder naming the target, or write nothing. Only that
+  player can answer, permission is re-checked when the click arrives, and the question dies when the menu
+  closes, the target slot changes or 30 seconds pass; a decline, a timeout or a stranger's click writes
+  nothing. The placeholder itself is unchanged: an empty `RecipeId`, so it installs nothing and leaves the
+  cabinet's bar dark until the line is really defined on the anvil. Players without permission see exactly
+  the refusal they saw before.
+
 
 ## [1.0.3] — 2026-09-26
 

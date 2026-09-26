@@ -39,7 +39,14 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     /** Result codes surfaced in the GUI. */
     public static final int RESULT_EMPTY = 0;   // nothing to compute yet
     public static final int RESULT_GENERATED = 6; // native Create recipe JSON written onto the carrier
-    public static final int RESULT_NOT_CONVERTIBLE = 7; // no Create recipe could be generated -> nothing written
+    /**
+     * A live recipe for the target exists, but it cannot become a Create line — and nothing was
+     * written. Everybody keeps reporting exactly this, so the refusal stays byte-for-byte what it
+     * always was; a requester at the authoring permission level additionally gets the private
+     * placeholder question (see {@link PlaceholderPrompt}), and only an ACCEPTED question turns
+     * the run into {@link #RESULT_PLACEHOLDER} later on.
+     */
+    public static final int RESULT_NOT_CONVERTIBLE = 7;
     public static final int RESULT_NO_SCHEME = 2;
     public static final int RESULT_NO_RECIPE = 4; // cannot map / no recipe found (TC-01)
     public static final int RESULT_NO_TARGET = 5;
@@ -84,6 +91,33 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      * into the requester's own carrier slot.
      */
     private static final int AUTHORING_PERMISSION_LEVEL = 2;
+
+    /**
+     * Leading words of the diagnostic recorded when a {@link #RESULT_NOT_CONVERTIBLE} outcome was
+     * answered with "write the placeholder".
+     *
+     * <p>The placeholder machinery now has two origins — "no usable recipe for the target at all"
+     * and "a live recipe exists that this mod cannot convert" — and the player is entitled to the
+     * difference: the first means the server knows no recipe, the second means the item is already
+     * made by a process of its own (a native Create machine, typically) and the mapping config is
+     * the thing to look at. Only the wording differs, so the reason travels where reasons already
+     * travel: the M7 diagnostic, which {@link #setResult} classifies. A second result code or a
+     * second scheme marker was the alternative and would have been new contract for a purely
+     * textual distinction — and a second marker would have split the anvil flow's
+     * "target but no plan = already cleared" rule in two.
+     */
+    private static final String NOT_CONVERTIBLE_PLACEHOLDER_DETAIL = "not convertible: ";
+
+    /**
+     * The placeholder question standing right now, or {@code null} (see {@link PlaceholderPrompt}).
+     *
+     * <p>Transient on purpose and never saved with the block entity. A question is about a live
+     * menu, a live target slot and a live clock; restoring one from disk after a restart would ask
+     * a player to confirm something they did minutes (or sessions) ago, which is exactly what the
+     * deadline exists to prevent. One question at a time, cleared by the next compute, by any
+     * answer, by a target-slot change and by the menu closing.
+     */
+    private PlaceholderPrompt.Pending pendingPlaceholder = null;
 
     /**
      * Whether the run queued by the last {@link #computeProvided} request may write a
@@ -146,6 +180,14 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             hintRecipeId = "";
             hintFallback = null;
             computeQueued = false;
+            if (slot == SLOT_TARGET) {
+                // The standing question names the item that was in this slot. Once that item is
+                // gone, answering "yes" would write a scheme for something the player is no longer
+                // computing — so the question dies with the item it was asked about. (The decision
+                // re-checks the slot anyway; this is what keeps a stale question from being shown
+                // as answerable at all.)
+                pendingPlaceholder = null;
+            }
         }
         setChanged();
     }
@@ -231,6 +273,18 @@ public class ProductionComputerBlockEntity extends BlockEntity {
                                     inventory.getItem(SLOT_CLIPBOARD))) {
                         player.displayClientMessage(line, false);
                     }
+                    // The question follows the outcome in the SAME private channel. A broadcast
+                    // would hand the buttons to every player on the server, and only the requester
+                    // may answer them anyway (PlaceholderPrompt checks the UUID), so anybody else
+                    // clicking would just be told the request is not theirs.
+                    PlaceholderPrompt.Pending pending = this.pendingPlaceholder;
+                    if (pending != null && pending.asked(waiting)) {
+                        for (net.minecraft.network.chat.Component line
+                                : com.create.productionline.menu.ComputerStatus
+                                        .placeholderPrompt(pending.targetId().toString())) {
+                            player.displayClientMessage(line, false);
+                        }
+                    }
                 }
             }
         }
@@ -240,6 +294,13 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         if (level == null || level.isClientSide || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
+        // A new compute is a new question. Dropping the previous one first keeps "a question is
+        // standing" and "THIS run recorded one" the same fact, which is what the caller checks
+        // before it puts the buttons in front of a player — a run that may not ask anybody must
+        // never re-send an earlier player's question, and a run that answers a different target
+        // must not leave two live questions behind (the click carries no target of its own).
+        this.pendingPlaceholder = null;
+
         // Consume the client hint up front so it can never leak into a later run.
         final String hintId = hintRecipeId;
         final com.create.productionline.line.mapper.RecipeDescriptor fallback = hintFallback;
@@ -343,6 +404,13 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      * {@code RecipeId} against the server's live {@code RecipeManager}, and an empty id has
      * nothing to look up, so the cabinet installs nothing and its bar stays dark (see
      * {@code SchemeLoaderBlockEntity#filledSlots}).
+     *
+     * <p>{@code targetId} is the item in the TARGET slot, not the source recipe's output: a
+     * placeholder exists to name what the operator is about to produce by hand, which is what they
+     * put in the slot (and the one id this run proved to have a registry id — see
+     * {@link #runComputeInternal}). {@code reason} becomes the run's diagnostic; a caller passing
+     * {@link #NOT_CONVERTIBLE_PLACEHOLDER_DETAIL} marks the origin "a live recipe exists but cannot
+     * be converted", which is what the status line reports instead of "no recipe found".
      */
     private void writePlaceholder(ResourceLocation targetId, ItemStack carrier, ItemStack secondary,
             String reason) {
@@ -365,6 +433,107 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         ProductionLineMod.LOGGER.info(
                 "CPL compute: no usable plan for {} ({}); placeholder scheme written for the operator",
                 targetId, reason);
+    }
+
+    // --- the placeholder question ---------------------------------------------
+
+    /**
+     * Records the question "write a placeholder for this target?" for the requester, without
+     * writing anything. Called from the two {@link #RESULT_NOT_CONVERTIBLE} sites, which is why it
+     * takes the permission instead of reading it: the decision belongs to the caller that had a
+     * player.
+     *
+     * <p>The asker is the player the outcome is reported to ({@link #notifyPlayer}), so the answer
+     * is bound to exactly the player who saw the buttons. A run that has no player (only the QA
+     * self test drives one) records a question with a null asker, which no prompt is displayed for
+     * and which only the self test itself can answer — see {@link PlaceholderPrompt.Pending#asked}.
+     */
+    private void askPlaceholderQuestion(boolean requesterHasPermission, ResourceLocation targetId) {
+        if (!requesterHasPermission) {
+            return; // the refusal stays byte-for-byte what it always was, prompt included: none
+        }
+        long now = level == null ? 0L : level.getGameTime();
+        this.pendingPlaceholder = new PlaceholderPrompt.Pending(this.notifyPlayer, targetId,
+                now + PlaceholderPrompt.TIMEOUT_TICKS);
+        ProductionLineMod.LOGGER.info(
+                "CPL compute: no convertible Create recipe for {} - placeholder offered to {}",
+                targetId, this.notifyPlayer == null ? "the requesting player" : this.notifyPlayer);
+    }
+
+    /**
+     * Answers the standing question. The caller passes only what it alone can know: WHO is
+     * answering, WHAT they clicked, whether the server still grants them the authoring permission,
+     * whether their computer menu is still open, and the current game time. Everything else — the
+     * recorded question, the target slot, the carriers — is read from this block entity, so a click
+     * can never carry its own version of the world.
+     *
+     * <p>{@code nowGameTime} comes from the caller's level clock; a player with this computer's menu
+     * open is in this computer's level ({@code stillValid} checks the distance), so it is the same
+     * clock the deadline was recorded on.
+     *
+     * @return what happened, so the caller can tell the player privately; the write, if any, has
+     *         already happened and the result code already describes it
+     */
+    public PlaceholderPrompt.Outcome answerPlaceholderRequest(java.util.UUID actor,
+            PlaceholderPrompt.Answer answer, boolean permitted, boolean menuOpen, long nowGameTime) {
+        PlaceholderPrompt.Pending pending = this.pendingPlaceholder;
+        PlaceholderPrompt.Outcome outcome = PlaceholderPrompt.decide(pending,
+                new PlaceholderPrompt.Moment(actor, answer, permitted, menuOpen, currentTargetId(),
+                        hasCarrier(), nowGameTime));
+        if (outcome.clearsPending()) {
+            this.pendingPlaceholder = null;
+            setChanged();
+        }
+        if (outcome == PlaceholderPrompt.Outcome.WRITE) {
+            ItemStack primary = findCarrier(SLOT_SCHEME);
+            ItemStack secondary = findCarrier(SLOT_CLIPBOARD);
+            ItemStack carrier = primary.isEmpty() ? secondary : primary;
+            // The reason the line was not derived travels with the write, so the status line still
+            // says WHY instead of falling back to "no recipe found" (see ComputerStatus).
+            writePlaceholder(pending.targetId(), carrier, secondary,
+                    NOT_CONVERTIBLE_PLACEHOLDER_DETAIL + pending.targetId());
+        } else if (outcome == PlaceholderPrompt.Outcome.NO_CARRIER) {
+            // Accepted, but there is nothing to write on any more: report the very refusal the
+            // compute itself uses for that state, so the player is told to insert a carrier.
+            setResult(RESULT_NO_SCHEME, "");
+        }
+        return outcome;
+    }
+
+    /**
+     * Drops the standing question when the player who was asked closes the menu — the question is
+     * about the menu they were looking at, and a click from a chat line that outlived it must not
+     * write anything. Only that player's own menu can drop it: anybody else closing their computer
+     * leaves the asker's question alone.
+     */
+    public void cancelPlaceholderRequest(java.util.UUID player) {
+        if (pendingPlaceholder != null && pendingPlaceholder.asked(player)) {
+            pendingPlaceholder = null;
+            setChanged();
+        }
+    }
+
+    /**
+     * True while a placeholder question is waiting to be answered. Transient, never persisted, and
+     * cleared by the next compute, by any answer, by a target-slot change and by the menu closing.
+     */
+    public boolean hasPendingPlaceholderRequest() {
+        return pendingPlaceholder != null;
+    }
+
+    /** Registry id of the item in the target slot, or {@code ""} when the slot is empty. */
+    private String currentTargetId() {
+        ItemStack target = inventory.getItem(SLOT_TARGET);
+        if (target.isEmpty()) {
+            return "";
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(target.getItem());
+        return id == null ? "" : id.toString();
+    }
+
+    /** True when at least one slot still holds something a placeholder could be written on. */
+    private boolean hasCarrier() {
+        return !findCarrier(SLOT_SCHEME).isEmpty() || !findCarrier(SLOT_CLIPBOARD).isEmpty();
     }
 
     /** Builds the plan, embeds a native Create recipe when possible, writes carriers. */
@@ -426,6 +595,10 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         if (orderedInputs.isEmpty()) {
             ProductionLineMod.LOGGER.info(
                     "CPL compute: recipe {} has no usable materials - no plan written", source.recipeId());
+            // Not one station shorter than the recipe: a plan whose material list is empty is
+            // nothing a player can build. Same dead end as an unconvertible recipe, so the operator
+            // is offered the same way out — as a QUESTION, never as a silent write.
+            askPlaceholderQuestion(requesterHasPermission, targetId);
             setResult(RESULT_NOT_CONVERTIBLE, output);
             return; // carriers are left untouched on purpose
         }
@@ -453,14 +626,18 @@ public class ProductionComputerBlockEntity extends BlockEntity {
                     srv, source, orderedInputs, count);
         }
         if (derived.isEmpty()) {
-            // Deliberately NOT a placeholder case, for either permission level: a usable recipe
-            // for the target DOES exist here, the mod just cannot turn it into a Create line.
-            // The player gets a reason they can act on (the mapping config) instead of a scheme
-            // they would have to author from nothing.
+            // A usable recipe for the target DOES exist here; the mod just cannot turn it into a
+            // Create line (a native Create process already produces the item, or the category has
+            // no mapping). This is the other dead end of the same kind as "no recipe at all": the
+            // operator's only route to a scheme naming this item is an anvil, and an anvil needs a
+            // scheme to start from — which an item like the milk bucket (already filled by a Spout)
+            // could never get. The way out is offered as a question, and only an accepted question
+            // writes anything; the refusal below stays exactly the same for everybody else.
             ProductionLineMod.LOGGER.info(
                     "CPL compute: no convertible Create recipe for {} (recipe={} cat={} materials={}, authoritative={})"
                             + " - no plan written",
                     output, source.recipeId(), source.categoryId(), orderedInputs, authoritative);
+            askPlaceholderQuestion(requesterHasPermission, targetId);
             setResult(RESULT_NOT_CONVERTIBLE, output);
             return; // carriers are left untouched on purpose
         }
@@ -537,6 +714,10 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      *   <li>"no usable output…" → 2 (recipe exists, output unusable)</li>
      *   <li>"target has no registry id" → 3 (item not registered)</li>
      *   <li>otherwise {@link #RESULT_NOT_CONVERTIBLE} → 4 (live recipe, not convertible)</li>
+     *   <li>{@link #NOT_CONVERTIBLE_PLACEHOLDER_DETAIL} on a {@link #RESULT_PLACEHOLDER} run → 4,
+     *       the same reason as the line above: the placeholder was written WHERE the refusal would
+     *       have been, and the player who accepted the question must still be told what stood in
+     *       the way of the line</li>
      *   <li>anything else → 0</li>
      * </ul>
      */
@@ -594,7 +775,12 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             this.lastErrorCode = ERROR_NO_USABLE_OUTPUT;
         } else if (diagnostic.startsWith("target has no registry id")) {
             this.lastErrorCode = ERROR_NO_REGISTRY_ID;
-        } else if (code == RESULT_NOT_CONVERTIBLE) {
+        } else if (code == RESULT_NOT_CONVERTIBLE
+                || diagnostic.startsWith(NOT_CONVERTIBLE_PLACEHOLDER_DETAIL)) {
+            // One classification for both shapes of the same cause: the refusal (nothing written)
+            // and the placeholder written after the question was accepted. Splitting them would let
+            // a status line that reads the code alone drop the reason exactly where it is needed
+            // most — the run that DID write something is the one the player has to finish by hand.
             this.lastErrorCode = ERROR_NOT_CONVERTIBLE;
         } else {
             this.lastErrorCode = ERROR_NONE;
@@ -663,5 +849,9 @@ public class ProductionComputerBlockEntity extends BlockEntity {
         lastErrorCode = tag.getInt("LastErrorCode");
         lastError = tag.getString("LastError");
         computeQueued = false;
+        // A question is never restored: it belonged to a live menu and a live clock, and neither
+        // survives a save. Restoring one could put a "yes" button in front of a player for a target
+        // slot that has been emptied (or refilled) since — so nothing is read back for it.
+        pendingPlaceholder = null;
     }
 }

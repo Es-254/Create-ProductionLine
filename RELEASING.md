@@ -5,7 +5,7 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-26):**
 >
-> - **`1.0.4-snapshot.0.0.1` is published** (2026-09-26, alpha): the OP-only placeholder scheme. When a target
+> - **`1.0.4-snapshot.0.0.1` was retracted** (2026-09-26): it was published as a GitHub pre-release and then withdrawn at the author's request — the `1.0.4` work rides the **dev** line instead, next cut `0.0.0-dev.35`. For the record it was the OP-only placeholder scheme. When a target
 >   item has no usable recipe, an operator (permission level 2+) now gets a scheme carrying just that item and
 >   completes it on the anvil; a placeholder has an **empty `RecipeId`**, so it installs nothing and leaves the
 >   loader's bar dark. `create_productionline-1.0.4-snapshot.0.0.1.jar` **293,866 B / `sha256:23d92b94…`**,

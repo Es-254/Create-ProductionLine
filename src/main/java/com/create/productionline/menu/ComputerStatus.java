@@ -3,11 +3,14 @@ package com.create.productionline.menu;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.create.productionline.block.entity.PlaceholderPrompt;
 import com.create.productionline.block.entity.ProductionComputerBlockEntity;
 import com.create.productionline.line.scheme.LineScheme;
 import com.create.productionline.line.scheme.LineSchemeSerializer;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +24,10 @@ import net.minecraft.world.item.ItemStack;
  * <p>Order is by importance, because the panel only has room for four rows
  * (see {@link GuiLayout}): product, target output / repeat budget, material
  * budget, plan size, embedded recipe count. Chat always receives the whole list.
+ *
+ * <p>This is also where the one line that is a QUESTION rather than a status lives
+ * ({@link #placeholderPrompt}), because it shares the same channel and the same rule: it goes to
+ * the player who pressed [Compute] and to nobody else.
  */
 public final class ComputerStatus {
 
@@ -75,8 +82,9 @@ public final class ComputerStatus {
                     out.add(Component.translatable("screen.create_productionline.computer.not_convertible"));
             case ProductionComputerBlockEntity.RESULT_PLACEHOLDER -> {
                 // Only ever reached for a requester with authoring permission: the computer
-                // reports RESULT_NO_RECIPE (and writes nothing) for everybody else, so this
-                // text must not read as an instruction every player could follow.
+                // reports RESULT_NO_RECIPE / RESULT_NOT_CONVERTIBLE (and writes nothing) for
+                // everybody else, so this text must not read as an instruction every player
+                // could follow.
                 LineScheme scheme = LineSchemeSerializer.fromStack(schemeStack);
                 if (scheme.getOutputItem().isBlank()) {
                     scheme = LineSchemeSerializer.fromStack(clipboardStack);
@@ -84,12 +92,28 @@ public final class ComputerStatus {
                 // A placeholder has zero steps, so isEmpty() is true for it by design and
                 // cannot be used to detect that the write happened: the target id is the
                 // proof, not the step count.
+                //
+                // The placeholder has two origins and they mean different things to the server:
+                // "nothing produces this item" and "a live recipe exists that this mod cannot
+                // convert". The player acts on the difference (build the line from nothing vs.
+                // look at the mapping config), so the reason is reported here instead of one
+                // blanket text. ERROR_NOT_CONVERTIBLE is the classification the computer attaches
+                // to the second origin precisely for this line: losing it the moment a placeholder
+                // was written would delete the only information the refusal used to carry.
+                boolean notConvertible =
+                        lastErrorCode == ProductionComputerBlockEntity.ERROR_NOT_CONVERTIBLE;
                 if (scheme.getOutputItem().isBlank()) {
                     // The carrier was taken out (or replaced) after the run: nothing left to
-                    // name, but the outcome is still "no recipe, author it by hand".
-                    out.add(Component.translatable("screen.create_productionline.computer.no_recipe_found"));
+                    // name, but the outcome is still "no plan, author it by hand". The reason is
+                    // kept in both cases — telling a not-convertible player "no recipe was found"
+                    // would send them looking for a recipe the server does have.
+                    out.add(Component.translatable(notConvertible
+                            ? "screen.create_productionline.computer.not_convertible"
+                            : "screen.create_productionline.computer.no_recipe_found"));
                 } else {
-                    out.add(Component.translatable("screen.create_productionline.computer.placeholder",
+                    out.add(Component.translatable(notConvertible
+                            ? "screen.create_productionline.computer.not_convertible_placeholder"
+                            : "screen.create_productionline.computer.placeholder",
                             displayName(scheme.getOutputItem())));
                 }
                 out.add(Component.translatable("screen.create_productionline.computer.placeholder_anvil"));
@@ -130,5 +154,57 @@ public final class ComputerStatus {
             }
         }
         return itemId;
+    }
+
+    // --- the placeholder question ---------------------------------------------
+
+    /**
+     * The private question the computer asks before it writes a placeholder for a target whose
+     * recipe cannot be converted, plus the two clickable answers under it.
+     *
+     * <p>The reason stays part of the question — the same "cannot be converted" the refusal line
+     * reports — because that is the information the answer depends on; the question only adds what
+     * the player is being offered. Without it the operator would have to guess why the compute
+     * failed before deciding whether authoring a line by hand is worth it.
+     *
+     * <p>The options are vanilla {@code RUN_COMMAND} clicks, because chat offers nothing else. That
+     * is safe here not because of the click but because of what the click does: the commands behind
+     * it re-check the answering player, the permission level, the deadline, the target slot and the
+     * open menu server-side ({@link PlaceholderPrompt}), and the write itself can only ever produce
+     * a scheme whose {@code RecipeId} is empty — an item, never a recipe.
+     */
+    public static List<Component> placeholderPrompt(String targetId) {
+        return List.of(
+                Component.translatable("screen.create_productionline.computer.placeholder_prompt",
+                        displayName(targetId)),
+                Component.empty()
+                        .append(option("screen.create_productionline.computer.placeholder_accept",
+                                PlaceholderPrompt.ACCEPT_COMMAND, ChatFormatting.YELLOW))
+                        .append(Component.literal("   "))
+                        .append(option("screen.create_productionline.computer.placeholder_decline",
+                                PlaceholderPrompt.DECLINE_COMMAND, ChatFormatting.GRAY)));
+    }
+
+    /** The private reply when the player who was asked answered "no". */
+    public static Component promptDeclined() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_declined");
+    }
+
+    /**
+     * The private reply for every answer that no longer applies: an expired question, one asked of
+     * somebody else, a permission that was revoked, or a click with no question behind it at all.
+     * It says what happened (nothing was written) and how to get the offer back, which is the one
+     * action that helps in all of those cases.
+     */
+    public static Component promptExpired() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_expired");
+    }
+
+    /** One clickable answer: a colour, an underline (it must look pressable) and its command. */
+    private static Component option(String key, String command, ChatFormatting color) {
+        return Component.translatable(key).withStyle(style -> style
+                .withColor(color)
+                .withUnderlined(true)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command)));
     }
 }

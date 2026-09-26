@@ -42,7 +42,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 25 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 26 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -110,6 +110,14 @@ import net.minecraft.world.level.storage.LevelResource;
  *       computed for (a name the anvil flow can author against — and nothing a Scheme Loader
  *       could install: the loader refuses the item, counts it as no filled slot and derives no
  *       entry from it, so the bar stays dark);</li>
+ *   <li><b>the OP placeholder QUESTION for a target whose live recipe cannot be converted</b> (the
+ *       milk bucket dead end): the computer writes nothing and asks the requester instead, so the
+ *       whole table is asserted — non-OP keeps the byte-for-byte refusal and is never asked, OP
+ *       gets the question recorded and a prompt that really carries two {@code RUN_COMMAND} clicks,
+ *       decline / expiry / closed menu / changed target slot / revoked permission write nothing
+ *       (the revoked one keeps the question, because only the asked player may consume it), accept
+ *       writes the placeholder while keeping the reason — and that placeholder installs nothing, by
+ *       the same two loader rules as the other origin;</li>
  *   <li><b>each Ponder schematic holds the exact block at every position its scene
  *       shows, hides or modifies, and that position is inside the box those blocks
  *       span</b> — Ponder drops anything outside it without a log line, which is how
@@ -161,6 +169,8 @@ public final class SelfTest {
             check("Computer writes plan + guide onto both carriers", () -> computerWritesBothCarriers(server));
             check("Placeholder scheme for an unreachable item (OP only)",
                     () -> placeholderForUnreachableItem(server));
+            check("Placeholder question for an unconvertible target (OP only)",
+                    () -> placeholderQuestionForUnconvertibleTarget(server));
             check("Ponder schematics hold every block their scene touches", () -> ponderSchematicCoverage());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
@@ -1156,6 +1166,381 @@ public final class SelfTest {
             return ok;
         } finally {
             level.removeBlock(pos, false);
+        }
+    }
+
+    /**
+     * The placeholder QUESTION for a target whose live recipe cannot be CONVERTED — the milk bucket
+     * dead end, and the second origin of a placeholder scheme.
+     *
+     * <p>Here the computer DOES find a recipe for the item and then refuses to turn it into a Create
+     * line (the bucket is filled by a native Create process of its own), so an operator could not
+     * obtain a scheme naming it — and the anvil flow, which can only refine a scheme that already
+     * exists, could not start one either. Unlike the "no recipe at all" case the computer must not
+     * decide this on its own: it asks the requester first, privately, with two clickable answers.
+     * The check installs exactly that shape of recipe into the self test's own data pack, so the
+     * branch is decided by the LIVE {@code RecipeManager} rather than by a fixture production code
+     * never reads, and then asserts the whole table on a real block entity:
+     *
+     * <ul>
+     *   <li>non-OP: the old refusal byte for byte (result code, M7 reason, detail string, the one
+     *       status line), no question recorded, nothing written;</li>
+     *   <li>OP: still nothing written, but the question is recorded — and the prompt really carries
+     *       two {@code RUN_COMMAND} clicks, at the commands the server registers;</li>
+     *   <li>decline, expired, closed menu, changed target slot and revoked permission all write
+     *       nothing; the revoked one additionally leaves the question standing, because a stranger
+     *       (or a demoted operator) must not be able to consume the asked player's offer;</li>
+     *   <li>accept writes the SAME placeholder the unreachable case writes (one marker, one result
+     *       code; the reason rides in the diagnostic and therefore in the status line), and that
+     *       placeholder installs nothing either — asserted against the very two methods the cabinet
+     *       reconciles with;</li>
+     *   <li>the pure decision table is driven row by row as well, so the ORDER of its checks (which
+     *       is what stops a stranger's click from consuming somebody else's question) is asserted,
+     *       not just each verdict on its own.</li>
+     * </ul>
+     */
+    private static boolean placeholderQuestionForUnconvertibleTarget(MinecraftServer server) {
+        ServerLevel level = server.overworld();
+        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(12, 250, 0);
+        String targetId = "minecraft:milk_bucket";
+        ResourceLocation seeded = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_native_target");
+        var files = new java.util.LinkedHashMap<String, String>();
+        files.put("cpl_test_native_target", com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                com.create.productionline.recipegen.CreateRecipePack.flat("create:mixing",
+                        List.of("minecraft:bucket", "minecraft:sugar"), targetId)));
+        try {
+            // A genuine live recipe for the target, of a category the mod must not convert (native
+            // Create protection). Without it the run would take the "no recipe" branch and this
+            // check would pass while proving nothing about the branch it exists for.
+            if (com.create.productionline.recipegen.CreateRecipePack.installIsolated(server, files) != 1
+                    || server.getRecipeManager().byKey(seeded).isEmpty()) {
+                System.out.println("   could not install a live recipe producing " + targetId);
+                return false;
+            }
+            level.setBlockAndUpdate(pos, com.create.productionline.registry.ModBlocks.PRODUCTION_COMPUTER.get()
+                    .defaultBlockState());
+            if (!(level.getBlockEntity(pos) instanceof com.create.productionline.block.entity
+                    .ProductionComputerBlockEntity computer)) {
+                System.out.println("   could not place a production computer at " + pos);
+                return false;
+            }
+            var inv = computer.getInventory();
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_TARGET,
+                    new ItemStack(Items.MILK_BUCKET));
+            resetCarriers(computer);
+
+            // (a) No permission: the unchanged refusal, no question, nothing written.
+            computer.runCompute(false);
+            boolean ok = layoutExpect("non-OP still refuses an unconvertible target (result="
+                    + computer.getResultCode() + ", error=" + computer.getLastErrorCode()
+                    + ", detail='" + computer.getLastError() + "')",
+                    computer.getResultCode() == com.create.productionline.block.entity
+                            .ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE
+                            && computer.getLastErrorCode() == com.create.productionline.block.entity
+                                    .ProductionComputerBlockEntity.ERROR_NOT_CONVERTIBLE
+                            && targetId.equals(computer.getLastError()));
+            ok &= layoutExpect("non-OP is never asked for a placeholder",
+                    !computer.hasPendingPlaceholderRequest());
+            List<String> refusedKeys = statusKeys(computer, inv);
+            ok &= layoutExpect("non-OP still gets the one unchanged refusal line: " + refusedKeys,
+                    refusedKeys.equals(List.of("screen.create_productionline.computer.not_convertible")));
+            ok &= layoutExpect("non-OP carriers stay untouched", carriersUntouched(inv));
+
+            // (b) With permission: NOTHING is written, and the question is recorded instead.
+            computer.runCompute(true);
+            ok &= layoutExpect("OP keeps the old result code, because nothing was written yet (result="
+                    + computer.getResultCode() + ", error=" + computer.getLastErrorCode() + ")",
+                    computer.getResultCode() == com.create.productionline.block.entity
+                            .ProductionComputerBlockEntity.RESULT_NOT_CONVERTIBLE
+                            && computer.getLastErrorCode() == com.create.productionline.block.entity
+                                    .ProductionComputerBlockEntity.ERROR_NOT_CONVERTIBLE);
+            ok &= layoutExpect("OP gets the question recorded instead of a scheme",
+                    computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("OP carriers are untouched until the question is answered",
+                    carriersUntouched(inv));
+            List<net.minecraft.network.chat.Component> prompt =
+                    com.create.productionline.menu.ComputerStatus.placeholderPrompt(targetId);
+            ok &= layoutExpect("the prompt is a question about the target plus the two options: "
+                    + prompt.size() + " line(s)",
+                    prompt.size() == 2 && prompt.get(0).getContents()
+                            instanceof net.minecraft.network.chat.contents.TranslatableContents first
+                            && first.getKey().equals(
+                                    "screen.create_productionline.computer.placeholder_prompt"));
+            ok &= layoutExpect("both answers are clickable commands, and they are the registered ones: "
+                    + clickCommands(prompt.get(1)),
+                    clickCommands(prompt.get(1)).equals(List.of(
+                            "RUN_COMMAND " + com.create.productionline.block.entity.PlaceholderPrompt.ACCEPT_COMMAND,
+                            "RUN_COMMAND " + com.create.productionline.block.entity.PlaceholderPrompt.DECLINE_COMMAND)));
+
+            long now = level.getGameTime();
+            // (c) "No": nothing is written, and the question is settled.
+            resetCarriers(computer);
+            computer.runCompute(true);
+            ok &= expectOutcome("decline writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.DECLINED,
+                    computer.answerPlaceholderRequest(null,
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.DECLINE,
+                            true, true, now));
+            ok &= layoutExpect("a declined question is dropped", !computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("a declined question writes nothing", carriersUntouched(inv));
+
+            // (d) An expired question is worth nothing — the deadline is what keeps a prompt found
+            // in an old chat window from writing into a slot the player has since re-purposed.
+            resetCarriers(computer);
+            computer.runCompute(true);
+            ok &= expectOutcome("an expired question writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                    computer.answerPlaceholderRequest(null,
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            true, true, now + com.create.productionline.block.entity.PlaceholderPrompt
+                                    .TIMEOUT_TICKS + 1));
+            ok &= layoutExpect("an expired question is dropped", !computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("an expired question writes nothing", carriersUntouched(inv));
+
+            // (e) Closing the menu drops the question: the offer belonged to that window.
+            resetCarriers(computer);
+            computer.runCompute(true);
+            computer.cancelPlaceholderRequest(null); // what ProductionComputerMenu.removed does
+            ok &= layoutExpect("closing the menu drops the question",
+                    !computer.hasPendingPlaceholderRequest());
+            ok &= expectOutcome("a click from a closed menu writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                    computer.answerPlaceholderRequest(null,
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            true, true, now));
+            ok &= layoutExpect("a closed menu writes nothing", carriersUntouched(inv));
+
+            // (f) Changing the target slot drops the question with the item it named.
+            resetCarriers(computer);
+            computer.runCompute(true);
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_TARGET,
+                    new ItemStack(Items.BARRIER));
+            ok &= layoutExpect("changing the target slot drops the question",
+                    !computer.hasPendingPlaceholderRequest());
+            ok &= expectOutcome("a question about a replaced target writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                    computer.answerPlaceholderRequest(null,
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            true, true, now));
+            ok &= layoutExpect("a replaced target writes nothing", carriersUntouched(inv));
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_TARGET,
+                    new ItemStack(Items.MILK_BUCKET));
+
+            // (g) A revoked permission neither writes nor consumes: only the asked player may settle
+            // their own question, so it stays standing for them.
+            resetCarriers(computer);
+            computer.runCompute(true);
+            ok &= expectOutcome("a revoked permission writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED,
+                    computer.answerPlaceholderRequest(null,
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            false, true, now));
+            ok &= layoutExpect("a revoked permission leaves the question standing",
+                    computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("a revoked permission writes nothing", carriersUntouched(inv));
+
+            // (h) "Yes": the placeholder, exactly as the unreachable case writes it.
+            resetCarriers(computer);
+            computer.runCompute(true);
+            ok &= expectOutcome("accept writes the placeholder",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WRITE,
+                    computer.answerPlaceholderRequest(null,
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            true, true, level.getGameTime()));
+            ok &= layoutExpect("an answered question is dropped", !computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("accept reports the placeholder result code (result="
+                    + computer.getResultCode() + ", error=" + computer.getLastErrorCode() + ")",
+                    computer.getResultCode() == com.create.productionline.block.entity
+                            .ProductionComputerBlockEntity.RESULT_PLACEHOLDER
+                            && computer.getLastErrorCode() == com.create.productionline.block.entity
+                                    .ProductionComputerBlockEntity.ERROR_NOT_CONVERTIBLE);
+            LineScheme written = LineSchemeSerializer.fromStack(inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME));
+            ok &= layoutExpect("the placeholder names the target: " + written.getOutputItem(),
+                    targetId.equals(written.getOutputItem()));
+            ok &= layoutExpect("the placeholder recipe id is EMPTY (nothing can be installed): '"
+                    + written.getRecipeId() + "'", written.getRecipeId().isBlank());
+            ok &= layoutExpect("the placeholder has zero steps: " + written.getSteps().size(),
+                    written.getSteps().size() == 0);
+            ok &= layoutExpect("the placeholder is marked as one", written.isPlaceholder());
+            LineScheme paperCopy = LineSchemeSerializer.fromStack(inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD));
+            ok &= layoutExpect("the second carrier got the same placeholder",
+                    paperCopy.isPlaceholder() && targetId.equals(paperCopy.getOutputItem()));
+            List<String> writtenKeys = statusKeys(computer, inv);
+            ok &= layoutExpect("the write keeps the reason AND says a placeholder was written: " + writtenKeys,
+                    writtenKeys.equals(List.of(
+                            "screen.create_productionline.computer.not_convertible_placeholder",
+                            "screen.create_productionline.computer.placeholder_anvil")));
+
+            // (i) And it is still never an active line.
+            ItemStack carried = inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME).copyWithCount(1);
+            ok &= layoutExpect("a loader slot refuses this placeholder too",
+                    !ClipboardCompat.isLoaderCarrier(carried));
+            com.create.productionline.block.entity.SchemeLoaderBlockEntity loader =
+                    new com.create.productionline.block.entity.SchemeLoaderBlockEntity(
+                            new net.minecraft.core.BlockPos(12, 249, 0),
+                            com.create.productionline.registry.ModBlocks.SCHEME_LOADER.get().defaultBlockState());
+            loader.getInventory().setItem(0, carried);
+            ok &= layoutExpect("an unconvertible-target placeholder fills no loader slot (bar stays dark): "
+                    + loader.filledSlots(), loader.filledSlots() == 0);
+            ok &= layoutExpect("an unconvertible-target placeholder derives no installable entry",
+                    com.create.productionline.block.entity.SchemeLoaderBlockEntity
+                            .entriesForSlot(level, carried).isEmpty());
+
+            return ok & placeholderQuestionTable();
+        } finally {
+            level.removeBlock(pos, false);
+            com.create.productionline.recipegen.CreateRecipePack.removeIsolated(server);
+        }
+    }
+
+    /**
+     * The pure half of the table: the checks whose ORDER decides the verdict, driven row by row.
+     *
+     * <p>A stranger's click must be refused <em>and</em> leave the asker's question standing
+     * ({@code clearsPending()} false), which is the property no single verdict test can show; the
+     * same goes for a revoked permission. The rows here are the ones a headless server cannot reach
+     * through the block entity, because it has no players to be asked or to misbehave.
+     */
+    private static boolean placeholderQuestionTable() {
+        java.util.UUID asked = java.util.UUID.randomUUID();
+        java.util.UUID stranger = java.util.UUID.randomUUID();
+        ResourceLocation target = ResourceLocation.withDefaultNamespace("milk_bucket");
+        com.create.productionline.block.entity.PlaceholderPrompt.Pending pending =
+                new com.create.productionline.block.entity.PlaceholderPrompt.Pending(asked, target, 1000L);
+        var accept = com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT;
+        var decline = com.create.productionline.block.entity.PlaceholderPrompt.Answer.DECLINE;
+
+        boolean ok = expectOutcome("no question at all",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(null,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, true, true, target.toString(), true, 0L)));
+        ok &= expectOutcome("a stranger's click",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                stranger, accept, true, true, target.toString(), true, 0L)));
+        ok &= layoutExpect("a stranger's click leaves the question standing",
+                !com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED.clearsPending());
+        ok &= expectOutcome("a click without authoring permission",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, false, true, target.toString(), true, 0L)));
+        ok &= expectOutcome("a click past the deadline",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, true, true, target.toString(), true, 1001L)));
+        ok &= expectOutcome("a question asked through a closed menu",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, true, false, target.toString(), true, 0L)));
+        ok &= expectOutcome("a question about an item no longer in the target slot",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, true, true, "minecraft:barrier", true, 0L)));
+        ok &= expectOutcome("the asked player declining",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.DECLINED,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, decline, true, true, target.toString(), true, 0L)));
+        ok &= expectOutcome("accepting with no carrier left",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.NO_CARRIER,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, true, true, target.toString(), false, 0L)));
+        ok &= expectOutcome("accepting a live question with a carrier",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WRITE,
+                com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
+                        new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
+                                asked, accept, true, true, target.toString(), true, 1000L)));
+        ok &= layoutExpect("every settled outcome clears the question, REJECTED does not: "
+                + com.create.productionline.block.entity.PlaceholderPrompt.Outcome.values().length
+                + " outcomes",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WRITE.clearsPending()
+                        && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.DECLINED.clearsPending()
+                        && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED.clearsPending()
+                        && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.NO_CARRIER.clearsPending()
+                        && !com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED.clearsPending());
+        return ok;
+    }
+
+    /** Compares one decision-table row. */
+    private static boolean expectOutcome(String what,
+            com.create.productionline.block.entity.PlaceholderPrompt.Outcome expected,
+            com.create.productionline.block.entity.PlaceholderPrompt.Outcome actual) {
+        if (actual != expected) {
+            System.out.println("   " + what + ": expected " + expected + ", got " + actual);
+            return false;
+        }
+        return true;
+    }
+
+    /** Restores a blank scheme and paper in the computer's two carrier slots. */
+    private static void resetCarriers(com.create.productionline.block.entity.ProductionComputerBlockEntity computer) {
+        var inventory = computer.getInventory();
+        inventory.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME,
+                new ItemStack(ModItems.LINE_SCHEME.get()));
+        inventory.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD,
+                new ItemStack(Items.PAPER));
+    }
+
+    /** True when neither carrier holds a written placeholder. */
+    private static boolean carriersUntouched(net.minecraft.world.Container inventory) {
+        for (int slot : new int[]{com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME,
+                com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_CLIPBOARD}) {
+            LineScheme scheme = LineSchemeSerializer.fromStack(inventory.getItem(slot));
+            if (scheme.isPlaceholder() || !scheme.getOutputItem().isBlank()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Translation keys of the status lines the computer currently reports.
+     *
+     * <p>A headless server has no loaded language, so the lines cannot be compared as text —
+     * {@code getString()} on a translatable component returns the key itself. The key is the right
+     * thing to assert anyway: it is what decides the wording on the client, and it is exactly what
+     * tells the two placeholder origins (and the two "cannot be converted" lines) apart.
+     */
+    private static List<String> statusKeys(com.create.productionline.block.entity.ProductionComputerBlockEntity computer,
+            net.minecraft.world.Container inventory) {
+        return com.create.productionline.menu.ComputerStatus.lines(computer.getResultCode(),
+                        computer.getLastErrorCode(),
+                        inventory.getItem(com.create.productionline.block.entity
+                                .ProductionComputerBlockEntity.SLOT_SCHEME),
+                        inventory.getItem(com.create.productionline.block.entity
+                                .ProductionComputerBlockEntity.SLOT_CLIPBOARD))
+                .stream()
+                .map(line -> line.getContents()
+                        instanceof net.minecraft.network.chat.contents.TranslatableContents translatable
+                                ? translatable.getKey()
+                                : line.getString())
+                .toList();
+    }
+
+    /** The {@code ACTION value} of every clickable component in a line, siblings included. */
+    private static List<String> clickCommands(net.minecraft.network.chat.Component line) {
+        List<String> out = new java.util.ArrayList<>();
+        collectClicks(line, out);
+        return out;
+    }
+
+    private static void collectClicks(net.minecraft.network.chat.Component component, List<String> out) {
+        net.minecraft.network.chat.ClickEvent click = component.getStyle().getClickEvent();
+        if (click != null) {
+            out.add(click.getAction() + " " + click.getValue());
+        }
+        for (net.minecraft.network.chat.Component sibling : component.getSiblings()) {
+            collectClicks(sibling, out);
         }
     }
 
