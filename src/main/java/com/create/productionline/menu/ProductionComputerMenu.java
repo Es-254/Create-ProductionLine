@@ -19,6 +19,19 @@ import net.minecraft.world.item.ItemStack;
  * GUI of the Production Computer. Three slots: target item, line scheme
  * (write), clipboard (guide). Data slot 0 = last computation result code,
  * data slot 1 = machine-readable reason of the last failure (M7).
+ *
+ * <p>Closing this menu deliberately does NOT drop a standing placeholder question (nothing here
+ * overrides {@code removed} for that purpose any more). The question is put in the player's chat, so
+ * reading it and clicking one of its two answers happens in a chat screen — which the client shows
+ * <em>in place of</em> this screen — and the menu also disappears and reappears on its own whenever
+ * the player re-opens the computer (the game closes the old menu first) or whenever vanilla's
+ * per-tick validity poll decides the container moved on. Tying the question's life to this menu
+ * killed it in the middle of the very action it exists for, and the click was answered with the
+ * generic "the request has expired" line. What keeps a late write honest is checked where the answer
+ * is judged instead: only the asked player may answer, the permission is re-read from the live
+ * player, the deadline and the target slot are re-checked, the carrier must still exist, and the
+ * block entity can only ever come from the clicker's own open menu (see
+ * {@link com.create.productionline.event.CommandEvents}).
  */
 public class ProductionComputerMenu extends AbstractContainerMenu {
 
@@ -203,20 +216,6 @@ public class ProductionComputerMenu extends AbstractContainerMenu {
      */
     public ProductionComputerBlockEntity computer() {
         return computer;
-    }
-
-    /**
-     * Closing the menu drops the question that was asked through it: the offer is about the target
-     * slot the player was watching, and a chat line that outlives the window it came from must not
-     * be able to write into it later. Only the asked player's own menu closes their question —
-     * this method is called for whoever closes a menu, and the block entity checks whose it is.
-     */
-    @Override
-    public void removed(Player player) {
-        super.removed(player);
-        if (computer != null && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-            computer.cancelPlaceholderRequest(serverPlayer.getUUID());
-        }
     }
 
     /** Slot 2 takes only a BLANK line scheme (a written plan would be overwritten). */

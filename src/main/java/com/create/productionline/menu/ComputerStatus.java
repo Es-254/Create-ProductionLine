@@ -191,13 +191,42 @@ public final class ComputerStatus {
     }
 
     /**
-     * The private reply for every answer that no longer applies: an expired question, one asked of
-     * somebody else, a permission that was revoked, or a click with no question behind it at all.
-     * It says what happened (nothing was written) and how to get the offer back, which is the one
-     * action that helps in all of those cases.
+     * The private reply for a click that carries no live question: nothing pending, or a question
+     * whose deadline passed or whose target slot no longer holds the item it named. It says what
+     * happened (nothing was written) and how to get the offer back, which is the one action that
+     * helps in all of those cases.
      */
     public static Component promptExpired() {
         return Component.translatable("screen.create_productionline.computer.placeholder_expired");
+    }
+
+    /**
+     * The private reply when the clicker has no computer menu open at all. Its own sentence, because
+     * the action that helps is a different one: the question is answered through the computer's own
+     * window, so the answer is to open the computer again and click the line (or ask again with
+     * [Compute] if the question has already been settled) — not to wonder about a deadline.
+     */
+    public static Component promptWindowClosed() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_window_closed");
+    }
+
+    /**
+     * The private reply when the question is the clicker's and still fresh, but the container behind
+     * their menu is not the live one any more (the computer was broken, moved or reloaded under the
+     * open window). Distinguished from {@link #promptExpired()} because re-opening the computer is
+     * what brings the question back.
+     */
+    public static Component promptWindowGone() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_window_gone");
+    }
+
+    /**
+     * The private reply when a live question is not this player's to answer: a stranger clicked, or
+     * the player who was asked no longer holds the authoring permission. Says that the question is
+     * still standing for whoever was asked, so the player does not conclude it was lost.
+     */
+    public static Component promptRejected() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_rejected");
     }
 
     /** One clickable answer: a colour, an underline (it must look pressable) and its command. */

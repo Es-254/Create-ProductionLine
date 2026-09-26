@@ -21,22 +21,33 @@ import net.minecraft.resources.ResourceLocation;
  *
  * <ol>
  *   <li>nothing pending → {@link Outcome#EXPIRED}: a click with no question behind it (an old chat
- *       line, a re-opened menu, a hand-typed command);</li>
+ *       line, a hand-typed command, a question already answered);</li>
  *   <li>somebody else's click → {@link Outcome#REJECTED}: a stranger must not be able to answer,
  *       and — just as important — must not be able to <em>consume</em> the asker's question, so the
  *       pending state is deliberately left untouched;</li>
  *   <li>no authoring permission → {@link Outcome#REJECTED}: the permission level is re-checked on
  *       the server at the moment of the click. The command's own requirement is a convenience for
  *       tab completion, never the check;</li>
- *   <li>past the deadline, menu closed, or the target slot no longer holds the item that was asked
- *       about → {@link Outcome#EXPIRED}: the question no longer describes the world it came from,
- *       and answering it would write a scheme for an item the player is no longer computing;</li>
+ *   <li>past the deadline, or the target slot no longer holds the item that was asked about →
+ *       {@link Outcome#EXPIRED}: the question no longer describes the world it came from, and
+ *       answering it would write a scheme for an item the player is no longer computing;</li>
+ *   <li>the clicker's container is no longer the live one (the block entity behind the menu is not
+ *       the one standing at its position any more, or the clicker left its reach) →
+ *       {@link Outcome#WINDOW_GONE}: the question is still theirs, but the window it was asked
+ *       through is not a window any more, so a write could only land in a container nobody is
+ *       looking at. This row exists separately from {@link Outcome#EXPIRED} <em>because the two are
+ *       answered by different actions</em> (re-open the computer vs. compute again), and a shared
+ *       sentence for both is what made a live failure impossible to diagnose in game;</li>
  *   <li>declined → {@link Outcome#DECLINED};</li>
  *   <li>accepted with no carrier left → {@link Outcome#NO_CARRIER}: there is nothing to write the
  *       scheme on, which is the same refusal the compute itself reports ({@code RESULT_NO_SCHEME});
  *       </li>
  *   <li>otherwise → {@link Outcome#WRITE}.</li>
  * </ol>
+ *
+ * <p>{@code menuOpen} is the caller's answer to "is the container behind the clicker's own open
+ * menu still the live one". The caller must read it from the live menu (see
+ * {@code CommandEvents.answerPlaceholder}); it is never carried by the click.
  */
 public final class PlaceholderPrompt {
 
@@ -91,8 +102,10 @@ public final class PlaceholderPrompt {
         WRITE,
         /** The asked player said no: nothing is written, ever. */
         DECLINED,
-        /** No question, or one that is no longer valid: nothing is written. */
+        /** No question behind this click, or one whose world moved on: nothing is written. */
         EXPIRED,
+        /** The question is the asker's, but the window it was asked through is gone. */
+        WINDOW_GONE,
         /** A live question, but not this player's to answer (or not this player's to author). */
         REJECTED,
         /** Accepted, but the carriers are gone: nothing to write on. */
@@ -103,6 +116,11 @@ public final class PlaceholderPrompt {
          * the one outcome that leaves it standing: the asker still has a live question, and a
          * stranger's click (or a player whose permission was revoked) must not silently take it
          * away from them.
+         *
+         * <p>{@link #WINDOW_GONE} settles it: the question is answerable only through a live
+         * container, so once that container is gone there is nothing left to answer — and its
+         * sentence tells the player that re-opening the computer is what brings it back (a state
+         * the ask itself can rebuild in one click of [Compute]).
          */
         public boolean clearsPending() {
             return this != REJECTED;
@@ -133,9 +151,15 @@ public final class PlaceholderPrompt {
             return Outcome.REJECTED;
         }
         if (pending.isExpired(moment.now())
-                || !moment.menuOpen()
                 || !pending.targetId().toString().equals(moment.currentTargetId())) {
             return Outcome.EXPIRED;
+        }
+        if (!moment.menuOpen()) {
+            // The question is still the asker's and still fresh, but the container it was asked
+            // through is not a live container any more: the write would land in a block entity the
+            // clicker is not looking at. Kept apart from EXPIRED so the in-game answer says which
+            // of the two happened.
+            return Outcome.WINDOW_GONE;
         }
         if (moment.answer() != Answer.ACCEPT) {
             // Anything that is not an explicit ACCEPT declines. A malformed click must not be the

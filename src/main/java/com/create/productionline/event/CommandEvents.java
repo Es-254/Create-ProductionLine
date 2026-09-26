@@ -77,8 +77,21 @@ public final class CommandEvents {
      * <p>The command requirement above is a convenience (it hides the branch); the real binding is
      * checked where the answer is judged: the block entity compares the answering player's UUID
      * with the one that was asked, re-reads the permission from the live player, and refuses
-     * anything whose deadline, menu or target slot moved on. Nothing about the request is taken
+     * anything whose deadline, container or target slot moved on. Nothing about the request is taken
      * from the command — the player supplies only who they are and what they clicked.
+     *
+     * <p>The block entity comes from the clicker's OWN open menu ({@code player.containerMenu}) and
+     * from nowhere else — never from the command text, never from "the computer that last asked
+     * anybody" — so a click can only ever write into a computer its clicker has open. That menu
+     * requirement is also the only reason a click without it writes nothing: the question itself
+     * deliberately outlives the menu, because it is asked and answered in chat (see
+     * {@code ProductionComputerBlockEntity#pendingPlaceholder}).
+     *
+     * <p>Every refusal is answered with its OWN sentence. Three failures used to share one
+     * ("the request has expired") — no menu, a container that lapsed, and a genuinely stale
+     * question — which left a live refusal in the author's session impossible to diagnose: the
+     * reply could not say whether the question was gone, the window was gone or the player was
+     * gone.
      */
     private static int answerPlaceholder(CommandContext<CommandSourceStack> context,
             PlaceholderPrompt.Answer answer) {
@@ -90,19 +103,21 @@ public final class CommandEvents {
             return 0;
         }
         if (!(player.containerMenu instanceof ProductionComputerMenu menu) || menu.computer() == null) {
-            // The question belongs to the computer whose menu it was asked through, and that menu
-            // closing is itself what drops it. Without one there is nothing to answer.
-            player.displayClientMessage(ComputerStatus.promptExpired(), false);
+            // The write needs a container the clicker is looking at: without one there is nothing to
+            // answer, and the sentence says so instead of pretending the question expired. This is
+            // also the shape a player hits when the chat line is still in the log after they closed
+            // the computer — re-opening it (and pressing [Compute] again if the question has already
+            // been answered) is the way back.
+            player.displayClientMessage(ComputerStatus.promptWindowClosed(), false);
             return 0;
         }
         ProductionComputerBlockEntity computer = menu.computer();
-        // The menu being open is not the same as it still being valid: a click can arrive in the very
-        // tick the player walked out of reach or the computer was broken, and a menu that is no longer
-        // valid must not authorise a write. Vanilla closes such a menu within a tick, so this is the
-        // same rule one tick earlier - and the answer becomes the honest "no longer valid" instead of
-        // a silent nothing. (An audit of this feature found the handler asserting menuOpen
-        // unconditionally, which made that row of the decision table reachable only from the self test.)
-        boolean menuOpen = menu.stillValid(player);
+        // "The menu is still open" is answered by the identity of the menu the clicker currently
+        // has, not by how far they stand from the block: the menu was taken from
+        // player.containerMenu one statement ago, so this asserts that the click is answered
+        // through the very window the question belongs to, and it keeps asserting it if the handler
+        // is ever refactored to obtain the menu from anywhere else.
+        boolean menuOpen = player.containerMenu == menu && menu.stillValid(player);
         PlaceholderPrompt.Outcome outcome = computer.answerPlaceholderRequest(player.getUUID(), answer,
                 player.hasPermissions(Commands.LEVEL_GAMEMASTERS), menuOpen, player.serverLevel().getGameTime());
         switch (outcome) {
@@ -111,6 +126,14 @@ public final class CommandEvents {
             // not derived, finish it in an anvil".
             case WRITE, NO_CARRIER -> sendStatus(player, computer);
             case DECLINED -> player.displayClientMessage(ComputerStatus.promptDeclined(), false);
+            // A live question that is not this player's to answer (a stranger, or an operator whose
+            // permission was taken away). Its own sentence: the question is STILL standing for the
+            // player who was asked, so "expired" would be actively misleading.
+            case REJECTED -> player.displayClientMessage(ComputerStatus.promptRejected(), false);
+            // The question is still this player's and still fresh, but the container behind their
+            // menu is not the live one any more: re-opening the computer is what fixes it, so say
+            // that instead of "expired".
+            case WINDOW_GONE -> player.displayClientMessage(ComputerStatus.promptWindowGone(), false);
             default -> player.displayClientMessage(ComputerStatus.promptExpired(), false);
         }
         return Command.SINGLE_SUCCESS;

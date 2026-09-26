@@ -33,6 +33,25 @@ and they keep the `(beta)` marker a dev build carries **under the current policy
 actually published with at the time was `release`.
 
 
+## 0.0.0-dev.36 — 2026-09-26 (beta)
+
+### Fixed
+
+- **The placeholder question could not be answered.** Its state and its write were both bound to the
+  player's live container menu, so any menu churn between the question and the click destroyed it — and
+  because a missing menu, a lapsed container, a foreign click and a genuinely stale question all printed
+  the same sentence, the refusal could not be triaged. The author's own log pins it down: question at
+  01:58:51, refused click 3.9 s later, well inside the 30 s deadline, same target, same asker, no second
+  compute in between. The question now lives on the block entity for its full 30 seconds — it survives the
+  menu closing, and re-opening the computer and clicking the same chat line writes without a second
+  compute. Answering still requires the clicker's own live menu (`player.containerMenu == menu &&
+  menu.stillValid(player)`), only the player who was asked may answer, permission is re-checked when the
+  click arrives, and the block entity is never taken from the command text. The four failure shapes now
+  say different things, and every verdict is logged as `CPL placeholder: …` so the next live attempt is
+  triageable from `latest.log` alone.
+- **`docs/security.md` claimed the question was dropped by the menu closing.** That is what the code did,
+  and it is exactly what made the feature unusable; the claim is corrected in both languages.
+
 ## 0.0.0-dev.35 — 2026-09-26 (beta)
 
 > `1.0.4-snapshot.0.0.1` was briefly published as a GitHub pre-release and is **retracted** (its release

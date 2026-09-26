@@ -42,7 +42,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * registries / NBT / component system / recipe manager, prints one line per
  * check and stops the server afterwards.
  *
- * <p>Coverage (against the SRS QA list) — 26 checks, in run order:
+ * <p>Coverage (against the SRS QA list) — 27 checks, in run order:
  * <ol>
  *   <li>TC-05 scheme NBT round-trip + version;</li>
  *   <li>TC-02 clipboard build-guide injection NBT shape;</li>
@@ -114,10 +114,19 @@ import net.minecraft.world.level.storage.LevelResource;
  *       milk bucket dead end): the computer writes nothing and asks the requester instead, so the
  *       whole table is asserted — non-OP keeps the byte-for-byte refusal and is never asked, OP
  *       gets the question recorded and a prompt that really carries two {@code RUN_COMMAND} clicks,
- *       decline / expiry / closed menu / changed target slot / revoked permission write nothing
- *       (the revoked one keeps the question, because only the asked player may consume it), accept
- *       writes the placeholder while keeping the reason — and that placeholder installs nothing, by
- *       the same two loader rules as the other origin;</li>
+ *       decline / expiry / a lapsed container / changed target slot / revoked permission write
+ *       nothing (the revoked one keeps the question, because only the asked player may consume it),
+ *       accept writes the placeholder while keeping the reason — and that placeholder installs
+ *       nothing, by the same two loader rules as the other origin;</li>
+ *   <li><b>the placeholder ANSWER through the click path production really uses</b>: a real
+ *       {@code ProductionComputerMenu} opened for a real (fake) player standing at the computer,
+ *       the ask driven through {@code computeProvided} + the tick's {@code runCompute}, and the
+ *       answer judged with the menu's REAL {@code stillValid(player)} value — a stranger is rejected
+ *       without consuming the asker's question, a player out of reach answers "the container is
+ *       gone", closing the menu does not drop the question, and the asker who re-opens the computer
+ *       writes the placeholder. This is the check that would have caught the live failure in which
+ *       every click on 【写入占位方案】 was answered "该占位请求已失效": the previous coverage fed
+ *       {@code menuOpen = true} by hand and never ran the ask through the payload entry point;</li>
  *   <li><b>each Ponder schematic holds the exact block at every position its scene
  *       shows, hides or modifies, and that position is inside the box those blocks
  *       span</b> — Ponder drops anything outside it without a log line, which is how
@@ -171,6 +180,8 @@ public final class SelfTest {
                     () -> placeholderForUnreachableItem(server));
             check("Placeholder question for an unconvertible target (OP only)",
                     () -> placeholderQuestionForUnconvertibleTarget(server));
+            check("Placeholder answer needs the asker's own live menu",
+                    () -> placeholderAnswerNeedsLiveMenu(server));
             check("Ponder schematics hold every block their scene touches", () -> ponderSchematicCoverage());
         } catch (Throwable t) {
             fail("self-test crashed: " + t);
@@ -1256,6 +1267,13 @@ public final class SelfTest {
                                     .ProductionComputerBlockEntity.ERROR_NOT_CONVERTIBLE);
             ok &= layoutExpect("OP gets the question recorded instead of a scheme",
                     computer.hasPendingPlaceholderRequest());
+            // The suspected regression of this feature: a run that records a question must not clear
+            // it again on its way out (a clear at the END of runComputeInternal would make every
+            // answer impossible). Asserted here as its own line because that is exactly the shape
+            // the live report looked like; the production entry points are covered separately, by
+            // placeholderAnswerNeedsLiveMenu.
+            ok &= layoutExpect("the question survives the very run that recorded it",
+                    computer.hasPendingPlaceholderRequest());
             ok &= layoutExpect("OP carriers are untouched until the question is answered",
                     carriersUntouched(inv));
             List<net.minecraft.network.chat.Component> prompt =
@@ -1297,18 +1315,23 @@ public final class SelfTest {
             ok &= layoutExpect("an expired question is dropped", !computer.hasPendingPlaceholderRequest());
             ok &= layoutExpect("an expired question writes nothing", carriersUntouched(inv));
 
-            // (e) Closing the menu drops the question: the offer belonged to that window.
+            // (e) A closed menu no longer drops the question by itself: the question is asked and
+            // answered in chat, so its life cannot be the menu's life. What a click without a live
+            // menu does is decided by the click handler, and the row that decides "the container
+            // behind the clicker's own menu is no longer the live one" is asserted below, with the
+            // REAL menu value, by placeholderAnswerNeedsLiveMenu.
             resetCarriers(computer);
             computer.runCompute(true);
-            computer.cancelPlaceholderRequest(null); // what ProductionComputerMenu.removed does
-            ok &= layoutExpect("closing the menu drops the question",
-                    !computer.hasPendingPlaceholderRequest());
-            ok &= expectOutcome("a click from a closed menu writes nothing",
-                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+            ok &= layoutExpect("a closed menu leaves the question standing for its own asker",
+                    computer.hasPendingPlaceholderRequest());
+            ok &= expectOutcome("a click whose container is no longer the live one writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WINDOW_GONE,
                     computer.answerPlaceholderRequest(null,
                             com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
-                            true, true, now));
-            ok &= layoutExpect("a closed menu writes nothing", carriersUntouched(inv));
+                            true, false, now));
+            ok &= layoutExpect("a lapsed container writes nothing", carriersUntouched(inv));
+            ok &= layoutExpect("a lapsed container settles the question",
+                    !computer.hasPendingPlaceholderRequest());
 
             // (f) Changing the target slot drops the question with the item it named.
             resetCarriers(computer);
@@ -1397,6 +1420,213 @@ public final class SelfTest {
     }
 
     /**
+     * The production click path, driven end to end through the entry points the game uses — and the
+     * regression guard for the one live failure this feature had.
+     *
+     * <p>The failure: the ask worked, the question reached the player, and every click on
+     * 【写入占位方案】 answered "该占位请求已失效" while the player stood at the computer, well inside
+     * the 30 s deadline, with the target slot untouched (the author's log: question at
+     * {@code 01:58:51.649}, refused answer at {@code 01:58:55.573}). Two things can produce that
+     * sentence and the previous checks could see neither, because they fed the decision table
+     * {@code menuOpen = true} by hand:
+     *
+     * <ul>
+     *   <li>a question that did not survive the menu — the question was asked in chat, so every
+     *       answer is clicked with a chat screen up, and any menu churn (the player re-opening the
+     *       computer, vanilla's per-tick validity poll, a broken/moved/reloaded block) used to drop
+     *       it;</li>
+     *   <li>a {@code menuOpen} value that is not what the menu really says, which no hard-coded true
+     *       can catch.</li>
+     * </ul>
+     *
+     * <p>So this check builds a REAL {@link com.create.productionline.menu.ProductionComputerMenu}
+     * for a real (fake) player standing at the computer, drives the ask through the real entry points
+     * ({@code computeProvided} with that player, then the tick's {@code runCompute}), and answers
+     * with the REAL value of {@code menu.stillValid(player)}:
+     *
+     * <ul>
+     *   <li>a player standing at the computer with its menu open gets {@code stillValid == true} —
+     *       the assumption the live click depends on, asserted instead of assumed;</li>
+     *   <li>the question is recorded with that player as the asker and SURVIVES the run that
+     *       recorded it (a clear at the end of that run would make every answer impossible);</li>
+     *   <li>a stranger clicking the same computer is rejected and leaves the asker's question
+     *       standing, writing nothing;</li>
+     *   <li>the asker, back at the computer with its menu open, writes the placeholder;</li>
+     *   <li>a click whose container really is gone ({@code stillValid == false}, measured by moving
+     *       the player out of reach) writes nothing and says so with its own verdict, and closing the
+     *       menu does not drop the question — so the offer can still be answered through the
+     *       re-opened computer, which is the flow the author actually performs.</li>
+     * </ul>
+     */
+    private static boolean placeholderAnswerNeedsLiveMenu(MinecraftServer server) {
+        ServerLevel level = server.overworld();
+        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(12, 248, 0);
+        String targetId = "minecraft:milk_bucket";
+        ResourceLocation seeded = ResourceLocation.fromNamespaceAndPath("cpl_selftest", "cpl_test_native_target");
+        var files = new java.util.LinkedHashMap<String, String>();
+        files.put("cpl_test_native_target", com.create.productionline.recipegen.CreateRecipePack.toJsonString(
+                com.create.productionline.recipegen.CreateRecipePack.flat("create:mixing",
+                        List.of("minecraft:bucket", "minecraft:sugar"), targetId)));
+        com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(
+                java.util.UUID.nameUUIDFromBytes("cpl_selftest_placeholder".getBytes(StandardCharsets.UTF_8)),
+                "CPL_SelfTest");
+        com.mojang.authlib.GameProfile strangerProfile = new com.mojang.authlib.GameProfile(
+                java.util.UUID.nameUUIDFromBytes("cpl_selftest_stranger".getBytes(StandardCharsets.UTF_8)),
+                "CPL_SelfTest_Stranger");
+        boolean opped = false;
+        try {
+            if (com.create.productionline.recipegen.CreateRecipePack.installIsolated(server, files) != 1
+                    || server.getRecipeManager().byKey(seeded).isEmpty()) {
+                System.out.println("   could not install a live recipe producing " + targetId);
+                return false;
+            }
+            level.setBlockAndUpdate(pos, com.create.productionline.registry.ModBlocks.PRODUCTION_COMPUTER.get()
+                    .defaultBlockState());
+            if (!(level.getBlockEntity(pos) instanceof com.create.productionline.block.entity
+                    .ProductionComputerBlockEntity computer)) {
+                System.out.println("   could not place a production computer at " + pos);
+                return false;
+            }
+            var inv = computer.getInventory();
+            inv.setItem(com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_TARGET,
+                    new ItemStack(Items.MILK_BUCKET));
+            resetCarriers(computer);
+
+            // The ask only happens for a requester with the authoring permission, and the answer
+            // re-reads it from the live player — so the player has to really hold it.
+            server.getPlayerList().op(profile);
+            opped = true;
+            net.neoforged.neoforge.common.util.FakePlayer asker =
+                    net.neoforged.neoforge.common.util.FakePlayerFactory.get(level, profile);
+            asker.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
+            boolean ok = layoutExpect("the asking player really holds the authoring permission",
+                    asker.hasPermissions(2));
+
+            // The menu a real click is answered through, built by the production factory for this
+            // player (see openComputerMenu for why openMenu itself cannot be used headlessly).
+            com.create.productionline.menu.ProductionComputerMenu menu = openComputerMenu(asker, computer, 1);
+            if (menu == null) {
+                System.out.println("   could not open the computer's menu for "
+                        + asker.getGameProfile().getName());
+                return false;
+            }
+            ok &= layoutExpect("the menu belongs to this computer (" + menu.getClass().getSimpleName() + ")",
+                    menu.computer() == computer);
+            // THE predicate the whole live failure turned on: the real value, read from the real
+            // menu for a player standing at the open computer.
+            boolean menuOpen = menu.stillValid(asker);
+            ok &= layoutExpect("a player standing at the open computer is inside the menu's validity", menuOpen);
+
+            // The ask, exactly as production runs it: the client payload entry point (which reads the
+            // permission off the real player) and then the queued run the block entity's tick drives.
+            computer.computeProvided(asker, targetId, "", "", List.of(), targetId);
+            computer.runCompute();
+            long now = level.getGameTime();
+            ok &= layoutExpect("the queued run records the question for the asking player",
+                    computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("the question survives the run that recorded it",
+                    computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("nothing is written while the question stands", carriersUntouched(inv));
+
+            // A stranger at the same computer (a second player can open the same block's menu): the
+            // question is not theirs, they write nothing, and it stays standing for the asker.
+            net.neoforged.neoforge.common.util.FakePlayer stranger =
+                    net.neoforged.neoforge.common.util.FakePlayerFactory.get(level, strangerProfile);
+            stranger.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
+            com.create.productionline.menu.ProductionComputerMenu strangerMenu =
+                    openComputerMenu(stranger, computer, 2);
+            ok &= layoutExpect("the stranger has the same computer's menu open",
+                    strangerMenu != null && strangerMenu.computer() == computer);
+            ok &= expectOutcome("a stranger's click is refused as not theirs",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED,
+                    computer.answerPlaceholderRequest(stranger.getUUID(),
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            stranger.hasPermissions(2), true, level.getGameTime()));
+            ok &= layoutExpect("a stranger's click leaves the asker's question standing and writes nothing",
+                    computer.hasPendingPlaceholderRequest() && carriersUntouched(inv));
+
+            // A click whose container is really gone: the same player, moved out of the menu's reach,
+            // so the value fed to the answer is the menu's own, not a literal.
+            asker.moveTo(pos.getX() + 100.5D, pos.getY(), pos.getZ());
+            boolean farMenuOpen = menu.stillValid(asker);
+            ok &= layoutExpect("a player out of reach is outside the menu's validity", !farMenuOpen);
+            ok &= expectOutcome("a click whose container is really gone writes nothing",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WINDOW_GONE,
+                    computer.answerPlaceholderRequest(asker.getUUID(),
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            asker.hasPermissions(2), farMenuOpen, level.getGameTime()));
+            ok &= layoutExpect("a click whose container is gone writes nothing", carriersUntouched(inv));
+            asker.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
+
+            // The flow the author performs: the chat screen took the computer screen away, the
+            // question must still be there, and answering it through the re-opened computer must
+            // write — while a click with NO menu at all still writes nothing.
+            resetCarriers(computer);
+            computer.computeProvided(asker, targetId, "", "", List.of(), targetId);
+            computer.runCompute();
+            asker.closeContainer(); // what closing the screen does server-side
+            ok &= layoutExpect("closing the computer's menu does not drop the question",
+                    computer.hasPendingPlaceholderRequest());
+            ok &= layoutExpect("a click with no menu at all writes nothing",
+                    computer.hasPendingPlaceholderRequest() && carriersUntouched(inv));
+            com.create.productionline.menu.ProductionComputerMenu reopened =
+                    openComputerMenu(asker, computer, 3);
+            if (reopened == null) {
+                System.out.println("   could not re-open the computer's menu for the asker");
+                return false;
+            }
+            boolean reopenedValid = reopened.stillValid(asker);
+            ok &= layoutExpect("the re-opened menu is a valid one for a player at the computer", reopenedValid);
+            ok &= expectOutcome("answering through the re-opened computer writes the placeholder",
+                    com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WRITE,
+                    computer.answerPlaceholderRequest(asker.getUUID(),
+                            com.create.productionline.block.entity.PlaceholderPrompt.Answer.ACCEPT,
+                            asker.hasPermissions(2), reopenedValid, level.getGameTime()));
+            LineScheme answered = LineSchemeSerializer.fromStack(inv.getItem(
+                    com.create.productionline.block.entity.ProductionComputerBlockEntity.SLOT_SCHEME));
+            ok &= layoutExpect("the answered question wrote the placeholder for the asked target: "
+                    + answered.getOutputItem(),
+                    answered.isPlaceholder() && targetId.equals(answered.getOutputItem()));
+            ok &= layoutExpect("the answered question is settled",
+                    !computer.hasPendingPlaceholderRequest());
+            return ok;
+        } catch (Throwable t) {
+            System.out.println("   placeholder answer check crashed: " + t);
+            t.printStackTrace(System.out);
+            return false;
+        } finally {
+            level.removeBlock(pos, false);
+            com.create.productionline.recipegen.CreateRecipePack.removeIsolated(server);
+            if (opped) {
+                server.getPlayerList().deop(profile);
+            }
+        }
+    }
+
+    /**
+     * Opens the computer's menu for a player the way the server does it, and returns it (or
+     * {@code null} when the factory refuses).
+     *
+     * <p>A headless test cannot call {@code player.openMenu}: NeoForge's {@code FakePlayer} overrides
+     * it to a no-op, because half of what it does is sending the window packet to a client that does
+     * not exist. The server-side half is the part the click path depends on — the menu the
+     * production factory builds for THIS player becomes the player's own open menu, and the block
+     * entity it carries is the one the answer may write into — so the test performs exactly that
+     * statement. Nothing else about the menu is faked: it is the real
+     * {@link com.create.productionline.menu.ProductionComputerMenu}, on the real block entity, and
+     * its {@code stillValid(player)} answer is the one the live command handler reads.
+     */
+    private static com.create.productionline.menu.ProductionComputerMenu openComputerMenu(
+            net.minecraft.server.level.ServerPlayer player,
+            com.create.productionline.block.entity.ProductionComputerBlockEntity computer, int containerId) {
+        com.create.productionline.menu.ProductionComputerMenu menu =
+                com.create.productionline.menu.ProductionComputerMenu.fromServer(containerId,
+                        player.getInventory(), computer);
+        player.containerMenu = menu;
+        return menu;
+    }
+
+    /**
      * The pure half of the table: the checks whose ORDER decides the verdict, driven row by row.
      *
      * <p>A stranger's click must be refused <em>and</em> leave the asker's question standing
@@ -1435,8 +1665,8 @@ public final class SelfTest {
                 com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
                         new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
                                 asked, accept, true, true, target.toString(), true, 1001L)));
-        ok &= expectOutcome("a question asked through a closed menu",
-                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED,
+        ok &= expectOutcome("a question asked through a container that lapsed",
+                com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WINDOW_GONE,
                 com.create.productionline.block.entity.PlaceholderPrompt.decide(pending,
                         new com.create.productionline.block.entity.PlaceholderPrompt.Moment(
                                 asked, accept, true, false, target.toString(), true, 0L)));
@@ -1466,6 +1696,8 @@ public final class SelfTest {
                 com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WRITE.clearsPending()
                         && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.DECLINED.clearsPending()
                         && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.EXPIRED.clearsPending()
+                        && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.WINDOW_GONE
+                                .clearsPending()
                         && com.create.productionline.block.entity.PlaceholderPrompt.Outcome.NO_CARRIER.clearsPending()
                         && !com.create.productionline.block.entity.PlaceholderPrompt.Outcome.REJECTED.clearsPending());
         return ok;

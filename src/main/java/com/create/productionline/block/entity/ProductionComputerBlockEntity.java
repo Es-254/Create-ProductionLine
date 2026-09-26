@@ -112,10 +112,27 @@ public class ProductionComputerBlockEntity extends BlockEntity {
      * The placeholder question standing right now, or {@code null} (see {@link PlaceholderPrompt}).
      *
      * <p>Transient on purpose and never saved with the block entity. A question is about a live
-     * menu, a live target slot and a live clock; restoring one from disk after a restart would ask
-     * a player to confirm something they did minutes (or sessions) ago, which is exactly what the
-     * deadline exists to prevent. One question at a time, cleared by the next compute, by any
-     * answer, by a target-slot change and by the menu closing.
+     * target slot, a live clock and the player who was asked; restoring one from disk after a
+     * restart would ask a player to confirm something they did minutes (or sessions) ago, which is
+     * exactly what the deadline exists to prevent. One question at a time, cleared by the next
+     * compute, by any settling answer, by a target-slot change, by the block entity leaving the
+     * world and by the deadline.
+     *
+     * <p><b>The menu closing is deliberately not on that list.</b> The question is answered from a
+     * chat line, and a chat line can only be clicked with a chat screen open — which the client
+     * puts <em>in place of</em> the computer screen, so the interval in which a player reads the
+     * question and clicks an answer is exactly the interval in which the computer's own screen is
+     * not displayed. The menu also goes away on its own when vanilla's per-tick validity poll
+     * decides the container behind it moved on, and it goes away and comes back whenever the player
+     * re-opens the computer (the game closes the old menu first). Tying the question's life to that
+     * menu therefore threw it away in the middle of the very action it exists for, and every such
+     * click was answered with the same "the request has expired" line as a genuinely stale one.
+     * What still protects the write is what always did: only the asked player may answer, the
+     * permission is re-read from the live player, the deadline and the target slot are re-checked,
+     * the carrier must still be there, and the write can only ever happen through a container the
+     * <em>clicker</em> has open right now (see {@code CommandEvents.answerPlaceholder}) — so a
+     * question left standing after a menu closed is answerable again the moment that player has the
+     * computer's menu open, and never answerable without it.
      */
     private PlaceholderPrompt.Pending pendingPlaceholder = null;
 
@@ -463,13 +480,21 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     /**
      * Answers the standing question. The caller passes only what it alone can know: WHO is
      * answering, WHAT they clicked, whether the server still grants them the authoring permission,
-     * whether their computer menu is still open, and the current game time. Everything else — the
-     * recorded question, the target slot, the carriers — is read from this block entity, so a click
-     * can never carry its own version of the world.
+     * whether the container behind their own open menu is still the live one, and the current game
+     * time. Everything else — the recorded question, the target slot, the carriers — is read from
+     * this block entity, so a click can never carry its own version of the world.
+     *
+     * <p>{@code menuOpen} must be read from the clicker's own live menu at click time, never
+     * assumed: it is the one fact that says whether a write would land in a container somebody is
+     * actually looking at (see {@link PlaceholderPrompt}).
      *
      * <p>{@code nowGameTime} comes from the caller's level clock; a player with this computer's menu
      * open is in this computer's level ({@code stillValid} checks the distance), so it is the same
      * clock the deadline was recorded on.
+     *
+     * <p>Every verdict is logged, because the reply the player sees is private chat and the reason a
+     * click was refused is otherwise invisible in {@code latest.log} — which is what made the one
+     * live report of a refused click impossible to triage.
      *
      * @return what happened, so the caller can tell the player privately; the write, if any, has
      *         already happened and the result code already describes it
@@ -484,6 +509,10 @@ public class ProductionComputerBlockEntity extends BlockEntity {
             this.pendingPlaceholder = null;
             setChanged();
         }
+        ProductionLineMod.LOGGER.info(
+                "CPL placeholder: {} from {} for target {} -> {} (pending {}, permitted {}, menuOpen {})",
+                answer, actor, pending == null ? "-" : pending.targetId(), outcome,
+                pending != null, permitted, menuOpen);
         if (outcome == PlaceholderPrompt.Outcome.WRITE) {
             ItemStack primary = findCarrier(SLOT_SCHEME);
             ItemStack secondary = findCarrier(SLOT_CLIPBOARD);
@@ -501,21 +530,23 @@ public class ProductionComputerBlockEntity extends BlockEntity {
     }
 
     /**
-     * Drops the standing question when the player who was asked closes the menu — the question is
-     * about the menu they were looking at, and a click from a chat line that outlived it must not
-     * write anything. Only that player's own menu can drop it: anybody else closing their computer
-     * leaves the asker's question alone.
+     * Drops the standing question when the block entity leaves the world (broken, replaced, or its
+     * chunk unloaded). A question is state of THIS block entity, so it must not outlive it.
+     *
+     * <p>It is not dropped when a player merely closes or re-opens the computer's menu: see
+     * {@link #pendingPlaceholder} for why the menu's lifetime is the wrong lifetime for a question
+     * that is asked and answered in chat.
      */
-    public void cancelPlaceholderRequest(java.util.UUID player) {
-        if (pendingPlaceholder != null && pendingPlaceholder.asked(player)) {
-            pendingPlaceholder = null;
-            setChanged();
-        }
+    @Override
+    public void setRemoved() {
+        pendingPlaceholder = null;
+        super.setRemoved();
     }
 
     /**
      * True while a placeholder question is waiting to be answered. Transient, never persisted, and
-     * cleared by the next compute, by any answer, by a target-slot change and by the menu closing.
+     * cleared by the next compute, by any settling answer, by a target-slot change, by the block
+     * entity leaving the world and by the deadline — but not by the menu closing or re-opening.
      */
     public boolean hasPendingPlaceholderRequest() {
         return pendingPlaceholder != null;
