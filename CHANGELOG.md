@@ -35,9 +35,9 @@ actually published with at the time was `release`.
 
 ## 0.0.0-dev.35 — 2026-09-26 (beta)
 
-> `1.0.4-snapshot.0.0.1` was briefly published as a GitHub pre-release and is **retracted**: this dev
-> build carries the same work plus the follow-up below, and no `1.0.4` snapshot is cut for now.
-
+> `1.0.4-snapshot.0.0.1` was briefly published as a GitHub pre-release and is **retracted** (its release
+> **and its tag were deleted on 2026-09-26** — the commit stays in history); this dev build carries the
+> same work plus the follow-up below, and no `1.0.4` snapshot is cut for now (the work rides the dev line).
 ### Added
 
 - **An operator can now hand-author a line for an item that has no recipe at all.** The custom-scheme flow

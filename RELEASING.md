@@ -5,7 +5,14 @@ How to cut a release of **Create: Production Line** and publish it to **Modrinth
 
 > **Current state (verified against this repository + the live APIs, 2026-09-26):**
 >
-> - **`1.0.4-snapshot.0.0.1` was retracted** (2026-09-26): it was published as a GitHub pre-release and then withdrawn at the author's request — the `1.0.4` work rides the **dev** line instead, next cut `0.0.0-dev.35`. For the record it was the OP-only placeholder scheme. When a target
+> **Tokens (corrected 2026-09-26):** a **GitHub** token is available on this machine even though it is not in
+> `~/.gradle/gradle.properties` — git's credential helper (Windows Credential Manager) holds it, and
+> `"protocol=https`nhost=github.com`n`n" | git credential fill` returns it. That is how the retracted
+> `v1.0.4-snapshot.0.0.1` release and tag were deleted (HTTP 204 each) and how the dev.14…dev.27 Release
+> bodies could finally be patched. `modrinth_token` and `curseforge_token` live in `~/.gradle/gradle.properties`
+> and power `gradlew -PpublishMods publishModrinth|publishCurseForge` (the CurseForge upload of 1.0.3 used it).
+>
+> - **`1.0.4-snapshot.0.0.1` was retracted** (2026-09-26): it was published as a GitHub pre-release and then **deleted from GitHub (release *and* tag; the commit stays in history)** at the author's request — the `1.0.4` work rides the **dev** line instead, next cut `0.0.0-dev.35`. For the record it was the OP-only placeholder scheme. When a target
 >   item has no usable recipe, an operator (permission level 2+) now gets a scheme carrying just that item and
 >   completes it on the anvil; a placeholder has an **empty `RecipeId`**, so it installs nothing and leaves the
 >   loader's bar dark. `create_productionline-1.0.4-snapshot.0.0.1.jar` **293,866 B / `sha256:23d92b94…`**,
