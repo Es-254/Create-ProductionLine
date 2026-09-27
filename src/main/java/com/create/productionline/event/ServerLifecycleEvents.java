@@ -1,6 +1,7 @@
 package com.create.productionline.event;
 
 import com.create.productionline.ProductionLineMod;
+import com.create.productionline.block.entity.PlaceholderRequests;
 import com.create.productionline.line.mapper.Mappers;
 import com.create.productionline.qa.SelfTest;
 
@@ -8,13 +9,14 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
  * Server lifecycle handling: (re)loads the user-facing recipe mapping config and
- * sweeps orphaned Scheme Loader recipe contributions on every server start, and
- * (only when {@code -Dcreate_productionline.selfTest=true}) runs the headless QA
- * self test once the world is up, then shuts the server down (used by CI-style
- * verification).
+ * sweeps orphaned Scheme Loader recipe contributions on every server start, drops
+ * the transient placeholder offers when the server stops, and (only when
+ * {@code -Dcreate_productionline.selfTest=true}) runs the headless QA self test once
+ * the world is up, then shuts the server down (used by CI-style verification).
  */
 public final class ServerLifecycleEvents {
 
@@ -26,6 +28,17 @@ public final class ServerLifecycleEvents {
     @SubscribeEvent
     public static void onServerStarting(ServerStartingEvent event) {
         Mappers.reload(FMLPaths.CONFIGDIR.get());
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        // A standing placeholder offer is about one running server's world: its chat line, its clock,
+        // its block positions. Nothing of it may leak into the next world started in the same JVM
+        // (a recorded position could otherwise happen to hold another computer), so the registry is
+        // emptied here as well as per-entry while the server runs.
+        int dropped = PlaceholderRequests.standing();
+        PlaceholderRequests.clear();
+        ProductionLineMod.LOGGER.info("CPL placeholder offers dropped on server stop: {}", dropped);
     }
 
     @SubscribeEvent

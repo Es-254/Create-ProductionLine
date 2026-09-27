@@ -33,6 +33,23 @@ and they keep the `(beta)` marker a dev build carries **under the current policy
 actually published with at the time was `release`.
 
 
+## 0.0.0-dev.37 — 2026-09-26 (beta)
+
+### Fixed
+
+- **The placeholder question could not be answered in the very situation it is asked in.** The answer had to
+  come through the player's live container menu, but the question is asked *and clicked* in chat — and a chat
+  line is clicked with the chat screen open, which the client shows instead of the computer's window. So "the
+  window must be open" and "click the chat line" were mutually exclusive and no click could ever be accepted
+  (the author put it plainly: 不是我开着界面怎么点聊天框啊). The offer now lives in a small server-side table
+  keyed by the asker's UUID — dimension, position, target id and a 30-second deadline — so the command finds
+  the computer without any window being open. The computer is never taken from the command text, only the
+  player who was asked may answer, permission is re-read when the click arrives, and the target slot must
+  still hold the same item. The question says so in a line of its own (点下面两项中的一项作答；30 秒内有效，
+  不需要开着计算机界面), the four refusals are four different sentences instead of one, and the table is
+  cleared on answer, on decline, on expiry, when the computer goes away, on the next compute at that
+  computer, and on server stop.
+
 ## 0.0.0-dev.36 — 2026-09-26 (beta)
 
 ### Fixed

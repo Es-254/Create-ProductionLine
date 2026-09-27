@@ -40,17 +40,17 @@ gradlew runServer -PselfTest
 [PASS] Computer writes plan + guide onto both carriers
 [PASS] Placeholder scheme for an unreachable item (OP only)
 [PASS] Placeholder question for an unconvertible target (OP only)
-[PASS] Placeholder answer needs the asker's own live menu
+[PASS] Placeholder answer works with the computer's window closed
 [PASS] Ponder schematics hold every block their scene touches
 CPL SELF-TEST RESULT: 27 passed, 0 failed
 ```
 
 > **EN** — **Do not hard-code the count when judging a build.** `qa/SelfTest.java` prints
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:193`), so the pass criterion is
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed` (`SelfTest.java:195`), so the pass criterion is
 > *the last line matches `\d+ passed, 0 failed`*, never a literal number. The number below is only a
 > convenience snapshot, and its value is the count of `check("…")` calls in `qa/SelfTest.java`.
 > **中文** — **判一个构建过没过，别把项数写死。** `qa/SelfTest.java` 打印的是
-> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:193`），判据因此是
+> `CPL SELF-TEST RESULT: <passed> passed, <failed> failed`（`SelfTest.java:195`），判据因此是
 > *最后一行匹配 `\d+ passed, 0 failed`*，而不是某个字面数字。下面的数字纯粹是方便阅读的快照，
 > 它的值等于 `qa/SelfTest.java` 里 `check("…")` 的调用数。
 >
@@ -66,11 +66,12 @@ CPL SELF-TEST RESULT: 27 passed, 0 failed
 > on `main` after 1.0.2; `Placeholder scheme for an unreachable item (OP only)` belongs
 > to the OP placeholder work after 1.0.3, the
 > `Placeholder question for an unconvertible target (OP only)` one to the Milk-Bucket consent prompt that
-> followed it, and the newest one, `Placeholder answer needs the asker's own live menu`, to the fix for
-> the live report in which every click on 【写入占位方案】 answered "该占位请求已失效": it drives the
-> ask through the real payload entry point and the tick's run, opens a real computer menu for a real
-> (fake) player and answers with the menu's own `stillValid(player)` value instead of a hard-coded
-> `true`. Adding or
+> followed it, and the newest one, `Placeholder answer works with the computer's window closed`, to the fix
+> for the live report in which every click on 【写入占位方案】 answered "该占位请求已失效": the offer now
+> lives in a server-side registry under the asker's UUID, so the check drives the ask through the real
+> payload entry point and the tick's run and then answers with **no computer window open at all** —
+> accept writes, a stranger finds nothing, a revoked permission keeps the offer, an expired offer and a
+> moved target slot write nothing — instead of feeding a menu-validity value by hand. Adding or
 > removing a `check(…)` changes this number and nothing else, apart from the snapshot mentions in this
 > file (`docs/qa.md`), in `../CHANGELOG.md` and in `../RELEASING.md`.
 > **中文** — 当前快照 **27 项**。其中 `Plan topology (chain: base -> machine+material -> product)` 是随开发快照
@@ -85,9 +86,10 @@ CPL SELF-TEST RESULT: 27 passed, 0 failed
 > 配方刷新与 GUI 版式对齐加入；`Placeholder scheme for an unreachable item (OP only)`
 > 属于 1.0.3 之后的 OP 占位方案工作，
 > `Placeholder question for an unconvertible target (OP only)` 属于紧随其后的牛奶桶"先问后写"改动，
-> 最新一项 `Placeholder answer needs the asker's own live menu` 属于"每次点【写入占位方案】都回已失效"
-> 那次实机反馈的修复：它走真实的数据包入口与 tick 里的那次 run 发起询问，为真实（假）玩家开一个真实的
-> 计算机菜单，并用菜单自己的 `stillValid(player)` 值（而不是写死的 `true`）回答。
+> 最新一项 `Placeholder answer works with the computer's window closed` 属于"每次点【写入占位方案】都回已失效"
+> 那次实机反馈的修复：占位请求现在存在服务端、按提问者 UUID 索引的登记表里，所以该项走真实的数据包入口与
+> tick 里的那次 run 发起询问，然后在**完全没有打开计算机界面**的情况下作答——接受就写入、陌生人找不到自己的
+> 请求、权限被撤仍保留、过期与目标格换物品都写不进——而不是手工喂一个"界面是否有效"的值。
 > 增删一个 `check(…)` 只会改变这个数字，别的地方不用动，
 > 只需要改本文件（`docs/qa.md`）、`../CHANGELOG.md`、`../RELEASING.md` 里标注为"快照"的那几处。
 >

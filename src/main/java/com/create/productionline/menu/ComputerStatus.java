@@ -160,23 +160,32 @@ public final class ComputerStatus {
 
     /**
      * The private question the computer asks before it writes a placeholder for a target whose
-     * recipe cannot be converted, plus the two clickable answers under it.
+     * recipe cannot be converted, the mechanics of answering it, and the two clickable answers.
      *
      * <p>The reason stays part of the question — the same "cannot be converted" the refusal line
      * reports — because that is the information the answer depends on; the question only adds what
      * the player is being offered. Without it the operator would have to guess why the compute
      * failed before deciding whether authoring a line by hand is worth it.
      *
+     * <p>The middle line exists because the mechanics are not obvious and the first live report of
+     * this feature was a player clicking the buttons and being told the request had expired: the two
+     * answers are clickable <em>in chat</em>, the offer stands for 30 s, and the computer's own
+     * window does not have to be open — indeed it cannot be, since a chat line is clicked with the
+     * chat screen up. Saying that in the prompt is cheaper than a player having to find out.
+     *
      * <p>The options are vanilla {@code RUN_COMMAND} clicks, because chat offers nothing else. That
      * is safe here not because of the click but because of what the click does: the commands behind
-     * it re-check the answering player, the permission level, the deadline, the target slot and the
-     * open menu server-side ({@link PlaceholderPrompt}), and the write itself can only ever produce
-     * a scheme whose {@code RecipeId} is empty — an item, never a recipe.
+     * it carry no item, target or position, they look the offer up under the clicker's own UUID, and
+     * the answer is judged server-side against the live world — asker, permission, deadline, target
+     * slot, carrier ({@link PlaceholderPrompt}) — with a write that can only ever produce a scheme
+     * whose {@code RecipeId} is empty: an item, never a recipe.
      */
     public static List<Component> placeholderPrompt(String targetId) {
         return List.of(
                 Component.translatable("screen.create_productionline.computer.placeholder_prompt",
                         displayName(targetId)),
+                Component.translatable("screen.create_productionline.computer.placeholder_how")
+                        .withStyle(ChatFormatting.GRAY),
                 Component.empty()
                         .append(option("screen.create_productionline.computer.placeholder_accept",
                                 PlaceholderPrompt.ACCEPT_COMMAND, ChatFormatting.YELLOW))
@@ -191,39 +200,36 @@ public final class ComputerStatus {
     }
 
     /**
-     * The private reply for a click that carries no live question: nothing pending, or a question
-     * whose deadline passed or whose target slot no longer holds the item it named. It says what
-     * happened (nothing was written) and how to get the offer back, which is the one action that
-     * helps in all of those cases.
+     * The private reply for a click with nothing standing behind it: no offer for this player (never
+     * asked, already answered, or asked of somebody else). It says what happened (nothing was
+     * written) and how to get an offer, which is the one action that helps.
+     */
+    public static Component promptNotAsked() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_not_asked");
+    }
+
+    /**
+     * The private reply when the offer stood for 30 s without an answer. Says what happened and how
+     * to get the offer back — the deadline is the only thing that makes this sentence different from
+     * {@link #promptNotAsked()}, and it is the one the player can act on by computing again.
      */
     public static Component promptExpired() {
         return Component.translatable("screen.create_productionline.computer.placeholder_expired");
     }
 
     /**
-     * The private reply when the clicker has no computer menu open at all. Its own sentence, because
-     * the action that helps is a different one: the question is answered through the computer's own
-     * window, so the answer is to open the computer again and click the line (or ask again with
-     * [Compute] if the question has already been settled) — not to wonder about a deadline.
+     * The private reply when the computer the question was asked at is gone, or its target slot no
+     * longer holds the item the question named. Distinguished from the deadline because the remedy is
+     * different: the offer is not late, the world it described is not there any more.
      */
-    public static Component promptWindowClosed() {
-        return Component.translatable("screen.create_productionline.computer.placeholder_window_closed");
+    public static Component promptTargetMoved() {
+        return Component.translatable("screen.create_productionline.computer.placeholder_target_moved");
     }
 
     /**
-     * The private reply when the question is the clicker's and still fresh, but the container behind
-     * their menu is not the live one any more (the computer was broken, moved or reloaded under the
-     * open window). Distinguished from {@link #promptExpired()} because re-opening the computer is
-     * what brings the question back.
-     */
-    public static Component promptWindowGone() {
-        return Component.translatable("screen.create_productionline.computer.placeholder_window_gone");
-    }
-
-    /**
-     * The private reply when a live question is not this player's to answer: a stranger clicked, or
-     * the player who was asked no longer holds the authoring permission. Says that the question is
-     * still standing for whoever was asked, so the player does not conclude it was lost.
+     * The private reply when a live offer is not this player's to use: the player who was asked no
+     * longer holds the authoring permission. Says that the offer is still standing for them, so they
+     * do not conclude it was lost.
      */
     public static Component promptRejected() {
         return Component.translatable("screen.create_productionline.computer.placeholder_rejected");

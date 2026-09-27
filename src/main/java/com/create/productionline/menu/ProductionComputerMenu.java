@@ -20,17 +20,12 @@ import net.minecraft.world.item.ItemStack;
  * (write), clipboard (guide). Data slot 0 = last computation result code,
  * data slot 1 = machine-readable reason of the last failure (M7).
  *
- * <p>Closing this menu deliberately does NOT drop a standing placeholder question (nothing here
- * overrides {@code removed} for that purpose any more). The question is put in the player's chat, so
- * reading it and clicking one of its two answers happens in a chat screen — which the client shows
- * <em>in place of</em> this screen — and the menu also disappears and reappears on its own whenever
- * the player re-opens the computer (the game closes the old menu first) or whenever vanilla's
- * per-tick validity poll decides the container moved on. Tying the question's life to this menu
- * killed it in the middle of the very action it exists for, and the click was answered with the
- * generic "the request has expired" line. What keeps a late write honest is checked where the answer
- * is judged instead: only the asked player may answer, the permission is re-read from the live
- * player, the deadline and the target slot are re-checked, the carrier must still exist, and the
- * block entity can only ever come from the clicker's own open menu (see
+ * <p>This menu has nothing to do with the placeholder question any more. That question is asked and
+ * answered in the player's chat, and a chat line is clicked with a chat screen open — which the
+ * client shows <em>in place of</em> this screen — so the offer can be neither tied to this window's
+ * lifetime nor looked up through it: it lives in
+ * {@link com.create.productionline.block.entity.PlaceholderRequests} under the asker's UUID, and the
+ * computer it is about is resolved from that record (see
  * {@link com.create.productionline.event.CommandEvents}).
  */
 public class ProductionComputerMenu extends AbstractContainerMenu {

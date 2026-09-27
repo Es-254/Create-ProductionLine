@@ -3,58 +3,63 @@ package com.create.productionline.block.entity;
 import java.util.Objects;
 import java.util.UUID;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 
 /**
  * The Production Computer's "may I write a placeholder?" question, as a pure decision table.
  *
  * <p>When a compute fails because the target's recipe cannot be turned into a Create line, the
  * computer no longer writes the placeholder on its own: it asks the operator first, privately, with
- * two clickable answers. That question is <b>state</b> — it belongs to one player, one target item
- * and one moment — and the state has to be judged identically by the click handler and by the QA
- * self test, so the judgement lives here as a pure function of the recorded {@link Pending} and of
- * the facts at the moment the answer arrived ({@link Moment}). The block entity owns the state and
- * performs the write; this class owns the rules.
+ * two clickable answers. That question is <b>state</b> — it belongs to one player, one computer, one
+ * target item and one moment — and the state has to be judged identically by the click handler and
+ * by the QA self test, so the judgement lives here as a pure function of the recorded {@link Pending}
+ * and of the facts at the moment the answer arrived ({@link Moment}). The registry of standing
+ * questions is {@link PlaceholderRequests}; the block entity performs the write; this class owns the
+ * rules.
  *
- * <p>The checks run in a fixed order, and the order <em>is</em> the rule: a later check must never
- * be reachable by a state an earlier one already refused.
+ * <p>The question is asked and answered in <b>chat</b>, so the answer must not depend on the
+ * computer's own window being open: the click arrives with the player standing wherever they like,
+ * holding nothing, with no menu of any kind. What it does depend on is re-read from the world as the
+ * click arrives — who is answering, whether they still hold the authoring permission, whether the
+ * deadline has passed, and whether the computer recorded in the question is still there with the
+ * target item the question named.
+ *
+ * <p>The checks run in a fixed order, and the order <em>is</em> the rule: a later check must never be
+ * reachable by a state an earlier one already refused.
  *
  * <ol>
- *   <li>nothing pending → {@link Outcome#EXPIRED}: a click with no question behind it (an old chat
- *       line, a hand-typed command, a question already answered);</li>
- *   <li>somebody else's click → {@link Outcome#REJECTED}: a stranger must not be able to answer,
- *       and — just as important — must not be able to <em>consume</em> the asker's question, so the
- *       pending state is deliberately left untouched;</li>
- *   <li>no authoring permission → {@link Outcome#REJECTED}: the permission level is re-checked on
- *       the server at the moment of the click. The command's own requirement is a convenience for
- *       tab completion, never the check;</li>
- *   <li>past the deadline, or the target slot no longer holds the item that was asked about →
- *       {@link Outcome#EXPIRED}: the question no longer describes the world it came from, and
- *       answering it would write a scheme for an item the player is no longer computing;</li>
- *   <li>the clicker's container is no longer the live one (the block entity behind the menu is not
- *       the one standing at its position any more, or the clicker left its reach) →
- *       {@link Outcome#WINDOW_GONE}: the question is still theirs, but the window it was asked
- *       through is not a window any more, so a write could only land in a container nobody is
- *       looking at. This row exists separately from {@link Outcome#EXPIRED} <em>because the two are
- *       answered by different actions</em> (re-open the computer vs. compute again), and a shared
- *       sentence for both is what made a live failure impossible to diagnose in game;</li>
+ *   <li>nothing standing for this player → {@link Outcome#NOT_ASKED}: a click with no question behind
+ *       it (an old chat line, a hand-typed command, a question already answered). A stranger's click
+ *       lands here too — it finds nothing of its own and, just as important, leaves the asker's offer
+ *       untouched;</li>
+ *   <li>a question that is not this actor's → {@link Outcome#REJECTED}: kept as a row even though
+ *       {@link PlaceholderRequests} only ever hands a click its own question, because "the recorded
+ *       asker must be the actor" is the property the rest rests on and it must stay asserted if the
+ *       lookup ever changes;</li>
+ *   <li>no authoring permission → {@link Outcome#REJECTED}: the permission level is re-read from the
+ *       live player at the moment of the click, and this row deliberately leaves the question
+ *       standing — a demoted operator must not be able to consume their own offer either. The
+ *       command's own requirement is a convenience for tab completion, never the check;</li>
+ *   <li>past the deadline → {@link Outcome#EXPIRED}: the offer was good for 30 s and no longer is;</li>
+ *   <li>the computer is gone, is no longer ours, or its target slot no longer holds the item the
+ *       question named → {@link Outcome#TARGET_MOVED}: answering would write a scheme for something
+ *       the player is no longer computing;</li>
  *   <li>declined → {@link Outcome#DECLINED};</li>
  *   <li>accepted with no carrier left → {@link Outcome#NO_CARRIER}: there is nothing to write the
  *       scheme on, which is the same refusal the compute itself reports ({@code RESULT_NO_SCHEME});
  *       </li>
  *   <li>otherwise → {@link Outcome#WRITE}.</li>
  * </ol>
- *
- * <p>{@code menuOpen} is the caller's answer to "is the container behind the clicker's own open
- * menu still the live one". The caller must read it from the live menu (see
- * {@code CommandEvents.answerPlaceholder}); it is never carried by the click.
  */
 public final class PlaceholderPrompt {
 
     /**
-     * How long an unanswered question stays valid: 30 s at 20 ticks/s, so a player who is reading
-     * the prompt (or finishing a sentence in chat) still finds it working, while a prompt left over
-     * from a session that was put down does not write into a slot the player has since re-purposed.
+     * How long an unanswered question stays valid: 30 s at 20 ticks/s, so a player who is reading the
+     * prompt (or finishing a sentence in chat) still finds it working, while a prompt left over from
+     * a session that was put down does not write into a slot the player has since re-purposed.
      */
     public static final long TIMEOUT_TICKS = 600L;
 
@@ -66,19 +71,24 @@ public final class PlaceholderPrompt {
     public static final String ACCEPT_COMMAND = "/cpl placeholder accept";
     public static final String DECLINE_COMMAND = "/cpl placeholder decline";
 
-    /** The one question standing: who was asked, about which target, until when. */
-    public record Pending(UUID asker, ResourceLocation targetId, long deadline) {
+    /**
+     * The one question standing for one player: who was asked, where the computer is, about which
+     * target, until when.
+     *
+     * <p>{@code dimension}/{@code pos} are what let the answer find its computer while the player has
+     * no menu open at all — and they are the reason the click cannot name a computer of its own: the
+     * position comes from the recorded question, never from the command.
+     */
+    public record Pending(UUID asker, ResourceKey<Level> dimension, BlockPos pos,
+            ResourceLocation targetId, long deadline) {
 
         /**
          * True when {@code player} is the player this question was put to.
          *
-         * <p>{@code asker} is null only for a run that had no player at all, which a headless
-         * dedicated server produces in exactly one way: the QA self test drives
-         * {@code runCompute(boolean)} directly. No prompt is ever displayed then, and production
-         * cannot reach that state — {@code computeProvided} only grants the permission to a real
-         * {@code ServerPlayer}, and the click command refuses a non-player source instead of passing
-         * a null actor — so a null actor matching a null asker is the self test answering its own
-         * question and nothing a client can aim at.
+         * <p>In production neither side is null: the question is only ever recorded for a real
+         * {@code ServerPlayer} ({@code computeProvided} reads the permission off one), and the click
+         * command refuses a non-player source instead of passing a null actor. The self test drives
+         * the same path with a (fake) player, so this stays a real UUID comparison there too.
          */
         public boolean asked(UUID player) {
             return Objects.equals(asker, player);
@@ -87,6 +97,11 @@ public final class PlaceholderPrompt {
         /** True once the deadline has passed; the boundary itself is still valid. */
         public boolean isExpired(long now) {
             return now > deadline;
+        }
+
+        /** True when this question is about the computer at that place. */
+        public boolean isAt(ResourceKey<Level> level, BlockPos blockPos) {
+            return Objects.equals(dimension, level) && Objects.equals(pos, blockPos);
         }
     }
 
@@ -102,34 +117,46 @@ public final class PlaceholderPrompt {
         WRITE,
         /** The asked player said no: nothing is written, ever. */
         DECLINED,
-        /** No question behind this click, or one whose world moved on: nothing is written. */
-        EXPIRED,
-        /** The question is the asker's, but the window it was asked through is gone. */
-        WINDOW_GONE,
+        /** Accepted, but the carriers are gone: nothing to write on. */
+        NO_CARRIER,
+        /** No question standing for this player: nothing is written. */
+        NOT_ASKED,
         /** A live question, but not this player's to answer (or not this player's to author). */
         REJECTED,
-        /** Accepted, but the carriers are gone: nothing to write on. */
-        NO_CARRIER;
+        /** The question stood for 30 s without an answer: nothing is written. */
+        EXPIRED,
+        /** The computer or the item in its target slot moved on: nothing is written. */
+        TARGET_MOVED;
 
         /**
-         * Whether the question is settled and must never be answered again. {@link #REJECTED} is
-         * the one outcome that leaves it standing: the asker still has a live question, and a
-         * stranger's click (or a player whose permission was revoked) must not silently take it
-         * away from them.
-         *
-         * <p>{@link #WINDOW_GONE} settles it: the question is answerable only through a live
-         * container, so once that container is gone there is nothing left to answer — and its
-         * sentence tells the player that re-opening the computer is what brings it back (a state
-         * the ask itself can rebuild in one click of [Compute]).
+         * Whether the question is settled and must never be answered again. {@link #REJECTED} is the
+         * one outcome that leaves it standing: the asker still has a live offer, and a player whose
+         * permission was revoked must not lose it by clicking. {@link #NOT_ASKED} also clears
+         * nothing — there is no question of this player's to clear, and its callers have no pending
+         * to remove in the first place.
          */
         public boolean clearsPending() {
-            return this != REJECTED;
+            return this != REJECTED && this != NOT_ASKED;
         }
     }
 
-    /** The world as it is when the answer arrives — gathered by the caller, never carried by it. */
-    public record Moment(UUID actor, Answer answer, boolean permitted, boolean menuOpen,
+    /**
+     * The world as it is when the answer arrives — gathered by the caller, never carried by it.
+     *
+     * <p>{@code computerAvailable} is "the block entity recorded in the question is still there and
+     * still ours". When it is false there is no target slot and no carrier to read, which is exactly
+     * what {@link Moment#withoutComputer} expresses.
+     */
+    public record Moment(UUID actor, Answer answer, boolean permitted, boolean computerAvailable,
             String currentTargetId, boolean carrierAvailable, long now) {
+
+        /**
+         * The moment for a click whose computer is gone: no target slot and no carrier to read, so
+         * only the verdicts that need neither are reachable.
+         */
+        public static Moment withoutComputer(UUID actor, Answer answer, boolean permitted, long now) {
+            return new Moment(actor, answer, permitted, false, "", false, now);
+        }
     }
 
     private PlaceholderPrompt() {
@@ -142,7 +169,7 @@ public final class PlaceholderPrompt {
      */
     public static Outcome decide(Pending pending, Moment moment) {
         if (pending == null || moment == null) {
-            return Outcome.EXPIRED;
+            return Outcome.NOT_ASKED;
         }
         if (!pending.asked(moment.actor())) {
             return Outcome.REJECTED;
@@ -150,16 +177,12 @@ public final class PlaceholderPrompt {
         if (!moment.permitted()) {
             return Outcome.REJECTED;
         }
-        if (pending.isExpired(moment.now())
-                || !pending.targetId().toString().equals(moment.currentTargetId())) {
+        if (pending.isExpired(moment.now())) {
             return Outcome.EXPIRED;
         }
-        if (!moment.menuOpen()) {
-            // The question is still the asker's and still fresh, but the container it was asked
-            // through is not a live container any more: the write would land in a block entity the
-            // clicker is not looking at. Kept apart from EXPIRED so the in-game answer says which
-            // of the two happened.
-            return Outcome.WINDOW_GONE;
+        if (!moment.computerAvailable()
+                || !pending.targetId().toString().equals(moment.currentTargetId())) {
+            return Outcome.TARGET_MOVED;
         }
         if (moment.answer() != Answer.ACCEPT) {
             // Anything that is not an explicit ACCEPT declines. A malformed click must not be the
